@@ -7,6 +7,7 @@ import SocialProof from "@/components/SocialProof";
 import Chatbot from "@/components/Chatbot";
 import StickyFooter from "@/components/StickyFooter";
 import Footer from "@/components/Footer";
+import ExitIntentPopup from "@/components/ExitIntentPopup";
 
 const Index = () => {
   return (
@@ -20,6 +21,7 @@ const Index = () => {
       <Footer />
       <Chatbot />
       <StickyFooter />
+      <ExitIntentPopup />
     </main>
   );
 };
