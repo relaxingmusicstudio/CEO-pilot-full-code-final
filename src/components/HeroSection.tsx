@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Video, Phone, BarChart3 } from "lucide-react";
 import LiveVideoCall from "./LiveVideoCall";
+import VapiVoiceDemo from "./VapiVoiceDemo";
 
 const HeroSection = () => {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
+  const [isVoiceDemoOpen, setIsVoiceDemoOpen] = useState(false);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -50,7 +52,7 @@ const HeroSection = () => {
               <Button 
                 variant="heroSecondary" 
                 size="xl"
-                onClick={() => scrollToSection("demo")}
+                onClick={() => setIsVoiceDemoOpen(true)}
                 className="w-full"
               >
                 <Phone className="w-5 h-5" />
@@ -158,6 +160,9 @@ const HeroSection = () => {
 
       {/* Live Video Call Modal */}
       <LiveVideoCall isOpen={isVideoCallOpen} onClose={() => setIsVideoCallOpen(false)} />
+      
+      {/* Vapi Voice Demo Modal */}
+      <VapiVoiceDemo isOpen={isVoiceDemoOpen} onClose={() => setIsVoiceDemoOpen(false)} />
     </>
   );
 };
