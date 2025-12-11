@@ -1,1 +1,4 @@
 project_id = "dsgvkzzaimubwzbosepn"
+
+[functions.vapi-call]
+verify_jwt = false
