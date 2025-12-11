@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Video, Volume2, BarChart3 } from "lucide-react";
+import { Video, Phone, BarChart3 } from "lucide-react";
 import LiveVideoCall from "./LiveVideoCall";
 
 const HeroSection = () => {
@@ -12,21 +12,16 @@ const HeroSection = () => {
 
   return (
     <>
-      <section className="relative min-h-screen hero-gradient overflow-hidden">
+      <section className="relative min-h-screen hero-gradient overflow-hidden pt-20">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-72 h-72 bg-accent rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary-foreground rounded-full blur-3xl" />
         </div>
 
-        <div className="container relative z-10 flex flex-col lg:flex-row items-center justify-between min-h-screen py-20 gap-12">
+        <div className="container relative z-10 flex flex-col lg:flex-row items-center justify-between min-h-[calc(100vh-5rem)] py-12 gap-12">
           {/* Left Content */}
           <div className="flex-1 text-center lg:text-left animate-fade-in">
-            <div className="inline-flex items-center gap-2 bg-accent/20 text-accent px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Video className="w-4 h-4" />
-              Live AI Sales Calls Available 24/7
-            </div>
-
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight mb-6">
               Stop Missing{" "}
               <span className="text-accent">$1,200 Calls.</span>
@@ -51,15 +46,15 @@ const HeroSection = () => {
                 <span>TALK TO AN AI ADVISOR NOW</span>
               </Button>
               
-              {/* Secondary CTA - Demo */}
+              {/* Secondary CTA - Voice Demo (Vapi) */}
               <Button 
                 variant="heroSecondary" 
                 size="xl"
                 onClick={() => scrollToSection("demo")}
                 className="w-full"
               >
-                <Volume2 className="w-5 h-5" />
-                HEAR A DEMO CALL FIRST
+                <Phone className="w-5 h-5" />
+                TALK TO A DEMO AI AGENT
               </Button>
             </div>
 
