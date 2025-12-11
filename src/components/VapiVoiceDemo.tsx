@@ -9,8 +9,8 @@ interface VapiVoiceDemoProps {
   onClose: () => void;
 }
 
-// Your Vapi assistant ID - replace with your actual assistant ID
-const VAPI_ASSISTANT_ID = "YOUR_VAPI_ASSISTANT_ID";
+// Your Vapi assistant ID
+const VAPI_ASSISTANT_ID = "299cdcb8-642d-4728-b434-196724f53ae6";
 
 const VapiVoiceDemo = ({ isOpen, onClose }: VapiVoiceDemoProps) => {
   const { toast } = useToast();
