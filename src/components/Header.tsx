@@ -44,7 +44,7 @@ const Header = () => {
             Pricing
           </button>
           <button 
-            onClick={() => scrollToSection("contact")}
+            onClick={() => scrollToSection("pricing")}
             className="text-primary-foreground/80 hover:text-accent transition-colors font-medium"
           >
             Sign Up
@@ -94,7 +94,7 @@ const Header = () => {
               Pricing
             </button>
             <button 
-              onClick={() => scrollToSection("contact")}
+              onClick={() => scrollToSection("pricing")}
               className="text-primary-foreground/80 hover:text-accent transition-colors font-medium text-left py-2"
             >
               Sign Up
