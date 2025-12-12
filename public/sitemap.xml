@@ -7,22 +7,46 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://apexlocal360.com/#calculator</loc>
+    <loc>https://apexlocal360.com/blog</loc>
     <lastmod>2024-12-12</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apexlocal360.com/blog/how-much-missed-calls-cost-plumbing-business</loc>
+    <lastmod>2024-12-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apexlocal360.com/#demo</loc>
-    <lastmod>2024-12-12</lastmod>
+    <loc>https://apexlocal360.com/blog/ai-voice-agents-vs-answering-services</loc>
+    <lastmod>2024-12-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apexlocal360.com/blog/after-hours-plumbing-calls-emergency-revenue</loc>
+    <lastmod>2024-12-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apexlocal360.com/blog/plumber-ai-technology-2024-guide</loc>
+    <lastmod>2024-12-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apexlocal360.com/#calculator</loc>
+    <lastmod>2024-12-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://apexlocal360.com/#pricing</loc>
     <lastmod>2024-12-12</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://apexlocal360.com/#faq</loc>
@@ -34,6 +58,6 @@
     <loc>https://apexlocal360.com/#contact</loc>
     <lastmod>2024-12-12</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
 </urlset>
