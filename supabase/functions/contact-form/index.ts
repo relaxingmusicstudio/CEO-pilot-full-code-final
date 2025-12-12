@@ -78,6 +78,8 @@ const handler = async (req: Request): Promise<Response> => {
       phone: phone || "",
       source: source,
       tags: tags,
+      // Tags as comma-separated string for GHL mapping
+      tags_string: tags.join(", "),
       // Custom fields for all qualification data
       customField: {
         message: message,
@@ -86,6 +88,7 @@ const handler = async (req: Request): Promise<Response> => {
         call_volume: callVolume || "",
         ai_timeline: aiTimeline || "",
         interests: interests?.join(", ") || "",
+        tags: tags.join(", "),
       },
       // Also send flat versions for flexible mapping
       name: name,
