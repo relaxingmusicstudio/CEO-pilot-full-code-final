@@ -89,35 +89,16 @@ const ExitIntentPopup = () => {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     setIsDownloading(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lead-magnet`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ action: 'download' }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to download PDF');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = '7-Ways-To-Generate-Plumbing-Leads.pdf';
+      link.href = '/Local-Service-Playbook.pdf';
+      link.download = 'Local-Service-Playbook.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
 
       toast({
         title: "Download started!",
@@ -184,12 +165,12 @@ const ExitIntentPopup = () => {
               />
               <div className="min-w-0">
                 <div className="font-semibold text-foreground text-sm leading-tight">
-                  7 Proven Ways to Generate More Local Plumbing Leads
+                  The Local Service Playbook
                 </div>
-                <div className="text-muted-foreground text-xs mt-1">8 pages • Instant Download</div>
+                <div className="text-muted-foreground text-xs mt-1">10 pages • Flowcharts & Worksheets</div>
                 <div className="flex items-center gap-1 mt-1 text-accent text-xs font-medium">
                   <Download className="w-3 h-3" />
-                  2,847 downloads
+                  3,200+ downloads
                 </div>
               </div>
             </div>
