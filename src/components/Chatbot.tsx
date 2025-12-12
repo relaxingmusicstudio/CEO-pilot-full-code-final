@@ -181,7 +181,7 @@ Source: Chatbot Qualification`;
           setCurrentStep(2);
           addBotMessage(
             "Great! How many technicians/trucks do you have?",
-            ["Solo (just me)", "2-5 trucks", "6-10 trucks", "10+ trucks"]
+            ["Solo", "2-5", "6-10", "10+ trucks"]
           );
           break;
 
@@ -190,7 +190,7 @@ Source: Chatbot Qualification`;
           setCurrentStep(3);
           addBotMessage(
             "And roughly how many calls do you get per month?",
-            ["Less than 50", "50-100", "100-200", "200+"]
+            ["<50", "50-100", "100-200", "200+"]
           );
           break;
 
@@ -208,7 +208,7 @@ Source: Chatbot Qualification`;
           setCurrentStep(5);
           addBotMessage(
             "Besides AI dispatching, what else would help grow your business? (Pick all that apply, then type 'done')",
-            ["More website traffic/SEO", "Google Ads", "Review management", "Multi-location support", "Done - just AI dispatching"]
+            ["SEO", "Google Ads", "Review management", "Multi-location", "Done - just AI dispatching"]
           );
           break;
 
@@ -229,7 +229,7 @@ Source: Chatbot Qualification`;
             }));
             addBotMessage(
               `Added "${option}"! Pick another or click "Done" when finished.`,
-              ["More website traffic/SEO", "Google Ads", "Review management", "Multi-location support", "Done - let's continue"]
+              ["SEO", "Google Ads", "Review management", "Multi-location", "Done - let's continue"]
             );
           }
           break;

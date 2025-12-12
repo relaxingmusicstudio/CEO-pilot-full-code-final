@@ -30,44 +30,42 @@ const contactSchema = z.object({
 type ContactFormData = z.infer<typeof contactSchema>;
 
 const businessTypes = [
-  "Home Services (HVAC, Plumbing, Electrical)",
-  "Medical/Healthcare",
-  "Legal Services",
-  "Real Estate",
-  "Insurance",
-  "Financial Services",
-  "Retail/E-commerce",
+  "Plumbing",
+  "HVAC",
+  "Electrical",
+  "Roofing",
+  "General Contractor",
+  "Landscaping",
+  "Pest Control",
   "Other",
 ];
 
 const teamSizes = [
-  "Solo (just me)",
-  "2-5 employees",
-  "6-20 employees",
-  "21-50 employees",
-  "50+ employees",
+  "Solo",
+  "2-5",
+  "6-10",
+  "10+ trucks",
 ];
 
 const callVolumes = [
-  "Less than 50/month",
-  "50-200/month",
-  "200-500/month",
-  "500+/month",
+  "<50",
+  "50-100",
+  "100-200",
+  "200+",
 ];
 
 const aiTimelines = [
-  "Immediately",
-  "Within 1 month",
-  "1-3 months",
+  "Within 3 months",
+  "3-6 months",
+  "6-12 months",
   "Just exploring",
 ];
 
 const interestOptions = [
-  "AI Receptionist",
-  "Appointment Booking",
-  "Lead Qualification",
-  "After-Hours Support",
-  "Outbound Calls",
+  "SEO",
+  "Google Ads",
+  "Review management",
+  "Multi-location",
 ];
 
 const ContactForm = () => {
