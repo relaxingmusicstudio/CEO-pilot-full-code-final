@@ -14,6 +14,12 @@ interface ContactFormRequest {
   email: string;
   message: string;
   phone?: string;
+  // Chatbot qualification fields
+  businessType?: string;
+  teamSize?: string;
+  callVolume?: string;
+  aiTimeline?: string;
+  interests?: string[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -25,8 +31,29 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { name, email, message, phone }: ContactFormRequest = await req.json();
-    console.log("Received form data:", { name, email, phone, messageLength: message?.length });
+    const { 
+      name, 
+      email, 
+      message, 
+      phone,
+      businessType,
+      teamSize,
+      callVolume,
+      aiTimeline,
+      interests 
+    }: ContactFormRequest = await req.json();
+    
+    console.log("Received form data:", { 
+      name, 
+      email, 
+      phone, 
+      businessType, 
+      teamSize, 
+      callVolume, 
+      aiTimeline,
+      interests,
+      messageLength: message?.length 
+    });
 
     // Send to GHL webhook using GHL's default field names
     console.log("Sending to GHL webhook...");
@@ -36,9 +63,12 @@ const handler = async (req: Request): Promise<Response> => {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
     
-    // Determine source based on whether phone is provided (chatbot vs contact form)
-    const source = phone ? "Chatbot Qualification" : "Website Form";
-    const tags = phone ? ["Chatbot Lead", "Qualified"] : ["Website Lead"];
+    // Determine source and tags based on whether it's from chatbot or contact form
+    const isChatbot = !!phone && !!businessType;
+    const source = isChatbot ? "Chatbot Qualification" : "Website Form";
+    const tags = isChatbot 
+      ? ["Chatbot Lead", "Qualified", businessType || "Unknown"]
+      : ["Website Lead"];
     
     const webhookPayload = {
       // GHL default contact fields
@@ -48,13 +78,23 @@ const handler = async (req: Request): Promise<Response> => {
       phone: phone || "",
       source: source,
       tags: tags,
-      // Custom field for message
+      // Custom fields for all qualification data
       customField: {
-        message: message
+        message: message,
+        business_type: businessType || "",
+        team_size: teamSize || "",
+        call_volume: callVolume || "",
+        ai_timeline: aiTimeline || "",
+        interests: interests?.join(", ") || "",
       },
       // Also send flat versions for flexible mapping
       name: name,
       message: message,
+      business_type: businessType || "",
+      team_size: teamSize || "",
+      call_volume: callVolume || "",
+      ai_timeline: aiTimeline || "",
+      interests: interests?.join(", ") || "",
       timestamp: new Date().toISOString(),
     };
     console.log("Webhook payload:", JSON.stringify(webhookPayload));
