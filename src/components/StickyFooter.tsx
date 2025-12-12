@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Clock, Rocket } from "lucide-react";
 
 const StickyFooter = () => {
-  const scrollToPricing = () => {
-    document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+  const scrollToContact = () => {
+    document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -19,11 +19,11 @@ const StickyFooter = () => {
         <Button
           variant="hero"
           size="lg"
-          onClick={scrollToPricing}
+          onClick={scrollToContact}
           className="shrink-0"
         >
           <Rocket className="w-5 h-5" />
-          ACTIVATE YOUR AI DISPATCHER
+          GET A CUSTOM QUOTE
         </Button>
       </div>
     </div>
