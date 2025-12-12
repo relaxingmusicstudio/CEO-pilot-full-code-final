@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Download, Mail, Gift, User } from "lucide-react";
+import { X, Download, Mail, Gift, User, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
@@ -10,6 +10,7 @@ const ExitIntentPopup = () => {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [hasShown, setHasShown] = useState(false);
   const { toast } = useToast();
 
@@ -54,6 +55,7 @@ const ExitIntentPopup = () => {
     setIsSubmitting(true);
 
     try {
+      // Submit lead to GHL
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lead-magnet`,
         {
@@ -67,7 +69,44 @@ const ExitIntentPopup = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        throw new Error('Failed to submit');
+      }
+
+      setIsSubmitted(true);
+      toast({
+        title: "Success!",
+        description: "Click the button below to download your guide.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lead-magnet`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ action: 'download' }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
       }
 
       const blob = await response.blob();
@@ -80,20 +119,19 @@ const ExitIntentPopup = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      setIsSubmitted(true);
       toast({
         title: "Download started!",
-        description: "Your PDF guide is downloading now.",
+        description: "Check your downloads folder.",
       });
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Download failed",
-        description: "Please try again or contact support.",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsDownloading(false);
     }
   };
 
@@ -187,8 +225,7 @@ const ExitIntentPopup = () => {
                 className="w-full"
                 disabled={isSubmitting}
               >
-                <Download className="w-4 h-4" />
-                {isSubmitting ? "PREPARING..." : "GET FREE GUIDE"}
+                {isSubmitting ? "SUBMITTING..." : "UNLOCK FREE GUIDE"}
               </Button>
             </form>
 
@@ -199,15 +236,28 @@ const ExitIntentPopup = () => {
         ) : (
           <div className="p-6 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
-              <Download className="w-8 h-8 text-accent" />
+              <CheckCircle className="w-8 h-8 text-accent" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Download Started! 📥</h3>
+            <h3 className="text-xl font-bold text-foreground mb-2">You're In! 🎉</h3>
             <p className="text-muted-foreground mb-4 text-sm">
-              Check your downloads folder.
+              Your guide is ready. Click below to download.
             </p>
-            <Button variant="accent" size="lg" onClick={handleClose}>
-              Continue Browsing
+            <Button 
+              variant="hero" 
+              size="lg" 
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="w-full mb-3"
+            >
+              <Download className="w-4 h-4" />
+              {isDownloading ? "DOWNLOADING..." : "DOWNLOAD PDF NOW"}
             </Button>
+            <button 
+              onClick={handleClose}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Continue browsing
+            </button>
           </div>
         )}
       </div>
