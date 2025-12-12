@@ -189,6 +189,9 @@ Phase: ${leadData.conversationPhase}`;
     }]);
   };
 
+  // Add a human-like typing delay (1-2 seconds)
+  const addTypingDelay = () => new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+
   const initializeChat = async () => {
     setMessages([]);
     setConversationHistory([]);
@@ -200,6 +203,8 @@ Phase: ${leadData.conversationPhase}`;
         { role: "user", content: "START_CONVERSATION" }
       ]);
       
+      // Add human-like delay before showing response
+      await addTypingDelay();
       setIsTyping(false);
       
       if (response) {
@@ -295,6 +300,8 @@ Phase: ${leadData.conversationPhase}`;
         { role: "user", content: option === "Done" ? selectedOptions.join(", ") : option }
       ]);
       
+      // Add human-like delay before showing response
+      await addTypingDelay();
       setIsTyping(false);
       
       if (response) {
@@ -361,6 +368,8 @@ Phase: ${leadData.conversationPhase}`;
         { role: "user", content: value }
       ]);
       
+      // Add human-like delay before showing response
+      await addTypingDelay();
       setIsTyping(false);
       
       if (response) {
