@@ -221,7 +221,7 @@ const VoiceDemo = () => {
               className="group"
             >
               <Phone className="w-5 h-5 mr-2 group-hover:animate-pulse" />
-              TALK TO AN AI AGENT NOW
+              TRY THE AI VOICE DEMO
             </Button>
           </div>
         </div>
