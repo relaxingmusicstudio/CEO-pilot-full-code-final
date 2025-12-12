@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Send, MessageSquare, Mail, User } from "lucide-react";
 import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
@@ -53,19 +54,20 @@ const ContactForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Send directly to GHL webhook
-      await fetch("https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfplU5i/webhook-trigger/WeAIRnNsvl426RVqtQhX", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        mode: "no-cors",
-        body: JSON.stringify({
+      // Send via edge function (handles GHL + email)
+      const { data, error } = await supabase.functions.invoke('contact-form', {
+        body: {
           name: result.data.name,
           email: result.data.email,
           message: result.data.message,
-        }),
+        },
       });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log("Form submission response:", data);
 
       toast({
         title: "Message Sent!",

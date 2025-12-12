@@ -2,3 +2,6 @@ project_id = "dsgvkzzaimubwzbosepn"
 
 [functions.vapi-call]
 verify_jwt = false
+
+[functions.contact-form]
+verify_jwt = false
