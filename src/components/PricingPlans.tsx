@@ -18,10 +18,11 @@ const PricingPlans = () => {
         { text: "Basic Analytics", included: true },
       ],
       cta: "🛠️ ACTIVATE STARTER PLAN",
+      stripeLink: "https://buy.stripe.com/7sY14g3Ml3Cd8LtdbQgYU02",
     },
     {
       name: "PROFESSIONAL",
-      price: "$997",
+      price: "$1,497",
       period: "/mo",
       bestFor: "2-4 truck operations",
       icon: Rocket,
@@ -29,11 +30,13 @@ const PricingPlans = () => {
       features: [
         { text: "ADVANCED AI Dispatcher", included: true, note: "With Upsell & Probe Logic" },
         { text: "The Closer Agent", included: true, note: "White-labeled nurture" },
+        { text: "Custom AI Lead Gen System", included: true, note: "Automated follow-ups & conversions", highlight: true },
         { text: "1,500 mins/month", included: true },
         { text: "Priority Support & Weekly Tuning", included: true },
         { text: "Full Analytics Dashboard", included: true },
       ],
       cta: "🚀 ACTIVATE PROFESSIONAL PLAN",
+      stripeLink: "https://buy.stripe.com/14A4gs3Mlc8J2n54FkgYU03",
     },
   ];
 
@@ -94,14 +97,14 @@ const PricingPlans = () => {
                 {/* Features */}
                 <ul className="space-y-4 mb-8">
                   {plan.features.map((feature, fIndex) => (
-                    <li key={fIndex} className="flex items-start gap-3">
+                    <li key={fIndex} className={`flex items-start gap-3 ${feature.highlight ? "bg-accent/20 -mx-2 px-2 py-2 rounded-lg border border-accent/30" : ""}`}>
                       {feature.included ? (
-                        <Check className={`w-5 h-5 mt-0.5 shrink-0 ${plan.popular ? "text-accent" : "text-accent"}`} />
+                        <Check className={`w-5 h-5 mt-0.5 shrink-0 ${feature.highlight ? "text-accent" : plan.popular ? "text-accent" : "text-accent"}`} />
                       ) : (
                         <X className="w-5 h-5 mt-0.5 shrink-0 text-muted-foreground/50" />
                       )}
                       <div>
-                        <span className={feature.included ? "" : "opacity-50"}>
+                        <span className={`${feature.included ? "" : "opacity-50"} ${feature.highlight ? "font-semibold text-accent" : ""}`}>
                           {feature.text}
                         </span>
                         {feature.note && (
@@ -117,13 +120,15 @@ const PricingPlans = () => {
                 </ul>
 
                 {/* CTA Button */}
-                <Button
-                  variant={plan.popular ? "hero" : "accent"}
-                  size="xl"
-                  className="w-full"
-                >
-                  {plan.cta}
-                </Button>
+                <a href={plan.stripeLink} target="_blank" rel="noopener noreferrer" className="w-full">
+                  <Button
+                    variant={plan.popular ? "hero" : "accent"}
+                    size="xl"
+                    className="w-full"
+                  >
+                    {plan.cta}
+                  </Button>
+                </a>
               </div>
             ))}
           </div>
