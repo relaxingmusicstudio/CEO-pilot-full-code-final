@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Download, Mail, ArrowRight, Gift, User } from "lucide-react";
+import { X, Download, Mail, Gift, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
@@ -21,7 +21,6 @@ const ExitIntentPopup = () => {
       }
     };
 
-    // Also trigger on mobile when user scrolls up quickly (exit behavior)
     let lastScrollY = window.scrollY;
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -71,7 +70,6 @@ const ExitIntentPopup = () => {
         throw new Error('Failed to generate PDF');
       }
 
-      // Get the PDF blob and trigger download
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -106,112 +104,112 @@ const ExitIntentPopup = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-card rounded-2xl shadow-2xl animate-scale-in">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm animate-fade-in"
+      onClick={handleClose}
+    >
+      <div 
+        className="relative w-full max-w-md bg-card rounded-2xl shadow-2xl animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors z-10"
+          className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors z-10 shadow-md"
         >
           <X className="w-4 h-4 text-muted-foreground" />
         </button>
 
-        {/* Header Banner */}
-        <div className="bg-primary p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent flex items-center justify-center">
-            <Gift className="w-8 h-8 text-accent-foreground" />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-2">
-            Wait! Don't Leave Empty-Handed
-          </h2>
-        </div>
-
-        {/* Content */}
-        <div className="p-8">
-          {!isSubmitted ? (
-            <>
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  FREE Guide: <span className="text-accent">7 Ways to Generate More Local Plumbing Leads</span>
-                </h3>
-                <p className="text-muted-foreground">
-                  Discover proven strategies that top plumbers use to fill their calendars with high-paying jobs.
+        {!isSubmitted ? (
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center shrink-0">
+                <Gift className="w-6 h-6 text-accent-foreground" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">
+                  Wait! Free Guide Inside
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Get it before you go
                 </p>
               </div>
-
-              {/* PDF Preview */}
-              <div className="bg-secondary rounded-xl p-4 mb-6 flex items-center gap-4">
-                <img 
-                  src={leadMagnetCover} 
-                  alt="7 Ways to Generate More Local Plumbing Leads" 
-                  className="w-20 h-28 object-cover rounded-lg shadow-md"
-                />
-                <div>
-                  <div className="font-semibold text-foreground text-sm">Local Lead Generation Playbook</div>
-                  <div className="text-muted-foreground text-xs mt-1">12 pages • Instant Download</div>
-                  <div className="flex items-center gap-1 mt-2 text-accent text-xs font-medium">
-                    <Download className="w-3 h-3" />
-                    2,847 downloads this month
-                  </div>
-                </div>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name..."
-                    required
-                    className="w-full h-14 pl-12 pr-4 rounded-xl border-2 border-border bg-background text-foreground text-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                  />
-                </div>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Your best email..."
-                    required
-                    className="w-full h-14 pl-12 pr-4 rounded-xl border-2 border-border bg-background text-foreground text-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                  />
-                </div>
-                <Button 
-                  variant="hero" 
-                  size="xl" 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  <Download className="w-5 h-5" />
-                  {isSubmitting ? "PREPARING DOWNLOAD..." : "GET MY FREE GUIDE NOW"}
-                </Button>
-              </form>
-
-              <p className="text-center text-xs text-muted-foreground mt-4">
-                🔒 We respect your privacy. Unsubscribe anytime.
-              </p>
-            </>
-          ) : (
-            <div className="text-center py-6">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent/20 flex items-center justify-center">
-                <Download className="w-10 h-10 text-accent" />
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">Your Download Has Started! 📥</h3>
-              <p className="text-muted-foreground mb-6">
-                Check your downloads folder for the PDF guide.
-              </p>
-              <Button variant="accent" size="lg" onClick={handleClose}>
-                <ArrowRight className="w-5 h-5" />
-                Continue Exploring
-              </Button>
             </div>
-          )}
-        </div>
+
+            {/* PDF Preview */}
+            <div className="bg-secondary rounded-xl p-3 mb-4 flex items-center gap-3">
+              <img 
+                src={leadMagnetCover} 
+                alt="Lead Generation Guide" 
+                className="w-14 h-20 object-cover rounded-lg shadow-md shrink-0"
+              />
+              <div className="min-w-0">
+                <div className="font-semibold text-foreground text-sm leading-tight">
+                  7 Ways to Generate More Local Plumbing Leads
+                </div>
+                <div className="text-muted-foreground text-xs mt-1">12 pages • Instant Download</div>
+                <div className="flex items-center gap-1 mt-1 text-accent text-xs font-medium">
+                  <Download className="w-3 h-3" />
+                  2,847 downloads
+                </div>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name..."
+                  required
+                  className="w-full h-11 pl-10 pr-4 rounded-lg border border-border bg-background text-foreground focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                />
+              </div>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email..."
+                  required
+                  className="w-full h-11 pl-10 pr-4 rounded-lg border border-border bg-background text-foreground focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                />
+              </div>
+              <Button 
+                variant="hero" 
+                size="lg" 
+                type="submit" 
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                <Download className="w-4 h-4" />
+                {isSubmitting ? "PREPARING..." : "GET FREE GUIDE"}
+              </Button>
+            </form>
+
+            <p className="text-center text-xs text-muted-foreground mt-3">
+              🔒 No spam. Unsubscribe anytime.
+            </p>
+          </div>
+        ) : (
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
+              <Download className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground mb-2">Download Started! 📥</h3>
+            <p className="text-muted-foreground mb-4 text-sm">
+              Check your downloads folder.
+            </p>
+            <Button variant="accent" size="lg" onClick={handleClose}>
+              Continue Browsing
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
