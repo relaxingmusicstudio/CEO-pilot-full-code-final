@@ -1,32 +1,47 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfplU5i/webhook-trigger/WeAIRnNsvl426RVqtQhX";
+// Input validation helpers
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 255;
+}
+
+function isValidPhone(phone: string): boolean {
+  // Allow empty or valid phone format
+  if (!phone) return true;
+  const phoneRegex = /^[\d\s\-\+\(\)]{7,20}$/;
+  return phoneRegex.test(phone);
+}
+
+function sanitizeString(str: string | undefined, maxLength: number = 500): string {
+  if (!str) return "";
+  return str.trim().slice(0, maxLength);
+}
 
 interface ContactFormRequest {
   name: string;
   email: string;
   message: string;
   phone?: string;
-  // Chatbot qualification fields (updated for new flow)
-  businessType?: string;        // trade: Plumbing, HVAC, etc.
-  businessTypeOther?: string;   // businessName
-  teamSize?: string;            // Solo operator, 2-5 trucks, 6+ trucks
-  callVolume?: string;          // daily calls as string
-  currentSolution?: string;     // callHandling: what happens to calls
-  avgJobValue?: string;         // ticketValue as string
-  missedCalls?: string;         // calculated missed calls
-  potentialLoss?: string;       // calculated monthly loss
+  businessType?: string;
+  businessTypeOther?: string;
+  teamSize?: string;
+  callVolume?: string;
+  currentSolution?: string;
+  avgJobValue?: string;
+  missedCalls?: string;
+  potentialLoss?: string;
   notes?: string;
   isGoodFit?: boolean;
   fitReason?: string;
-  // Legacy fields for backwards compatibility
   biggestChallenge?: string;
   monthlyAdSpend?: string;
   aiTimeline?: string;
@@ -41,49 +56,68 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { 
-      name, 
-      email, 
-      message, 
-      phone,
-      businessType,
-      businessTypeOther,
-      teamSize,
-      callVolume,
-      currentSolution,
-      avgJobValue,
-      missedCalls,
-      potentialLoss,
-      notes,
-      isGoodFit,
-      fitReason,
-      // Legacy fields
-      biggestChallenge,
-      monthlyAdSpend,
-      aiTimeline,
-      interests,
-    }: ContactFormRequest = await req.json();
+    const requestData: ContactFormRequest = await req.json();
     
-    console.log("Received form data:", { 
+    // Validate required fields
+    const name = sanitizeString(requestData.name, 100);
+    const email = sanitizeString(requestData.email, 255);
+    const message = sanitizeString(requestData.message, 2000);
+    
+    if (!name || name.length < 1) {
+      return new Response(
+        JSON.stringify({ error: "Name is required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    if (!email || !isValidEmail(email)) {
+      return new Response(
+        JSON.stringify({ error: "Valid email is required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    if (!message || message.length < 1) {
+      return new Response(
+        JSON.stringify({ error: "Message is required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    // Validate optional phone
+    const phone = sanitizeString(requestData.phone, 20);
+    if (phone && !isValidPhone(phone)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid phone format" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    // Sanitize other fields
+    const businessType = sanitizeString(requestData.businessType, 50);
+    const businessTypeOther = sanitizeString(requestData.businessTypeOther, 100);
+    const teamSize = sanitizeString(requestData.teamSize, 20);
+    const callVolume = sanitizeString(requestData.callVolume, 20);
+    const currentSolution = sanitizeString(requestData.currentSolution, 200);
+    const avgJobValue = sanitizeString(requestData.avgJobValue, 20);
+    const missedCalls = sanitizeString(requestData.missedCalls, 20);
+    const potentialLoss = sanitizeString(requestData.potentialLoss, 20);
+    const notes = sanitizeString(requestData.notes, 1000);
+    const isGoodFit = requestData.isGoodFit;
+    const fitReason = sanitizeString(requestData.fitReason, 50);
+    
+    console.log("Validated form data:", { 
       name, 
-      email, 
-      phone, 
+      emailLength: email.length, 
+      phone: phone ? "provided" : "not provided", 
       businessType,
-      businessTypeOther,
       teamSize, 
       callVolume,
-      currentSolution,
-      avgJobValue,
-      missedCalls,
-      potentialLoss,
-      notes,
-      isGoodFit,
-      fitReason,
-      messageLength: message?.length 
+      messageLength: message.length 
     });
 
     // Split name into firstName and lastName for GHL
-    const nameParts = name.trim().split(' ');
+    const nameParts = name.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
     
@@ -96,7 +130,6 @@ const handler = async (req: Request): Promise<Response> => {
     if (isChatbot) {
       tags.push("Chatbot Lead");
       
-      // Qualification status
       if (isGoodFit === true) {
         tags.push("Qualified");
       } else if (isGoodFit === false) {
@@ -105,12 +138,10 @@ const handler = async (req: Request): Promise<Response> => {
         if (fitReason === "not_ready") tags.push("Just Exploring");
       }
       
-      // Business type tag
       if (businessType) {
         tags.push(businessType);
       }
       
-      // Urgency tags based on potential loss
       const loss = parseInt(potentialLoss || "0");
       if (loss >= 5000) {
         tags.push("High Value Opportunity");
@@ -118,12 +149,10 @@ const handler = async (req: Request): Promise<Response> => {
         tags.push("Warm Lead");
       }
       
-      // High-value ticket tag
       if (avgJobValue === "$2,500+" || avgJobValue === "$1,000-2,500") {
         tags.push("High Ticket");
       }
       
-      // Volume tag
       if (callVolume === "20+ calls" || callVolume === "10-20 calls") {
         tags.push("High Volume");
       }
@@ -131,12 +160,10 @@ const handler = async (req: Request): Promise<Response> => {
       tags.push("Website Lead");
     }
 
-    // Combine business type with "Other" specification
     const serviceOffered = businessTypeOther 
       ? `Other - ${businessTypeOther}` 
       : (businessType || "");
 
-    // Build comprehensive notes for GHL
     const ghlNotes = `
 ${message}
 
@@ -156,7 +183,6 @@ ${notes || "None"}
     `.trim();
     
     const webhookPayload = {
-      // GHL default contact fields
       firstName: firstName,
       lastName: lastName,
       email: email,
@@ -165,7 +191,6 @@ ${notes || "None"}
       tags: tags,
       tags_string: tags.join(", "),
       
-      // Custom fields matching GHL field names exactly
       customField: {
         message: ghlNotes,
         "Trade": businessType || "",
@@ -181,7 +206,6 @@ ${notes || "None"}
         tags: tags.join(", "),
       },
       
-      // Flat versions for flexible mapping
       name: name,
       message: ghlNotes,
       "Trade": businessType || "",
@@ -197,7 +221,15 @@ ${notes || "None"}
       timestamp: new Date().toISOString(),
     };
     
-    console.log("Webhook payload:", JSON.stringify(webhookPayload));
+    console.log("Sending to GHL webhook");
+    
+    if (!GHL_WEBHOOK_URL) {
+      console.error("GHL_WEBHOOK_URL is not configured");
+      return new Response(
+        JSON.stringify({ error: "Webhook URL not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
     
     const ghlResponse = await fetch(GHL_WEBHOOK_URL, {
       method: "POST",
@@ -209,9 +241,8 @@ ${notes || "None"}
     console.log("GHL webhook response status:", ghlResponse.status);
 
     // Send confirmation email
-    console.log("Sending confirmation email to:", email);
+    console.log("Sending confirmation email");
     
-    // Personalized email based on fit
     const emailSubject = isGoodFit !== false 
       ? "We received your info - next steps inside!" 
       : "Thanks for chatting with us!";
@@ -264,7 +295,7 @@ ${notes || "None"}
     });
 
     const emailResult = await emailResponse.json();
-    console.log("Email response:", emailResult);
+    console.log("Email response status:", emailResponse.ok);
 
     return new Response(
       JSON.stringify({ 

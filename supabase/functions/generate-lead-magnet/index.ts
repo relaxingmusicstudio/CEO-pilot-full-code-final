@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfplU5i/webhook-trigger/c79b5649-d39a-4858-ba1e-7b0b558125d3";
+const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
 
 // Professional PDF generator with ApexLocal360 branding
 function generateBrandedPDF(): Uint8Array {
@@ -663,12 +663,16 @@ serve(async (req) => {
     console.log("Sending to GHL:", JSON.stringify(ghlPayload));
 
     try {
-      const ghlResponse = await fetch(GHL_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ghlPayload),
-      });
-      console.log("GHL response status:", ghlResponse.status);
+      if (!GHL_WEBHOOK_URL) {
+        console.error("GHL_WEBHOOK_URL is not configured");
+      } else {
+        const ghlResponse = await fetch(GHL_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(ghlPayload),
+        });
+        console.log("GHL response status:", ghlResponse.status);
+      }
     } catch (ghlError) {
       console.error("Error sending to GHL:", ghlError);
     }

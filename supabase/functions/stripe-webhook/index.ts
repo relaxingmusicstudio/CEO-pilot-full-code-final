@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfplU5i/webhook-trigger/c79b5649-d39a-4858-ba1e-7b0b558125d3";
+const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("Stripe webhook function called");
@@ -75,7 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log("Customer details:", { customerEmail, customerName, amountTotal, planName });
 
-      if (customerEmail) {
+      if (customerEmail && GHL_WEBHOOK_URL) {
         // Split name into firstName and lastName
         const nameParts = customerName.trim().split(' ');
         const firstName = nameParts[0] || '';
@@ -123,6 +123,8 @@ const handler = async (req: Request): Promise<Response> => {
             headers: { "Content-Type": "application/json", ...corsHeaders },
           }
         );
+      } else if (!GHL_WEBHOOK_URL) {
+        console.error("GHL_WEBHOOK_URL is not configured");
       }
     }
 
