@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, Sparkles } from "lucide-react";
+import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, DollarSign, Headphones } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
@@ -22,8 +22,9 @@ const contactSchema = z.object({
   businessType: z.string().min(1, "Business type is required"),
   teamSize: z.string().min(1, "Team size is required"),
   callVolume: z.string().min(1, "Call volume is required"),
+  currentCallHandling: z.string().min(1, "Current call handling is required"),
+  avgJobValue: z.string().min(1, "Average job value is required"),
   aiTimeline: z.string().min(1, "Timeline is required"),
-  interests: z.array(z.string()).min(1, "Select at least one interest"),
   message: z.string().trim().max(1000, "Message must be less than 1000 characters").optional(),
 });
 
@@ -34,6 +35,7 @@ const businessTypes = [
   "Plumbing",
   "Electrical",
   "Roofing",
+  "General Contractor",
   "Other",
 ];
 
@@ -45,25 +47,33 @@ const teamSizes = [
 ];
 
 const callVolumes = [
-  "<50",
-  "50-100",
-  "100-200",
-  "200+",
+  "Under 50 calls",
+  "50-100 calls",
+  "100-200 calls",
+  "200+ calls",
+];
+
+const currentCallHandling = [
+  "Answer myself",
+  "Office staff",
+  "Answering service",
+  "Voicemail",
+  "Miss most calls",
+];
+
+const avgJobValues = [
+  "Under $250",
+  "$250-500",
+  "$500-1,000",
+  "$1,000-2,500",
+  "$2,500+",
 ];
 
 const aiTimelines = [
-  "Within 3 months",
-  "3-6 months",
-  "6-12 months",
+  "ASAP - Losing calls now",
+  "Within 30 days",
+  "1-3 months",
   "Just exploring",
-];
-
-const interestOptions = [
-  "Website SEO",
-  "Google Maps SEO",
-  "Paid Ads",
-  "Sales Funnels",
-  "Websites That Convert",
 ];
 
 const ContactForm = () => {
@@ -76,8 +86,9 @@ const ContactForm = () => {
     businessType: "",
     teamSize: "",
     callVolume: "",
+    currentCallHandling: "",
+    avgJobValue: "",
     aiTimeline: "",
-    interests: [],
     message: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({});
@@ -97,17 +108,6 @@ const ContactForm = () => {
     }
   };
 
-  const handleInterestToggle = (interest: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      interests: prev.interests.includes(interest)
-        ? prev.interests.filter((i) => i !== interest)
-        : [...prev.interests, interest],
-    }));
-    if (errors.interests) {
-      setErrors((prev) => ({ ...prev, interests: undefined }));
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,8 +137,9 @@ const ContactForm = () => {
           businessType: result.data.businessType,
           teamSize: result.data.teamSize,
           callVolume: result.data.callVolume,
+          currentSolution: result.data.currentCallHandling,
+          avgJobValue: result.data.avgJobValue,
           aiTimeline: result.data.aiTimeline,
-          interests: result.data.interests,
         },
       });
 
@@ -160,8 +161,9 @@ const ContactForm = () => {
         businessType: "",
         teamSize: "",
         callVolume: "",
+        currentCallHandling: "",
+        avgJobValue: "",
         aiTimeline: "",
-        interests: [],
         message: "",
       });
     } catch (error) {
@@ -320,6 +322,63 @@ const ContactForm = () => {
                 </div>
               </div>
 
+              {/* Call Handling & Job Value Row */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Current Call Handling */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Headphones className="w-4 h-4 text-muted-foreground" />
+                    How do you handle calls now? *
+                  </label>
+                  <Select
+                    value={formData.currentCallHandling}
+                    onValueChange={(value) => handleSelectChange("currentCallHandling", value)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className={errors.currentCallHandling ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Select current solution" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentCallHandling.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.currentCallHandling && (
+                    <p className="text-sm text-destructive">{errors.currentCallHandling}</p>
+                  )}
+                </div>
+
+                {/* Average Job Value */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-muted-foreground" />
+                    Average Job Value *
+                  </label>
+                  <Select
+                    value={formData.avgJobValue}
+                    onValueChange={(value) => handleSelectChange("avgJobValue", value)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className={errors.avgJobValue ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Select avg job value" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {avgJobValues.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.avgJobValue && (
+                    <p className="text-sm text-destructive">{errors.avgJobValue}</p>
+                  )}
+                </div>
+              </div>
+
               {/* Volume & Timeline Row */}
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Call Volume */}
@@ -375,36 +434,6 @@ const ContactForm = () => {
                     <p className="text-sm text-destructive">{errors.aiTimeline}</p>
                   )}
                 </div>
-              </div>
-
-              {/* Interests */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-muted-foreground" />
-                  What are you interested in? *
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {interestOptions.map((interest) => (
-                    <label
-                      key={interest}
-                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        formData.interests.includes(interest)
-                          ? "bg-accent/10 border-accent"
-                          : "bg-background border-border hover:border-accent/50"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={formData.interests.includes(interest)}
-                        onCheckedChange={() => handleInterestToggle(interest)}
-                        disabled={isSubmitting}
-                      />
-                      <span className="text-sm">{interest}</span>
-                    </label>
-                  ))}
-                </div>
-                {errors.interests && (
-                  <p className="text-sm text-destructive">{errors.interests}</p>
-                )}
               </div>
 
               {/* Message Field (Optional) */}
