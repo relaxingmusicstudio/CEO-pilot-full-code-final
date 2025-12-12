@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { MessageCircle, X, Send, Bot, User, Loader2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +12,7 @@ type Message = {
   inputType?: "text" | "email" | "phone";
   inputPlaceholder?: string;
   field?: string;
+  allowFreeText?: boolean;
 };
 
 type LeadData = {
@@ -20,11 +20,18 @@ type LeadData = {
   email: string;
   phone: string;
   businessType: string;
+  businessTypeOther: string;
   teamSize: string;
   callVolume: string;
+  currentSolution: string;
+  biggestChallenge: string;
+  monthlyAdSpend: string;
+  avgJobValue: string;
   aiTimeline: string;
   interests: string[];
-  painPoint: string;
+  notes: string[];
+  isGoodFit: boolean;
+  fitReason: string;
 };
 
 // Synced with ContactForm.tsx
@@ -49,15 +56,23 @@ const Chatbot = () => {
     email: "",
     phone: "",
     businessType: "",
+    businessTypeOther: "",
     teamSize: "",
     callVolume: "",
+    currentSolution: "",
+    biggestChallenge: "",
+    monthlyAdSpend: "",
+    avgJobValue: "",
     aiTimeline: "",
     interests: [],
-    painPoint: "",
+    notes: [],
+    isGoodFit: true,
+    fitReason: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [awaitingFreeText, setAwaitingFreeText] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -68,7 +83,6 @@ const Chatbot = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Auto-open after 15 seconds or scroll
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!hasAutoOpened && !isOpen) {
@@ -87,7 +101,6 @@ const Chatbot = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
-
     return () => {
       clearTimeout(timer);
       window.removeEventListener("scroll", handleScroll);
@@ -96,16 +109,19 @@ const Chatbot = () => {
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const addBotMessageWithTyping = async (
+  const addBotMessage = async (
     text: string,
     options?: string[],
     multiSelect?: boolean,
     inputType?: "text" | "email" | "phone",
     inputPlaceholder?: string,
-    field?: string
+    field?: string,
+    allowFreeText?: boolean
   ) => {
     setIsTyping(true);
-    await delay(900 + Math.random() * 800);
+    // Variable typing speed based on message length
+    const typingTime = Math.min(1500, 600 + text.length * 8);
+    await delay(typingTime);
     setIsTyping(false);
 
     const newMessage: Message = {
@@ -117,6 +133,7 @@ const Chatbot = () => {
       inputType,
       inputPlaceholder,
       field,
+      allowFreeText,
     };
     setMessages((prev) => [...prev, newMessage]);
   };
@@ -127,12 +144,13 @@ const Chatbot = () => {
     await delay(700);
     setIsTyping(false);
     
+    // 2025 Sales: Lead with genuine curiosity, not a pitch
     setMessages([
       {
         id: 1,
         sender: "bot",
-        text: "Hey! 👋 I'm Alex. Quick question for you — are you losing jobs because calls go unanswered?",
-        options: ["Yeah, it's a problem", "Sometimes", "Not really, just curious"],
+        text: "Hey there! 👋 I'm Alex from ApexLocal360. Before I tell you what we do — I'd love to learn a bit about your business first. That way I can see if we're actually a good fit to help, or point you in a better direction. Sound fair?",
+        options: ["Yeah, let's chat", "Just browsing for now"],
       },
     ]);
     setCurrentStep(1);
@@ -146,55 +164,112 @@ const Chatbot = () => {
   };
 
   const addUserMessage = (text: string) => {
-    const newMessage: Message = {
+    setMessages((prev) => [...prev, {
       id: Date.now(),
       sender: "user",
       text,
-    };
-    setMessages((prev) => [...prev, newMessage]);
+    }]);
+  };
+
+  const addNote = (note: string) => {
+    setLeadData((prev) => ({
+      ...prev,
+      notes: [...prev.notes, note],
+    }));
+  };
+
+  // Calculate if they're a good fit based on responses
+  const evaluateFit = (data: LeadData): { isGoodFit: boolean; reason: string } => {
+    // Good fit criteria
+    if (data.callVolume === "<50" && data.teamSize === "Solo" && data.monthlyAdSpend === "Nothing right now") {
+      return { 
+        isGoodFit: false, 
+        reason: "early_stage" 
+      };
+    }
+    if (data.aiTimeline === "Not interested") {
+      return { 
+        isGoodFit: false, 
+        reason: "not_ready" 
+      };
+    }
+    return { isGoodFit: true, reason: "qualified" };
   };
 
   const submitLead = async (finalData: LeadData) => {
     setIsSubmitting(true);
     try {
-      const qualificationSummary = `
-Business Type: ${finalData.businessType}
-Team Size: ${finalData.teamSize}
-Monthly Calls: ${finalData.callVolume}
-AI Timeline: ${finalData.aiTimeline}
-Interests: ${finalData.interests.join(", ") || "None selected"}
-Pain Point: ${finalData.painPoint}
-Source: Chatbot Qualification`;
+      const fit = evaluateFit(finalData);
+      const updatedData = { ...finalData, isGoodFit: fit.isGoodFit, fitReason: fit.reason };
+
+      const qualificationNotes = `
+=== QUALIFICATION SUMMARY ===
+Business: ${updatedData.businessType}${updatedData.businessTypeOther ? ` (${updatedData.businessTypeOther})` : ""}
+Team Size: ${updatedData.teamSize}
+Monthly Calls: ${updatedData.callVolume}
+Avg Job Value: ${updatedData.avgJobValue}
+Ad Spend: ${updatedData.monthlyAdSpend}
+Current Solution: ${updatedData.currentSolution}
+Biggest Challenge: ${updatedData.biggestChallenge}
+AI Timeline: ${updatedData.aiTimeline}
+Interests: ${updatedData.interests.join(", ") || "AI Dispatching only"}
+Fit Score: ${updatedData.isGoodFit ? "QUALIFIED ✓" : "NOT READY - " + updatedData.fitReason}
+
+=== CONVERSATION NOTES ===
+${updatedData.notes.join("\n") || "None"}
+
+Source: Chatbot - Consultative Qualification`;
 
       const { error } = await supabase.functions.invoke('contact-form', {
         body: {
-          name: finalData.name,
-          email: finalData.email,
-          phone: finalData.phone,
-          message: qualificationSummary,
-          businessType: finalData.businessType,
-          teamSize: finalData.teamSize,
-          callVolume: finalData.callVolume,
-          aiTimeline: finalData.aiTimeline,
-          interests: finalData.interests,
+          name: updatedData.name,
+          email: updatedData.email,
+          phone: updatedData.phone,
+          message: qualificationNotes,
+          businessType: updatedData.businessType,
+          businessTypeOther: updatedData.businessTypeOther,
+          teamSize: updatedData.teamSize,
+          callVolume: updatedData.callVolume,
+          currentSolution: updatedData.currentSolution,
+          biggestChallenge: updatedData.biggestChallenge,
+          monthlyAdSpend: updatedData.monthlyAdSpend,
+          avgJobValue: updatedData.avgJobValue,
+          aiTimeline: updatedData.aiTimeline,
+          interests: updatedData.interests,
+          notes: updatedData.notes.join(" | "),
+          isGoodFit: updatedData.isGoodFit,
+          fitReason: updatedData.fitReason,
         },
       });
 
       if (error) throw error;
 
-      await addBotMessageWithTyping(
-        "You're all set! 🎉 I'm handing your info to one of our specialists — they'll reach out within 24 hours to map out a game plan. Want to explore anything in the meantime?",
-        ["See Pricing", "Hear Demo", "Calculate My Losses"]
-      );
+      // Tailor closing message based on fit
+      if (updatedData.isGoodFit) {
+        await addBotMessage(
+          "Perfect, you're all set! 🎉 Based on what you've shared, I think we can genuinely help you capture more jobs. One of our specialists will reach out within 24 hours with a custom plan. In the meantime — want to explore anything?",
+          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+        );
+      } else if (updatedData.fitReason === "early_stage") {
+        await addBotMessage(
+          "Thanks for chatting with me! 😊 Honestly, based on where you're at, our AI dispatching might be overkill right now. But I've saved your info — when you're ready to scale up, we'll be here. In the meantime, check out our free resources:",
+          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+        );
+      } else {
+        await addBotMessage(
+          "Appreciate you taking the time! I've noted your info. If your situation changes and you want to explore AI solutions down the road, just come back — we'll be ready. Anything else I can help with today?",
+          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+        );
+      }
+      
       setCurrentStep(100);
-
       toast({
-        title: "You're in!",
+        title: "Got it!",
         description: "We'll be in touch soon.",
       });
     } catch (error) {
       console.error("Error submitting lead:", error);
-      await addBotMessageWithTyping("Hmm, something glitched on our end. Mind trying again?");
+      await addBotMessage("Hmm, something glitched. Mind trying again?");
       toast({
         title: "Oops!",
         description: "Failed to submit. Please try again.",
@@ -205,51 +280,28 @@ Source: Chatbot Qualification`;
     }
   };
 
-  const getTeamSizeResponse = (businessType: string, teamSize: string) => {
-    if (teamSize === "Solo") {
-      return `Running solo in ${businessType}? That's hustle right there. Every missed call probably hurts, huh?`;
-    } else if (teamSize === "2-5") {
-      return `Nice! A tight crew. At that size, you're probably juggling a lot — dispatching, quoting, and still getting your hands dirty.`;
-    } else if (teamSize === "6-10") {
-      return `Solid team! At that size, things get real — scheduling gets complex and missed calls can really stack up.`;
-    }
-    return `Wow, 10+ trucks! You're running a real operation. At that scale, every inefficiency costs serious money.`;
-  };
-
-  const getCallVolumeResponse = (callVolume: string) => {
-    if (callVolume === "<50") {
-      return "Got it. Even at that volume, missing just 2-3 calls a week adds up fast. Have you figured out roughly how much each job is worth?";
-    } else if (callVolume === "50-100") {
-      return "That's solid call flow! At that volume, even a 5% miss rate means 3-5 lost jobs a month. What's your average ticket look like?";
-    } else if (callVolume === "100-200") {
-      return "Whoa, that's busy! With that many calls, you're leaving serious money on the table if even a few slip through. Are most of these during business hours?";
-    }
-    return "200+? You're running a call center at that point! How are you handling after-hours right now?";
-  };
-
   const handleOptionClick = async (option: string) => {
-    if (currentStep === 7) {
-      // Multi-select for interests
+    // Multi-select for interests
+    if (currentStep === 9) {
       if (option === "Done") {
         addUserMessage(selectedInterests.length > 0 ? selectedInterests.join(", ") : "Just AI dispatching");
         setLeadData((prev) => ({ ...prev, interests: selectedInterests }));
         setSelectedInterests([]);
-        setCurrentStep(8);
-        await addBotMessageWithTyping(
-          "Awesome, I've got the full picture now. Let me grab your details so our team can put together something tailored for you. What's your name?"
+        setCurrentStep(10);
+        await addBotMessage(
+          "Awesome, I've got a solid picture now. Let me grab your details so someone from our team can put together a custom game plan. What's your name?"
         );
-        await delay(300);
-        await addBotMessageWithTyping(
+        await delay(200);
+        await addBotMessage(
           undefined,
           undefined,
           false,
           "text",
-          "Your name",
+          "Your first name",
           "name"
         );
         return;
       }
-
       setSelectedInterests((prev) =>
         prev.includes(option) ? prev.filter((i) => i !== option) : [...prev, option]
       );
@@ -259,139 +311,238 @@ Source: Chatbot Qualification`;
     addUserMessage(option);
 
     switch (currentStep) {
-      case 1: // Pain point acknowledgment
-        setLeadData((prev) => ({ ...prev, painPoint: option }));
-        if (option === "Not really, just curious") {
-          setCurrentStep(2);
-          await addBotMessageWithTyping(
-            "No worries! Curiosity is good 😄 Let me show you what we do anyway — it might come in handy down the road. What kind of service business are you in?"
-          );
-          await delay(200);
-          await addBotMessageWithTyping(
+      case 1: // Opening rapport
+        if (option === "Just browsing for now") {
+          await addBotMessage(
+            "No problem at all! Feel free to look around. If you want to chat later, I'll be right here. One quick thing though — what kind of service business are you in? Just so I know who's stopping by 😊",
+            businessTypes,
+            false,
             undefined,
-            businessTypes
+            undefined,
+            undefined,
+            true
           );
+          setAwaitingFreeText(true);
         } else {
-          setCurrentStep(2);
-          await addBotMessageWithTyping(
-            "Yeah, I hear that a lot. It's brutal — you spend money on ads, your phone rings, and if you can't pick up... that lead's gone. What type of trade are you in?"
-          );
-          await delay(200);
-          await addBotMessageWithTyping(
+          await addBotMessage(
+            "Love it! So tell me — what kind of service business are you running?",
+            businessTypes,
+            false,
             undefined,
-            businessTypes
+            undefined,
+            undefined,
+            true
           );
+          setAwaitingFreeText(true);
         }
+        setCurrentStep(2);
         break;
 
       case 2: // Business type
+        if (option === "Other") {
+          setAwaitingFreeText(true);
+          await addBotMessage(
+            "Interesting! What type of service do you offer? I work with all kinds of trades.",
+            undefined,
+            false,
+            "text",
+            "Type your trade/service",
+            "businessTypeOther"
+          );
+          setCurrentStep(2.5);
+          return;
+        }
         setLeadData((prev) => ({ ...prev, businessType: option }));
         setCurrentStep(3);
-        await addBotMessageWithTyping(
-          `${option} — nice! Love working with ${option.toLowerCase()} companies. How big is your crew right now?`,
-          ["Solo", "2-5", "6-10", "10+ trucks"]
+        await addBotMessage(
+          `${option} — solid trade! I work with a lot of ${option.toLowerCase()} companies. Let me understand your operation a bit better...`
+        );
+        await delay(300);
+        await addBotMessage(
+          "How big is your team right now? This helps me understand your scale.",
+          ["Solo operator", "2-5 people", "6-10", "10+ trucks"]
         );
         break;
 
-      case 3: // Team size - with personalized response
-        setLeadData((prev) => ({ ...prev, teamSize: option }));
-        setCurrentStep(4);
-        const teamResponse = getTeamSizeResponse(leadData.businessType, option);
-        await addBotMessageWithTyping(teamResponse);
-        await delay(400);
-        await addBotMessageWithTyping(
-          "How many calls do you typically get in a month?",
-          ["<50", "50-100", "100-200", "200+"]
-        );
-        break;
-
-      case 4: // Call volume - with personalized probing
-        setLeadData((prev) => ({ ...prev, callVolume: option }));
-        setCurrentStep(5);
-        const callResponse = getCallVolumeResponse(option);
-        await addBotMessageWithTyping(callResponse);
-        await delay(400);
-        await addBotMessageWithTyping(
-          "So here's the thing — our AI answers every call instantly, books jobs, and dispatches your crew. No missed calls, ever. When are you looking to get something like this set up?",
-          ["ASAP - we're bleeding money", "Next 1-3 months", "3-6 months", "Just exploring for now"]
-        );
-        break;
-
-      case 5: // AI timeline - with urgency handling
-        const timelineMap: { [key: string]: string } = {
-          "ASAP - we're bleeding money": "Within 3 months",
-          "Next 1-3 months": "Within 3 months",
-          "3-6 months": "3-6 months",
-          "Just exploring for now": "Just exploring",
+      case 3: // Team size - with empathy
+        const teamMap: { [key: string]: string } = {
+          "Solo operator": "Solo",
+          "2-5 people": "2-5",
+          "6-10": "6-10",
+          "10+ trucks": "10+ trucks",
         };
-        setLeadData((prev) => ({ ...prev, aiTimeline: timelineMap[option] || option }));
+        setLeadData((prev) => ({ ...prev, teamSize: teamMap[option] || option }));
+        setCurrentStep(4);
+        
+        if (option === "Solo operator") {
+          await addBotMessage(
+            "Running it solo — that's impressive! You're wearing all the hats. Quick question: when you're on a job, how do you handle incoming calls right now?",
+            ["I try to answer everything", "Goes to voicemail", "My spouse/family helps", "I have an answering service", "Something else"]
+          );
+        } else {
+          await addBotMessage(
+            "Nice team! At that size, coordination becomes everything. How do you currently handle incoming calls when everyone's out on jobs?",
+            ["Office staff answers", "Goes to voicemail", "We rotate who answers", "Answering service", "Something else"]
+          );
+        }
+        break;
+
+      case 4: // Current solution - dig deeper
+        setLeadData((prev) => ({ ...prev, currentSolution: option }));
+        addNote(`Current call handling: ${option}`);
+        setCurrentStep(5);
+        
+        if (option.includes("voicemail")) {
+          await addBotMessage(
+            "Yeah, voicemail's tough — studies show 80% of callers won't leave a message, they just call the next company. How many calls would you say you're getting per month?",
+            ["Under 50", "50-100", "100-200", "200+"]
+          );
+        } else if (option === "Something else") {
+          await addBotMessage(
+            "Got it — everyone's setup is different! About how many calls come in each month?",
+            ["Under 50", "50-100", "100-200", "200+"]
+          );
+        } else {
+          await addBotMessage(
+            "Makes sense! And roughly how many calls are coming in each month?",
+            ["Under 50", "50-100", "100-200", "200+"]
+          );
+        }
+        break;
+
+      case 5: // Call volume - calculate the problem
+        const volumeMap: { [key: string]: string } = {
+          "Under 50": "<50",
+          "50-100": "50-100",
+          "100-200": "100-200",
+          "200+": "200+",
+        };
+        setLeadData((prev) => ({ ...prev, callVolume: volumeMap[option] || option }));
         setCurrentStep(6);
         
-        if (option === "ASAP - we're bleeding money") {
-          await addBotMessageWithTyping(
-            "I feel that urgency! Good news — we can usually get you live within a week. Before I connect you with our team, quick question..."
-          );
-        } else if (option === "Just exploring for now") {
-          await addBotMessageWithTyping(
-            "Totally get it — always smart to do your homework first. Let me ask you this..."
-          );
-        } else {
-          await addBotMessageWithTyping(
-            "Perfect timing actually — that gives us room to get everything dialed in right. Quick question for you..."
-          );
-        }
-        await delay(400);
-        await addBotMessageWithTyping(
-          "What's the biggest headache in your business right now? Be honest 😅",
-          ["Missed calls & lost leads", "Can't find good techs", "Marketing isn't working", "Scheduling chaos", "All of the above 😩"]
+        // Value-based selling: help them see the math
+        await addBotMessage(
+          "Here's where it gets interesting... What's your average job worth? This helps me understand the real impact of missed calls.",
+          ["Under $200", "$200-500", "$500-1,000", "$1,000-2,500", "$2,500+"]
         );
         break;
 
-      case 6: // Biggest pain - then interests
+      case 6: // Avg job value - do the math for them
+        setLeadData((prev) => ({ ...prev, avgJobValue: option }));
         setCurrentStep(7);
+        
+        // Calculate potential loss (consultative insight)
+        let missedRevenue = "";
+        const callVol = leadData.callVolume;
+        if (option === "$2,500+" && (callVol === "100-200" || callVol === "200+")) {
+          missedRevenue = "At that job value with your call volume, even a 10% miss rate could mean $25K+ leaving the table monthly.";
+        } else if (option === "$1,000-2,500") {
+          missedRevenue = "At $1-2.5K per job, every missed call really stings.";
+        } else if (option === "$500-1,000") {
+          missedRevenue = "Those $500-1K jobs add up fast when you miss a few.";
+        } else {
+          missedRevenue = "Even at that ticket size, it adds up quickly.";
+        }
+        
+        await addBotMessage(
+          `${missedRevenue} One more thing — are you running ads or doing any marketing right now?`,
+          ["Yes, spending money on ads", "Some organic/referrals", "Nothing right now"]
+        );
+        break;
+
+      case 7: // Ad spend context
+        const spendMap: { [key: string]: string } = {
+          "Yes, spending money on ads": "Running paid ads",
+          "Some organic/referrals": "Organic/referrals",
+          "Nothing right now": "Nothing right now",
+        };
+        setLeadData((prev) => ({ ...prev, monthlyAdSpend: spendMap[option] || option }));
+        setCurrentStep(8);
+        
+        if (option === "Yes, spending money on ads") {
+          await addBotMessage(
+            "That's actually the worst combo — paying for leads and then missing them when they call. It's like pouring money down the drain. What would you say is your biggest challenge right now?",
+            ["Missing calls/losing leads", "Finding good technicians", "Getting consistent work", "Managing scheduling chaos", "Growing to the next level"]
+          );
+        } else {
+          await addBotMessage(
+            "Got it. What would you say is the biggest challenge in your business right now?",
+            ["Missing calls/losing leads", "Finding good technicians", "Getting consistent work", "Managing scheduling chaos", "Growing to the next level"]
+          );
+        }
+        break;
+
+      case 8: // Biggest challenge - show empathy & expertise
+        setLeadData((prev) => ({ ...prev, biggestChallenge: option }));
+        addNote(`Main challenge: ${option}`);
+        setCurrentStep(8.5);
+        
+        // Consultative response based on their challenge
+        if (option === "Missing calls/losing leads") {
+          await addBotMessage(
+            "That's exactly what we solve! Our AI answers every call instantly — 24/7 — books jobs, and dispatches your crew. No more missed opportunities. When were you thinking about solving this?",
+            ["ASAP - it's costing me money", "Next 1-3 months", "3-6 months out", "Just exploring options"]
+          );
+        } else if (option === "Finding good technicians") {
+          await addBotMessage(
+            "The tech shortage is brutal right now. While we can't clone your best guy (yet 😄), we CAN make sure every lead your current team can handle actually gets captured. When's the right time to tackle the call problem?",
+            ["ASAP - it's costing me money", "Next 1-3 months", "3-6 months out", "Just exploring options"]
+          );
+        } else if (option === "Getting consistent work") {
+          await addBotMessage(
+            "Consistency usually comes from two things: marketing and actually answering when people call. The second one's easier to fix. When would you want to get that dialed in?",
+            ["ASAP - it's costing me money", "Next 1-3 months", "3-6 months out", "Just exploring options"]
+          );
+        } else {
+          await addBotMessage(
+            "I hear that a lot! Here's what I've seen: fixing the lead capture problem often creates the bandwidth to tackle everything else. When were you thinking about making some changes?",
+            ["ASAP - it's costing me money", "Next 1-3 months", "3-6 months out", "Just exploring options"]
+          );
+        }
+        break;
+
+      case 8.5: // Timeline
+        const timelineMap: { [key: string]: string } = {
+          "ASAP - it's costing me money": "Within 3 months",
+          "Next 1-3 months": "Within 3 months",
+          "3-6 months out": "3-6 months",
+          "Just exploring options": "Just exploring",
+        };
+        setLeadData((prev) => ({ ...prev, aiTimeline: timelineMap[option] || option }));
+        setCurrentStep(9);
         setSelectedInterests([]);
         
-        if (option === "All of the above 😩") {
-          await addBotMessageWithTyping(
-            "Ha! You're not alone — that's basically every service business owner I talk to. The good news? We can actually help with most of that."
-          );
-        } else if (option === "Missed calls & lost leads") {
-          await addBotMessageWithTyping(
-            "That's literally why we exist! Our AI picks up every call, qualifies leads, and books them straight into your calendar."
-          );
-        } else if (option === "Can't find good techs") {
-          await addBotMessageWithTyping(
-            "Oof, the tech shortage is real. While we can't clone your best guy (yet 😄), we can make sure every lead gets captured so you maximize the crew you have."
+        if (option === "ASAP - it's costing me money") {
+          await addBotMessage(
+            "Love the urgency — we can usually get you live in under a week. Quick last thing: besides call handling, anything else you'd want help with? Pick all that apply 👇",
+            [...interestOptions, "Done"],
+            true
           );
         } else {
-          await addBotMessageWithTyping(
-            "I hear that a lot! We actually help with that too — a lot of our clients see big improvements once they're not leaking leads."
+          await addBotMessage(
+            "Totally fair. Besides AI call handling, is there anything else you'd want help with down the road? Pick any that interest you:",
+            [...interestOptions, "Done"],
+            true
           );
         }
-        await delay(400);
-        await addBotMessageWithTyping(
-          "Besides AI call handling, anything else you'd like help with? Pick all that apply 👇",
-          [...interestOptions, "Done"],
-          true
-        );
         break;
 
-      case 100: // Post-submission
+      case 100: // Post-submission navigation
         if (option === "See Pricing") {
           document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessageWithTyping("Scrolled you down to pricing! Take a look — no surprises, everything's transparent. Holler if you have Qs 😊");
+          await addBotMessage("Scrolled you to pricing! It's all transparent — no hidden fees. Let me know if you have any questions 😊");
         } else if (option === "Hear Demo") {
           document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessageWithTyping("Check out the demo above — you can hear exactly how our AI handles a real call. Pretty wild, right? 🎧");
+          await addBotMessage("Check out the demo above — you'll hear exactly how our AI handles a real service call. Pretty cool, right? 🎧");
         } else if (option === "Calculate My Losses") {
           document.getElementById("calculator")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessageWithTyping("Here's the calculator — plug in your numbers. Warning: it might sting a little when you see the total 📊");
+          await addBotMessage("Here's the calculator — plug in your numbers and see what missed calls are really costing you. Fair warning: it might sting a little 📊");
         }
         break;
 
       default:
-        await addBotMessageWithTyping(
-          "I'm here if you need anything! What can I help with?",
+        await addBotMessage(
+          "I'm here if you need anything! What would you like to explore?",
           ["See Pricing", "Hear Demo", "Calculate My Losses"]
         );
     }
@@ -404,12 +555,34 @@ Source: Chatbot Qualification`;
     addUserMessage(value);
     setInputValue("");
 
+    // Handle free-text for "Other" business type
+    if (currentStep === 2.5) {
+      setLeadData((prev) => ({ 
+        ...prev, 
+        businessType: "Other",
+        businessTypeOther: value 
+      }));
+      addNote(`Business type: Other - ${value}`);
+      setAwaitingFreeText(false);
+      setCurrentStep(3);
+      await addBotMessage(
+        `${value} — interesting! I haven't worked with many of those, but the same principles apply. Let me learn more...`
+      );
+      await delay(300);
+      await addBotMessage(
+        "How big is your team right now?",
+        ["Solo operator", "2-5 people", "6-10", "10+ trucks"]
+      );
+      return;
+    }
+
+    // Handle contact info collection
     switch (currentStep) {
-      case 8: // Name
+      case 10: // Name
         setLeadData((prev) => ({ ...prev, name: value }));
-        setCurrentStep(9);
-        await addBotMessageWithTyping(
-          `Great to meet you, ${value}! What's the best email to reach you? We'll send over some info before our call.`,
+        setCurrentStep(11);
+        await addBotMessage(
+          `Great to meet you, ${value}! What's the best email to reach you? We'll send over some useful info before our call.`,
           undefined,
           false,
           "email",
@@ -418,9 +591,9 @@ Source: Chatbot Qualification`;
         );
         break;
 
-      case 9: // Email
+      case 11: // Email
         if (!value.includes("@") || value.length < 5) {
-          await addBotMessageWithTyping(
+          await addBotMessage(
             "Hmm, that doesn't look quite right. Mind double-checking? I need a valid email to send you the good stuff 😄",
             undefined,
             false,
@@ -431,9 +604,9 @@ Source: Chatbot Qualification`;
           return;
         }
         setLeadData((prev) => ({ ...prev, email: value }));
-        setCurrentStep(10);
-        await addBotMessageWithTyping(
-          "Perfect! Last thing — what's the best number to reach you? Our team will call, not text, so make sure it's a number you'll actually pick up 📞",
+        setCurrentStep(12);
+        await addBotMessage(
+          "Perfect! Last thing — what's the best number to reach you? Our specialist will call (not text) to discuss your custom plan 📞",
           undefined,
           false,
           "phone",
@@ -442,10 +615,10 @@ Source: Chatbot Qualification`;
         );
         break;
 
-      case 10: // Phone
+      case 12: // Phone
         if (value.replace(/\D/g, "").length < 10) {
-          await addBotMessageWithTyping(
-            "That seems a bit short for a phone number. Can you double-check?",
+          await addBotMessage(
+            "That seems a bit short. Can you double-check the number?",
             undefined,
             false,
             "phone",
@@ -460,8 +633,13 @@ Source: Chatbot Qualification`;
         break;
 
       default:
-        await addBotMessageWithTyping(
-          "Thanks for reaching out! Want me to point you somewhere helpful?",
+        // Capture any free-text as notes
+        if (awaitingFreeText) {
+          addNote(`User input: ${value}`);
+          setAwaitingFreeText(false);
+        }
+        await addBotMessage(
+          "Thanks for sharing! Anything else I can help with?",
           ["See Pricing", "Hear Demo", "Calculate My Losses"]
         );
     }
@@ -473,13 +651,17 @@ Source: Chatbot Qualification`;
       return {
         type: lastBotMessage.inputType,
         placeholder: lastBotMessage.inputPlaceholder || "Type a message...",
+        show: true,
       };
     }
-    return { type: "text", placeholder: "Type a message..." };
+    if (awaitingFreeText) {
+      return { type: "text", placeholder: "Type your answer...", show: true };
+    }
+    return { type: "text", placeholder: "Type a message...", show: false };
   };
 
   const inputConfig = getCurrentInputConfig();
-  const showInput = currentStep >= 8 && currentStep <= 10;
+  const showInput = currentStep >= 10 || inputConfig.show;
 
   return (
     <>
@@ -584,7 +766,6 @@ Source: Chatbot Qualification`;
             </div>
           ))}
 
-          {/* Typing indicator */}
           {isTyping && (
             <div className="flex gap-2 justify-start">
               <div className="w-8 h-8 rounded-full bg-primary shrink-0 flex items-center justify-center">
@@ -606,7 +787,7 @@ Source: Chatbot Qualification`;
                 <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
               </div>
               <div className="p-3 rounded-2xl bg-secondary text-secondary-foreground rounded-bl-sm">
-                Hang tight, saving your info...
+                Saving your info...
               </div>
             </div>
           )}
