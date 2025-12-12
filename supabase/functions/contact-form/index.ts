@@ -41,6 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
       lastName: lastName,
       email: email,
       source: "Website Form",
+      tags: ["Website Lead"],
       // Custom field for message
       customField: {
         message: message
