@@ -27,17 +27,25 @@ const handler = async (req: Request): Promise<Response> => {
     const { name, email, message }: ContactFormRequest = await req.json();
     console.log("Received form data:", { name, email, messageLength: message?.length });
 
-    // Send to GHL webhook with contact wrapper to match GHL's expected format
+    // Send to GHL webhook using GHL's default field names
     console.log("Sending to GHL webhook...");
+    
+    // Split name into firstName and lastName for GHL
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
     const webhookPayload = {
-      // Wrapped in contact object to match {{contact.email}}, {{contact.name}} variable paths
-      contact: {
-        email: email,
-        name: name,
-        type: "Website Form"
-      },
-      // Also send flat for {{email}}, {{name}} access
+      // GHL default contact fields
+      firstName: firstName,
+      lastName: lastName,
       email: email,
+      source: "Website Form",
+      // Custom field for message
+      customField: {
+        message: message
+      },
+      // Also send flat versions for flexible mapping
       name: name,
       message: message,
       timestamp: new Date().toISOString(),
