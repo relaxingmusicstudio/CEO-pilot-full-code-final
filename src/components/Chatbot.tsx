@@ -231,20 +231,15 @@ ${updatedData.notes.join("\n") || "None"}`;
 
       if (error) throw error;
 
-      if (updatedData.isGoodFit) {
-        await addBotMessage(
-          "You're all set! 🎉 Based on what you shared, I think we can genuinely help you capture more jobs. Someone will reach out within 24 hours. Want to explore anything?",
-          ["See Pricing", "Hear Demo", "Calculate My Losses"]
-        );
-      } else {
-        await addBotMessage(
-          "Thanks for chatting! 😊 I've saved your info — when you're ready to scale, we'll be here. Check out our resources in the meantime:",
-          ["See Pricing", "Hear Demo", "Calculate My Losses"]
-        );
-      }
-      
-      setCurrentStep(100);
-      toast({ title: "Got it!", description: "We'll be in touch soon." });
+      setCurrentStep(13);
+      await addBotMessage(
+        `Awesome, ${updatedData.name}! Just curious — what made you start looking into AI call handling? Was there a specific moment or situation?`,
+        undefined,
+        false,
+        "text",
+        "Share what prompted this..."
+      );
+      toast({ title: "Got it!", description: "Info captured." });
     } catch (error) {
       console.error("Error submitting lead:", error);
       await addBotMessage("Hmm, something glitched. Mind trying again?");
@@ -489,7 +484,7 @@ ${updatedData.notes.join("\n") || "None"}`;
           undefined,
           false,
           "phone",
-          "(555) 123-4567"
+          "555-123-4567"
         );
         break;
 
@@ -500,13 +495,43 @@ ${updatedData.notes.join("\n") || "None"}`;
             undefined,
             false,
             "phone",
-            "(555) 123-4567"
+            "555-123-4567"
           );
           return;
         }
         const updatedData = { ...leadData, phone: value };
         setLeadData(updatedData);
         await submitLead(updatedData);
+        break;
+
+      case 13:
+        // After phone collection - first follow-up question
+        addNote(`What prompted AI search: ${value}`);
+        setCurrentStep(14);
+        await addBotMessage(
+          "That makes total sense. If you had to pick ONE thing you'd want AI to fix first in your business, what would it be?",
+          ["Never miss a call", "Book more jobs automatically", "Stop losing leads to voicemail", "Free up my time"]
+        );
+        break;
+
+      case 14:
+        // Second follow-up
+        addNote(`Top priority: ${value}`);
+        setCurrentStep(15);
+        await addBotMessage(
+          `${value} — that's exactly what we focus on. One more thing: how soon would you want to see results if you started today?`,
+          ["This week", "Within a month", "Just want to see how it works first"]
+        );
+        break;
+
+      case 15:
+        // Final engagement before funnel options
+        addNote(`Timeline expectation: ${value}`);
+        setCurrentStep(100);
+        await addBotMessage(
+          "Love it! You're now in our priority list. Here's what I'd recommend checking out next:",
+          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+        );
         break;
 
       default:
@@ -658,7 +683,11 @@ ${updatedData.notes.join("\n") || "None"}`;
                 <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
               </div>
               <div className="p-3 rounded-2xl bg-secondary text-secondary-foreground rounded-bl-sm">
-                Saving your info...
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
               </div>
             </div>
           )}
@@ -668,9 +697,23 @@ ${updatedData.notes.join("\n") || "None"}`;
         <div className="p-4 border-t border-border">
           <div className="flex gap-2">
             <input
-              type={inputConfig.type}
+              type={inputConfig.type === "phone" ? "tel" : inputConfig.type}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                if (inputConfig.type === "phone") {
+                  // Auto-format phone: XXX-XXX-XXXX
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  let formatted = digits;
+                  if (digits.length > 3 && digits.length <= 6) {
+                    formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+                  } else if (digits.length > 6) {
+                    formatted = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+                  }
+                  setInputValue(formatted);
+                } else {
+                  setInputValue(e.target.value);
+                }
+              }}
               onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
               placeholder={inputConfig.placeholder}
               disabled={isSubmitting || isTyping}
