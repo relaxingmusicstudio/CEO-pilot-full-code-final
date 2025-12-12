@@ -21,6 +21,8 @@ type LeadData = {
   businessType: string;
   teamSize: string;
   callVolume: string;
+  aiTimeline: string;
+  interests: string[];
 };
 
 const Chatbot = () => {
@@ -37,6 +39,8 @@ const Chatbot = () => {
     businessType: "",
     teamSize: "",
     callVolume: "",
+    aiTimeline: "",
+    interests: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -123,6 +127,8 @@ const Chatbot = () => {
 Business Type: ${finalData.businessType}
 Team Size: ${finalData.teamSize}
 Monthly Calls: ${finalData.callVolume}
+AI Timeline: ${finalData.aiTimeline}
+Interests: ${finalData.interests.join(", ") || "None selected"}
 Source: Chatbot Qualification`;
 
       const { error } = await supabase.functions.invoke('contact-form', {
@@ -186,13 +192,42 @@ Source: Chatbot Qualification`;
           setLeadData((prev) => ({ ...prev, callVolume: option }));
           setCurrentStep(4);
           addBotMessage(
-            "Perfect! Now let me get your info so we can show you exactly how much revenue you're leaving on the table. What's your name?",
-            undefined,
-            "text",
-            "Enter your name",
-            "name"
+            "When are you looking to add AI into your business?",
+            ["Within 3 months", "3-6 months", "6-12 months", "Just exploring"]
           );
           break;
+
+        case 4: // AI timeline selected
+          setLeadData((prev) => ({ ...prev, aiTimeline: option }));
+          setCurrentStep(5);
+          addBotMessage(
+            "Besides AI dispatching, what else would help grow your business? (Pick all that apply, then type 'done')",
+            ["More website traffic/SEO", "Google Ads", "Review management", "Multi-location support", "Done - just AI dispatching"]
+          );
+          break;
+
+        case 5: // Interests selected
+          if (option === "Done - just AI dispatching" || option === "Done - let's continue") {
+            setCurrentStep(6);
+            addBotMessage(
+              "Perfect! Now let me get your info so we can show you exactly how much revenue you're leaving on the table. What's your name?",
+              undefined,
+              "text",
+              "Enter your name",
+              "name"
+            );
+          } else {
+            setLeadData((prev) => ({ 
+              ...prev, 
+              interests: prev.interests.includes(option) ? prev.interests : [...prev.interests, option] 
+            }));
+            addBotMessage(
+              `Added "${option}"! Pick another or click "Done" when finished.`,
+              ["More website traffic/SEO", "Google Ads", "Review management", "Multi-location support", "Done - let's continue"]
+            );
+          }
+          break;
+
 
         case 100: // Post-submission navigation
           if (option === "See Pricing") {
@@ -225,9 +260,9 @@ Source: Chatbot Qualification`;
 
     setTimeout(() => {
       switch (currentStep) {
-        case 4: // Name entered
+        case 6: // Name entered
           setLeadData((prev) => ({ ...prev, name: value }));
-          setCurrentStep(5);
+          setCurrentStep(7);
           addBotMessage(
             `Nice to meet you, ${value}! What's the best email to reach you?`,
             undefined,
@@ -237,13 +272,13 @@ Source: Chatbot Qualification`;
           );
           break;
 
-        case 5: // Email entered
+        case 7: // Email entered
           if (!value.includes("@")) {
             addBotMessage("That doesn't look like a valid email. Can you try again?", undefined, "email", "Enter your email", "email");
             return;
           }
           setLeadData((prev) => ({ ...prev, email: value }));
-          setCurrentStep(6);
+          setCurrentStep(8);
           addBotMessage(
             "Great! And what's the best phone number to reach you?",
             undefined,
@@ -253,7 +288,7 @@ Source: Chatbot Qualification`;
           );
           break;
 
-        case 6: // Phone entered
+        case 8: // Phone entered
           const updatedData = { ...leadData, phone: value };
           setLeadData(updatedData);
           submitLead(updatedData);
