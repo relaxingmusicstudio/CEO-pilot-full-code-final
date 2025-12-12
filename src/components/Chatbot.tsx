@@ -71,7 +71,10 @@ const Chatbot = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,6 +107,88 @@ const Chatbot = () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, [hasAutoOpened, isOpen]);
+
+  // Inactivity timer - save data after 2 minutes of no activity
+  useEffect(() => {
+    const checkInactivity = () => {
+      const now = Date.now();
+      if (now - lastActivityRef.current > 120000 && !hasSubmitted && leadData.email) {
+        savePartialLead();
+      }
+    };
+
+    inactivityTimerRef.current = setInterval(checkInactivity, 30000);
+    
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearInterval(inactivityTimerRef.current);
+      }
+    };
+  }, [hasSubmitted, leadData]);
+
+  // Track activity
+  const trackActivity = () => {
+    lastActivityRef.current = Date.now();
+  };
+
+  // Save partial lead data silently
+  const savePartialLead = async () => {
+    if (hasSubmitted || !leadData.email) return;
+    
+    setHasSubmitted(true);
+    try {
+      const fit = evaluateFit(leadData);
+      const updatedData = { ...leadData, isGoodFit: fit.isGoodFit, fitReason: fit.reason };
+
+      const qualificationNotes = `
+=== PARTIAL CAPTURE (Chat closed/timeout) ===
+Business: ${updatedData.businessType}${updatedData.businessTypeOther ? ` (${updatedData.businessTypeOther})` : ""}
+Team Size: ${updatedData.teamSize}
+Monthly Calls: ${updatedData.callVolume}
+Avg Job Value: ${updatedData.avgJobValue}
+Ad Spend: ${updatedData.monthlyAdSpend}
+Current Solution: ${updatedData.currentSolution}
+Biggest Challenge: ${updatedData.biggestChallenge}
+AI Timeline: ${updatedData.aiTimeline}
+Interests: ${updatedData.interests.join(", ") || "AI Dispatching only"}
+Fit Score: ${updatedData.isGoodFit ? "QUALIFIED" : "NOT READY - " + updatedData.fitReason}
+
+=== CONVERSATION NOTES ===
+${updatedData.notes.join("\n") || "None"}`;
+
+      await supabase.functions.invoke('contact-form', {
+        body: {
+          name: updatedData.name,
+          email: updatedData.email,
+          phone: updatedData.phone,
+          message: qualificationNotes,
+          businessType: updatedData.businessType,
+          businessTypeOther: updatedData.businessTypeOther,
+          teamSize: updatedData.teamSize,
+          callVolume: updatedData.callVolume,
+          currentSolution: updatedData.currentSolution,
+          biggestChallenge: updatedData.biggestChallenge,
+          monthlyAdSpend: updatedData.monthlyAdSpend,
+          avgJobValue: updatedData.avgJobValue,
+          aiTimeline: updatedData.aiTimeline,
+          interests: updatedData.interests,
+          notes: updatedData.notes.join(" | "),
+          isGoodFit: updatedData.isGoodFit,
+          fitReason: updatedData.fitReason,
+        },
+      });
+    } catch (error) {
+      console.error("Error saving partial lead:", error);
+    }
+  };
+
+  // Handle chat close - save data if we have email
+  const handleClose = () => {
+    if (!hasSubmitted && leadData.email) {
+      savePartialLead();
+    }
+    setIsOpen(false);
+  };
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -231,6 +316,7 @@ ${updatedData.notes.join("\n") || "None"}`;
 
       if (error) throw error;
 
+      setHasSubmitted(true);
       setCurrentStep(13);
       await addBotMessage(
         `Awesome, ${updatedData.name}! Just curious — what made you start looking into AI call handling? Was there a specific moment or situation?`,
@@ -239,7 +325,6 @@ ${updatedData.notes.join("\n") || "None"}`;
         "text",
         "Share what prompted this..."
       );
-      toast({ title: "Got it!", description: "Info captured." });
     } catch (error) {
       console.error("Error submitting lead:", error);
       await addBotMessage("Hmm, something glitched. Mind trying again?");
@@ -250,6 +335,7 @@ ${updatedData.notes.join("\n") || "None"}`;
   };
 
   const handleOptionClick = async (option: string) => {
+    trackActivity();
     // Multi-select for interests
     if (currentStep === 9) {
       if (option === "Done") {
@@ -387,6 +473,26 @@ ${updatedData.notes.join("\n") || "None"}`;
         );
         break;
 
+      case 14:
+        addUserMessage(option);
+        addNote(`Top priority: ${option}`);
+        setCurrentStep(15);
+        await addBotMessage(
+          `${option} — that's exactly what we focus on. One more thing: how soon would you want to see results if you started today?`,
+          ["This week", "Within a month", "Just want to see how it works first"]
+        );
+        break;
+
+      case 15:
+        addUserMessage(option);
+        addNote(`Timeline expectation: ${option}`);
+        setCurrentStep(100);
+        await addBotMessage(
+          "Love it! You're now in our priority list. Here's what I'd recommend checking out next:",
+          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+        );
+        break;
+
       case 100:
         if (option === "See Pricing") {
           document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
@@ -401,15 +507,13 @@ ${updatedData.notes.join("\n") || "None"}`;
         break;
 
       default:
-        await addBotMessage(
-          "Anything else I can help with?",
-          ["See Pricing", "Hear Demo", "Calculate My Losses"]
-        );
+        break;
     }
   };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSubmitting || isTyping) return;
+    trackActivity();
 
     const value = inputValue.trim();
     addUserMessage(value);
@@ -594,7 +698,7 @@ ${updatedData.notes.join("\n") || "None"}`;
             </div>
           </div>
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
           >
             <X className="w-4 h-4 text-primary-foreground" />
