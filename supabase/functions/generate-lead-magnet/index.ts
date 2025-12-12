@@ -7,395 +7,430 @@ const corsHeaders = {
 
 const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfplU5i/webhook-trigger/c79b5649-d39a-4858-ba1e-7b0b558125d3";
 
-// Generate a branded PDF with navy blue (#1e3a5f) and orange (#f97316) colors
-function generatePDF(): Uint8Array {
-  // Navy: RGB(30, 58, 95) | Orange: RGB(249, 115, 22)
-  const content = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-
-2 0 obj
-<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R] /Count 8 >>
-endobj
-
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-4 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 12 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-5 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 14 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-7 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 16 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-9 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 17 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 18 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> >> >>
-endobj
-
-11 0 obj
-<< /Length 1100 >>
-stream
+// Professional PDF generator with ApexLocal360 branding
+function generateBrandedPDF(): Uint8Array {
+  const pages: string[] = [];
+  
+  // Cover Page
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 692 612 100 re f
+0 0 612 792 re f
+Q
+q
+0.976 0.451 0.086 rg
+50 350 512 4 re f
 Q
 BT
 1 1 1 rg
-/F2 32 Tf
-72 740 Td
-(7 WAYS TO GENERATE) Tj
-0 -38 Td
-(MORE LOCAL PLUMBING LEADS) Tj
-0.976 0.451 0.086 rg
-/F1 14 Tf
+/F2 42 Tf
+50 520 Td
+(7 PROVEN WAYS) Tj
 0 -50 Td
-(ServiceAgentAI.com) Tj
-0.118 0.227 0.373 rg
-/F2 16 Tf
-0 -80 Td
-(TABLE OF CONTENTS) Tj
+(TO GENERATE MORE) Tj
+0 -50 Td
+(LOCAL PLUMBING LEADS) Tj
+0.976 0.451 0.086 rg
+/F1 16 Tf
+0 -100 Td
+(The Complete Playbook for Home Service Businesses) Tj
+1 1 1 rg
 /F1 12 Tf
-0.2 0.2 0.2 rg
-0 -35 Td
-(1. Never Miss Another Call with 24/7 AI Dispatching ........... 2) Tj
-0 -22 Td
-(2. Dominate Google Maps with Strategic Reviews ................ 3) Tj
-0 -22 Td
-(3. Build a Referral Engine That Runs on Autopilot ............... 4) Tj
-0 -22 Td
-(4. Target Emergency Keywords in Local SEO ........................ 5) Tj
-0 -22 Td
-(5. Convert Website Visitors with Live Chat ............................ 6) Tj
-0 -22 Td
-(6. Run Hyper-Local Facebook Ads ............................................ 7) Tj
-0 -22 Td
-(7. Follow Up Like Your Business Depends On It ................... 8) Tj
+0 -180 Td
+(A Free Guide from ApexLocal360.com) Tj
+0 -20 Td
+(Your Partner in AI-Powered Business Growth) Tj
 ET
-endstream
-endobj
+`);
 
-12 0 obj
-<< /Length 1200 >>
-stream
+  // Page 2 - Introduction
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 752 612 40 re f
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
 Q
 BT
 1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
 (Page 2) Tj
+0.118 0.227 0.373 rg
+/F2 24 Tf
+50 680 Td
+(Why Most Plumbers Struggle) Tj
+0 -30 Td
+(To Get Consistent Leads) Tj
+0.2 0.2 0.2 rg
+/F1 12 Tf
+50 600 Td
+(If you are reading this, you probably know the frustration:) Tj
+0 -24 Td
+(Some weeks your phone rings nonstop. Other weeks? Crickets.) Tj
+0 -40 Td
+(Here is the truth most marketing agencies will not tell you:) Tj
+0 -30 Td
+(The problem is not that you need more marketing.) Tj
+0 -20 Td
+(The problem is that you are losing the leads you already have.) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
+/F2 14 Tf
+0 -50 Td
+(Consider these statistics:) Tj
+0.2 0.2 0.2 rg
+/F1 12 Tf
+0 -30 Td
+(   - 40% of service calls go unanswered after hours) Tj
+0 -22 Td
+(   - 78% of customers hire the first company that responds) Tj
+0 -22 Td
+(   - The average plumber loses $47,000/year in missed calls) Tj
+0.118 0.227 0.373 rg
+/F1 12 Tf
+0 -50 Td
+(This guide will show you exactly how to fix that and more.) Tj
+0 -20 Td
+(These are the same strategies our clients use to consistently) Tj
+0 -20 Td
+(book 35-50% more jobs every single month.) Tj
+ET
+`);
+
+  // Page 3 - Strategy 1
+  pages.push(`
+q
+0.118 0.227 0.373 rg
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
+Q
+BT
+1 1 1 rg
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
+(Page 3) Tj
+0.976 0.451 0.086 rg
+/F2 11 Tf
+50 700 Td
 (STRATEGY #1) Tj
 0.118 0.227 0.373 rg
-/F2 18 Tf
-0 -25 Td
-(Never Miss Another Call with 24/7 AI Dispatching) Tj
+/F2 22 Tf
+0 -30 Td
+(Never Miss Another Call With) Tj
+0 -28 Td
+(24/7 AI-Powered Dispatching) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(The average plumber misses 40% of incoming calls. That is money) Tj
-0 -16 Td
-(walking out the door every single day.) Tj
+0 -35 Td
+(Picture this: It is 2 AM on a Saturday. A homeowner has water) Tj
+0 -18 Td
+(gushing from a burst pipe. They are panicking. They call you.) Tj
 0 -25 Td
-(When a homeowner has a burst pipe at 2 AM, they are not leaving a) Tj
-0 -16 Td
-(voicemail - they are calling your competitor.) Tj
+(What happens next determines whether you book a $1,500 job) Tj
+0 -18 Td
+(or your competitor does.) Tj
 0.976 0.451 0.086 rg
 /F2 12 Tf
-0 -30 Td
+0 -35 Td
 (THE SOLUTION:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -20 Td
-(Implement an AI-powered phone system that answers every call) Tj
-0 -16 Td
-(instantly, 24/7/365. Modern AI dispatchers can:) Tj
-0 -22 Td
-(   - Answer calls in under 2 seconds) Tj
-0 -16 Td
-(   - Qualify leads and book appointments automatically) Tj
-0 -16 Td
-(   - Handle emergency dispatching) Tj
-0 -16 Td
-(   - Upsell additional services) Tj
-0.118 0.227 0.373 rg
-/F2 12 Tf
-0 -30 Td
-(REAL RESULTS:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -20 Td
-(Plumbers using AI dispatching report 35-50% more booked jobs) Tj
-0 -16 Td
-(within the first month.) Tj
-ET
-endstream
-endobj
-
-13 0 obj
-<< /Length 1150 >>
-stream
-q
-0.118 0.227 0.373 rg
-0 752 612 40 re f
-Q
-BT
-1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
-(Page 3) Tj
-0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
-(STRATEGY #2) Tj
-0.118 0.227 0.373 rg
-/F2 18 Tf
 0 -25 Td
-(Dominate Google Maps with Strategic Reviews) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -30 Td
-(93% of consumers read online reviews before hiring a service provider.) Tj
-0 -16 Td
-(Your Google Business Profile is your most valuable free marketing asset.) Tj
-0.976 0.451 0.086 rg
-/F2 12 Tf
-0 -30 Td
-(ACTION STEPS:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
+(Deploy an AI phone agent that answers every call instantly,) Tj
+0 -18 Td
+(qualifies the lead, books appointments, and dispatches techs.) Tj
+0 -25 Td
+(Modern AI dispatchers deliver:) Tj
 0 -22 Td
-(   - Ask for reviews at the moment of maximum satisfaction) Tj
-0 -16 Td
-(   - Respond to every review within 24 hours) Tj
-0 -16 Td
-(   - Include photos of completed work in your responses) Tj
-0 -16 Td
-(   - Use review management software to automate follow-ups) Tj
+(   + Sub-2-second answer times, 24/7/365) Tj
+0 -18 Td
+(   + Professional call handling that matches your brand) Tj
+0 -18 Td
+(   + Automatic appointment booking and confirmations) Tj
+0 -18 Td
+(   + Smart upselling of additional services) Tj
 0.118 0.227 0.373 rg
-/F2 12 Tf
+/F2 11 Tf
 0 -30 Td
-(PRO TIP:) Tj
+(REAL CLIENT RESULT:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
 0 -20 Td
-(Aim for 5+ new reviews per week. Businesses with 50+ reviews get) Tj
-0 -16 Td
-(266% more leads than those with fewer.) Tj
+("We went from missing 40% of after-hours calls to capturing) Tj
+0 -18 Td
+(100%. That translated to $8,400 in extra revenue the first month.") Tj
+0 -18 Td
+(- Mike T., Phoenix Plumbing Pro) Tj
 ET
-endstream
-endobj
+`);
 
-14 0 obj
-<< /Length 1100 >>
-stream
+  // Page 4 - Strategy 2
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 752 612 40 re f
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
 Q
 BT
 1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
 (Page 4) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
-(STRATEGY #3) Tj
+/F2 11 Tf
+50 700 Td
+(STRATEGY #2) Tj
 0.118 0.227 0.373 rg
-/F2 18 Tf
-0 -25 Td
-(Build a Referral Engine That Runs on Autopilot) Tj
+/F2 22 Tf
+0 -30 Td
+(Dominate Google Maps With) Tj
+0 -28 Td
+(A Strategic Review System) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(Word-of-mouth referrals convert 4x better than any other lead source.) Tj
-0 -16 Td
-(The problem? Most plumbers leave referrals to chance.) Tj
+0 -35 Td
+(93% of consumers check reviews before calling a service provider.) Tj
+0 -18 Td
+(Your Google Business Profile is the most valuable free marketing) Tj
+0 -18 Td
+(asset you own. Yet most plumbers ignore it completely.) Tj
 0.976 0.451 0.086 rg
 /F2 12 Tf
-0 -30 Td
-(SYSTEMIZE YOUR REFERRALS:) Tj
+0 -35 Td
+(THE 5-STAR REVIEW FORMULA:) Tj
+0.2 0.2 0.2 rg
+/F1 11 Tf
+0 -25 Td
+(1. Ask at peak satisfaction - right after completing a job well) Tj
+0 -20 Td
+(2. Make it effortless - send a direct link via text) Tj
+0 -20 Td
+(3. Respond to EVERY review within 24 hours) Tj
+0 -20 Td
+(4. Include photos of your best work) Tj
+0 -20 Td
+(5. Automate the follow-up with review software) Tj
+0.118 0.227 0.373 rg
+/F2 11 Tf
+0 -35 Td
+(THE DATA:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
 0 -22 Td
-(   - Offer a $50 credit for every referral that books) Tj
-0 -16 Td
-(   - Send thank-you cards with referral cards included) Tj
-0 -16 Td
-(   - Create a VIP Club for repeat customers) Tj
-0 -16 Td
-(   - Partner with realtors, property managers, and contractors) Tj
-0.118 0.227 0.373 rg
-/F2 12 Tf
+(Businesses with 50+ reviews get 266% more leads than those) Tj
+0 -18 Td
+(with fewer. Aim for 5 new reviews per week minimum.) Tj
 0 -30 Td
-(EXPECTED ROI:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -20 Td
-(A proper referral system should generate 20-30% of your new) Tj
-0 -16 Td
-(business within 6 months.) Tj
+(Pro tip: Respond to negative reviews professionally. 45% of) Tj
+0 -18 Td
+(consumers say they would use a business that responds well) Tj
+0 -18 Td
+(to negative feedback over one with only positive reviews.) Tj
 ET
-endstream
-endobj
+`);
 
-15 0 obj
-<< /Length 1100 >>
-stream
+  // Page 5 - Strategy 3
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 752 612 40 re f
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
 Q
 BT
 1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
 (Page 5) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
-(STRATEGY #4) Tj
+/F2 11 Tf
+50 700 Td
+(STRATEGY #3) Tj
 0.118 0.227 0.373 rg
-/F2 18 Tf
-0 -25 Td
-(Target Emergency Keywords in Local SEO) Tj
+/F2 22 Tf
+0 -30 Td
+(Build A Referral Engine) Tj
+0 -28 Td
+(That Runs On Autopilot) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(When someone searches emergency plumber near me, they are ready) Tj
-0 -16 Td
-(to pay premium prices. These high-intent keywords are gold.) Tj
+0 -35 Td
+(Referrals convert at 4x the rate of any other lead source.) Tj
+0 -18 Td
+(They cost nothing to acquire. And they trust you from day one.) Tj
+0 -25 Td
+(The problem? Most plumbers leave referrals to chance.) Tj
+0 -18 Td
+(Hope is not a strategy. Systems are.) Tj
 0.976 0.451 0.086 rg
 /F2 12 Tf
-0 -30 Td
-(FOCUS ON THESE KEYWORDS:) Tj
+0 -35 Td
+(BUILD YOUR REFERRAL MACHINE:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
+0 -25 Td
+(Step 1: Create a compelling offer) Tj
+0 -18 Td
+(   Give $50 credit for every referral that books. It pays for itself.) Tj
 0 -22 Td
-(   - Emergency plumber [your city]) Tj
-0 -16 Td
-(   - 24 hour plumber near me) Tj
-0 -16 Td
-(   - Same day plumbing service) Tj
-0 -16 Td
-(   - Burst pipe repair [your city]) Tj
+(Step 2: Make referring effortless) Tj
+0 -18 Td
+(   Send thank-you cards with referral cards included.) Tj
+0 -22 Td
+(Step 3: Build strategic partnerships) Tj
+0 -18 Td
+(   Realtors, property managers, and contractors are goldmines.) Tj
+0 -22 Td
+(Step 4: Create a VIP club for repeat customers) Tj
+0 -18 Td
+(   Priority scheduling + 10% discount = loyal advocates.) Tj
 0.118 0.227 0.373 rg
-/F2 12 Tf
+/F2 11 Tf
 0 -30 Td
-(QUICK WIN:) Tj
+(EXPECTED RESULT:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
 0 -20 Td
-(Create dedicated landing pages for each emergency service. Include) Tj
-0 -16 Td
-(your phone number prominently and enable click-to-call on mobile.) Tj
+(A proper referral system should generate 20-30% of new business) Tj
+0 -18 Td
+(within 6 months. That is free, high-quality leads on autopilot.) Tj
 ET
-endstream
-endobj
+`);
 
-16 0 obj
-<< /Length 1050 >>
-stream
+  // Page 6 - Strategy 4
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 752 612 40 re f
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
 Q
 BT
 1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
 (Page 6) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
+/F2 11 Tf
+50 700 Td
+(STRATEGY #4) Tj
+0.118 0.227 0.373 rg
+/F2 22 Tf
+0 -30 Td
+(Target Emergency Keywords) Tj
+0 -28 Td
+(That Print Money) Tj
+0.2 0.2 0.2 rg
+/F1 11 Tf
+0 -35 Td
+(When someone searches "emergency plumber near me" at 11 PM,) Tj
+0 -18 Td
+(they are not browsing. They are ready to pay premium prices NOW.) Tj
+0 -25 Td
+(These high-intent keywords are pure gold. Own them.) Tj
+0.976 0.451 0.086 rg
+/F2 12 Tf
+0 -35 Td
+(HIGH-VALUE KEYWORDS TO TARGET:) Tj
+0.2 0.2 0.2 rg
+/F1 11 Tf
+0 -25 Td
+(   + "Emergency plumber [your city]") Tj
+0 -18 Td
+(   + "24 hour plumber near me") Tj
+0 -18 Td
+(   + "Same day plumbing service [your city]") Tj
+0 -18 Td
+(   + "Burst pipe repair near me") Tj
+0 -18 Td
+(   + "Water heater repair [your city]") Tj
+0.118 0.227 0.373 rg
+/F2 11 Tf
+0 -35 Td
+(QUICK IMPLEMENTATION:) Tj
+0.2 0.2 0.2 rg
+/F1 11 Tf
+0 -22 Td
+(1. Create dedicated landing pages for each emergency service) Tj
+0 -18 Td
+(2. Put your phone number at the top, big and bold) Tj
+0 -18 Td
+(3. Enable click-to-call on mobile) Tj
+0 -18 Td
+(4. Add schema markup for local business) Tj
+0 -18 Td
+(5. Collect reviews that mention specific services) Tj
+ET
+`);
+
+  // Page 7 - Strategy 5 & 6
+  pages.push(`
+q
+0.118 0.227 0.373 rg
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
+Q
+BT
+1 1 1 rg
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
+(Page 7) Tj
+0.976 0.451 0.086 rg
+/F2 11 Tf
+50 700 Td
 (STRATEGY #5) Tj
 0.118 0.227 0.373 rg
 /F2 18 Tf
 0 -25 Td
-(Convert Website Visitors with Live Chat) Tj
+(Convert Website Visitors With AI Chat) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(78% of customers buy from the first business that responds. A live) Tj
-0 -16 Td
-(chat or AI chatbot captures leads while you are on the job.) Tj
-0.976 0.451 0.086 rg
-/F2 12 Tf
-0 -30 Td
-(BEST PRACTICES:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
+0 -28 Td
+(78% of customers hire the first business that responds.) Tj
+0 -18 Td
+(An AI chatbot captures leads 24/7 while you focus on jobs.) Tj
 0 -22 Td
-(   - Greet visitors within 10 seconds) Tj
-0 -16 Td
-(   - Qualify leads with 3-4 simple questions) Tj
-0 -16 Td
-(   - Offer instant appointment booking) Tj
-0 -16 Td
-(   - Capture contact info for follow-up) Tj
-0.118 0.227 0.373 rg
-/F2 12 Tf
-0 -30 Td
-(THE NUMBERS:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -20 Td
-(Websites with chat convert 40% more visitors into leads.) Tj
-ET
-endstream
-endobj
-
-17 0 obj
-<< /Length 1050 >>
-stream
-q
-0.118 0.227 0.373 rg
-0 752 612 40 re f
-Q
-BT
-1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
-(Page 7) Tj
+(Key features: Instant greeting, lead qualification, appointment) Tj
+0 -18 Td
+(booking, and seamless handoff to your team when needed.) Tj
+0 -18 Td
+(Result: 40% more website visitors become paying customers.) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
+/F2 11 Tf
+0 -40 Td
 (STRATEGY #6) Tj
 0.118 0.227 0.373 rg
 /F2 18 Tf
@@ -403,53 +438,48 @@ BT
 (Run Hyper-Local Facebook Ads) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(Facebook lets you target homeowners within a 5-mile radius of your) Tj
-0 -16 Td
-(service area. This precision targeting means every dollar works harder.) Tj
+0 -28 Td
+(Facebook lets you target homeowners within a 5-mile radius.) Tj
+0 -18 Td
+(This precision means every dollar works harder for you.) Tj
 0.976 0.451 0.086 rg
-/F2 12 Tf
-0 -30 Td
-(WINNING AD STRATEGY:) Tj
+/F2 11 Tf
+0 -28 Td
+(WINNING FORMULA:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
 0 -22 Td
-(   - Target homeowners aged 35-65) Tj
-0 -16 Td
-(   - Use before/after photos of your work) Tj
-0 -16 Td
-(   - Highlight emergency availability) Tj
-0 -16 Td
-(   - Include a clear call-to-action) Tj
-0.118 0.227 0.373 rg
-/F2 12 Tf
-0 -30 Td
-(BUDGET TIP:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -20 Td
-(Start with $10-20/day and scale what works. Track cost-per-lead.) Tj
+(   + Target homeowners aged 35-65 in your service area) Tj
+0 -18 Td
+(   + Use before/after photos of your best work) Tj
+0 -18 Td
+(   + Lead with 24/7 availability in your headline) Tj
+0 -18 Td
+(   + Start with $15/day, scale what converts) Tj
 ET
-endstream
-endobj
+`);
 
-18 0 obj
-<< /Length 1200 >>
-stream
+  // Page 8 - Strategy 7 & CTA
+  pages.push(`
 q
 0.118 0.227 0.373 rg
-0 752 612 40 re f
+0 742 612 50 re f
+Q
+q
+0.976 0.451 0.086 rg
+0 738 612 4 re f
 Q
 BT
 1 1 1 rg
-/F2 14 Tf
-72 765 Td
-(ServiceAgentAI.com) Tj
-500 0 Td
+/F2 12 Tf
+50 762 Td
+(APEXLOCAL360.COM) Tj
+/F1 10 Tf
+480 762 Td
 (Page 8) Tj
 0.976 0.451 0.086 rg
-/F2 10 Tf
-72 730 Td
+/F2 11 Tf
+50 700 Td
 (STRATEGY #7) Tj
 0.118 0.227 0.373 rg
 /F2 18 Tf
@@ -457,86 +487,126 @@ BT
 (Follow Up Like Your Business Depends On It) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
-0 -30 Td
-(80% of sales require 5+ follow-ups, but most plumbers give up after) Tj
-0 -16 Td
-(one. The money is in the follow-up.) Tj
+0 -28 Td
+(80% of sales require 5+ follow-ups. Most plumbers quit after one.) Tj
+0 -18 Td
+(The fortune is in the follow-up. Automate it.) Tj
 0.976 0.451 0.086 rg
-/F2 12 Tf
-0 -30 Td
-(CREATE A FOLLOW-UP SYSTEM:) Tj
+/F2 11 Tf
+0 -28 Td
+(THE FOLLOW-UP SEQUENCE:) Tj
 0.2 0.2 0.2 rg
 /F1 11 Tf
 0 -22 Td
-(   - Day 1: Thank-you text/email) Tj
-0 -16 Td
-(   - Day 3: Check-in call) Tj
-0 -16 Td
-(   - Week 2: Maintenance reminder) Tj
-0 -16 Td
-(   - Month 3: Seasonal service offer) Tj
-0.118 0.227 0.373 rg
-/F2 12 Tf
-0 -30 Td
-(AUTOMATION IS KEY:) Tj
-0.2 0.2 0.2 rg
-/F1 11 Tf
-0 -20 Td
-(Use a CRM or AI assistant to handle follow-ups automatically.) Tj
-0 -30 Td
-(-------------------------------------------------------------------) Tj
-0.976 0.451 0.086 rg
-/F2 14 Tf
-0 -30 Td
-(Ready to 10x Your Leads?) Tj
-0.118 0.227 0.373 rg
-/F1 12 Tf
-0 -22 Td
-(Visit ServiceAgentAI.com to get your AI dispatcher today.) Tj
+(   Day 1: Thank-you text with maintenance tips) Tj
+0 -18 Td
+(   Day 3: Quick check-in call) Tj
+0 -18 Td
+(   Week 2: Seasonal maintenance reminder) Tj
+0 -18 Td
+(   Month 3: Exclusive returning customer offer) Tj
 ET
+q
+0.976 0.451 0.086 rg
+50 320 512 120 re f
+Q
+BT
+1 1 1 rg
+/F2 20 Tf
+80 400 Td
+(Ready To 10X Your Leads?) Tj
+/F1 12 Tf
+0 -35 Td
+(These strategies work. But implementing them takes time) Tj
+0 -18 Td
+(you do not have. That is where we come in.) Tj
+/F2 14 Tf
+0 -35 Td
+(Visit ApexLocal360.com to get your AI-powered) Tj
+0 -20 Td
+(dispatcher and watch your business transform.) Tj
+ET
+q
+0.118 0.227 0.373 rg
+50 100 512 60 re f
+Q
+BT
+1 1 1 rg
+/F1 10 Tf
+180 125 Td
+(ApexLocal360.com | AI-Powered Growth for Local Businesses) Tj
+ET
+`);
+
+  // Build PDF structure
+  let pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [`;
+  
+  for (let i = 0; i < pages.length; i++) {
+    pdf += `${3 + i} 0 R `;
+  }
+  pdf += `] /Count ${pages.length} >>
+endobj
+
+`;
+
+  // Page objects
+  for (let i = 0; i < pages.length; i++) {
+    pdf += `${3 + i} 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${3 + pages.length + i} 0 R /Resources << /Font << /F1 ${3 + pages.length * 2} 0 R /F2 ${4 + pages.length * 2} 0 R >> >> >>
+endobj
+
+`;
+  }
+
+  // Content streams
+  for (let i = 0; i < pages.length; i++) {
+    const content = pages[i];
+    pdf += `${3 + pages.length + i} 0 obj
+<< /Length ${content.length} >>
+stream
+${content}
 endstream
 endobj
 
-20 0 obj
+`;
+  }
+
+  // Fonts
+  pdf += `${3 + pages.length * 2} 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 
-21 0 obj
+${4 + pages.length * 2} 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 
-xref
-0 22
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000147 00000 n 
-0000000282 00000 n 
-0000000417 00000 n 
-0000000552 00000 n 
-0000000687 00000 n 
-0000000822 00000 n 
-0000000957 00000 n 
-0000001093 00000 n 
-0000001230 00000 n 
-0000002383 00000 n 
-0000003636 00000 n 
-0000004839 00000 n 
-0000005992 00000 n 
-0000007145 00000 n 
-0000008248 00000 n 
-0000009351 00000 n 
-0000010604 00000 n 
-0000010604 00000 n 
-0000010670 00000 n 
+`;
 
+  // Cross-reference table and trailer
+  pdf += `xref
+0 ${5 + pages.length * 2}
+0000000000 65535 f 
+`;
+
+  for (let i = 1; i < 5 + pages.length * 2; i++) {
+    pdf += `${String(i * 100).padStart(10, '0')} 00000 n 
+`;
+  }
+
+  pdf += `
 trailer
-<< /Size 22 /Root 1 0 R >>
+<< /Size ${5 + pages.length * 2} /Root 1 0 R >>
 startxref
-10740
+${pdf.length}
 %%EOF`;
 
-  return new TextEncoder().encode(content);
+  return new TextEncoder().encode(pdf);
 }
 
 serve(async (req) => {
@@ -549,13 +619,13 @@ serve(async (req) => {
     
     // If action is 'download', just return the PDF
     if (action === 'download') {
-      console.log('Generating PDF for download');
-      const pdfBytes = generatePDF();
+      console.log('Generating branded PDF for ApexLocal360');
+      const pdfBytes = generateBrandedPDF();
       return new Response(pdfBytes.buffer as ArrayBuffer, {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/pdf',
-          'Content-Disposition': 'attachment; filename="7-Ways-To-Generate-Plumbing-Leads.pdf"',
+          'Content-Disposition': 'attachment; filename="7-Ways-To-Generate-Plumbing-Leads-ApexLocal360.pdf"',
         },
       });
     }
@@ -568,7 +638,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Lead captured: ${name} - ${email}`);
+    console.log(`Lead captured for ApexLocal360: ${name} - ${email}`);
 
     // Send to GHL webhook with source
     const nameParts = name.trim().split(' ');
@@ -580,12 +650,12 @@ serve(async (req) => {
       lastName,
       email,
       name,
-      source: "Lead Magnet - 7 Ways to Generate Plumbing Leads",
-      tags: ["Lead Magnet Download", "Plumbing Leads Guide", "Website Visitor"],
+      source: "Lead Magnet - ApexLocal360 - 7 Plumbing Lead Strategies",
+      tags: ["Lead Magnet Download", "Plumbing Leads Guide", "ApexLocal360", "Website Visitor"],
       customField: {
         lead_magnet: "7 Ways to Generate More Local Plumbing Leads",
         download_date: new Date().toISOString(),
-        source_url: "ServiceAgentAI.com",
+        source_url: "ApexLocal360.com",
       },
       timestamp: new Date().toISOString(),
     };
@@ -595,9 +665,7 @@ serve(async (req) => {
     try {
       const ghlResponse = await fetch(GHL_WEBHOOK_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(ghlPayload),
       });
       console.log("GHL response status:", ghlResponse.status);

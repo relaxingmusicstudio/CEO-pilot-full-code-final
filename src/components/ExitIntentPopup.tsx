@@ -184,9 +184,9 @@ const ExitIntentPopup = () => {
               />
               <div className="min-w-0">
                 <div className="font-semibold text-foreground text-sm leading-tight">
-                  7 Ways to Generate More Local Plumbing Leads
+                  7 Proven Ways to Generate More Local Plumbing Leads
                 </div>
-                <div className="text-muted-foreground text-xs mt-1">12 pages • Instant Download</div>
+                <div className="text-muted-foreground text-xs mt-1">8 pages • Instant Download</div>
                 <div className="flex items-center gap-1 mt-1 text-accent text-xs font-medium">
                   <Download className="w-3 h-3" />
                   2,847 downloads
