@@ -650,10 +650,10 @@ serve(async (req) => {
       lastName,
       email,
       name,
-      source: "Lead Magnet - ApexLocal360 - 7 Plumbing Lead Strategies",
-      tags: ["Lead Magnet Download", "Plumbing Leads Guide", "ApexLocal360", "Website Visitor"],
+      source: "Lead Magnet - ApexLocal360 - Local Service Playbook",
+      tags: ["Lead Magnet Download", "Local Service Playbook", "ApexLocal360", "Website Visitor", "Playbook Download"],
       customField: {
-        lead_magnet: "7 Ways to Generate More Local Plumbing Leads",
+        lead_magnet: "The Local Service Playbook",
         download_date: new Date().toISOString(),
         source_url: "ApexLocal360.com",
       },

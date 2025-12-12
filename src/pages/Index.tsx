@@ -12,6 +12,7 @@ import Chatbot from "@/components/Chatbot";
 import StickyFooter from "@/components/StickyFooter";
 import Footer from "@/components/Footer";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
+import PlaybookSection from "@/components/PlaybookSection";
 
 const Index = () => {
   return (
@@ -38,6 +39,9 @@ const Index = () => {
           </section>
           <section id="testimonials" aria-label="Customer Testimonials">
             <SocialProof />
+          </section>
+          <section id="playbook" aria-label="Free Local Service Playbook">
+            <PlaybookSection />
           </section>
           <section id="faq" aria-label="Frequently Asked Questions">
             <FAQSection />
