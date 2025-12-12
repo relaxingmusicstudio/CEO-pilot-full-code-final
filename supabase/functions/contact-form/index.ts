@@ -225,6 +225,16 @@ ${notes || "None"}
       timestamp: new Date().toISOString(),
     };
     
+    // Lead source tracking
+    console.log("=== LEAD SOURCE TRACKING ===");
+    console.log(`Source: ${isChatbot ? "CHATBOT" : "CONTACT FORM"}`);
+    console.log(`FormName: ${formName}`);
+    console.log(`Email: ${email}`);
+    console.log(`Business Type: ${businessType || "Not specified"}`);
+    console.log(`Qualified: ${isGoodFit ? "YES" : "NO"}`);
+    console.log(`Tags: ${tags.join(", ")}`);
+    console.log("============================");
+    
     console.log("Sending to GHL webhook");
     
     if (!GHL_WEBHOOK_URL) {
