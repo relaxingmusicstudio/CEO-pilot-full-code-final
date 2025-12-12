@@ -123,9 +123,27 @@ const handler = async (req: Request): Promise<Response> => {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
     
-    // Determine source and tags based on qualification
-    const isChatbot = !!phone && !!businessType;
-    const source = isChatbot ? "Chatbot - Consultative" : "Website Form";
+    // Get formName from request to determine source
+    const rawFormName = sanitizeString(requestData.formName, 100);
+    
+    // Determine source type based on formName
+    const isChatbot = rawFormName?.toLowerCase().includes('chatbot') || rawFormName?.toLowerCase().includes('alex');
+    const isPDF = rawFormName?.toLowerCase().includes('pdf') || rawFormName?.toLowerCase().includes('playbook') || rawFormName?.toLowerCase().includes('lead magnet');
+    const isNewsletter = rawFormName?.toLowerCase().includes('newsletter');
+    
+    // Set source for GHL
+    let source = "Website Form";
+    let sourceType = "CONTACT FORM";
+    if (isChatbot) {
+      source = "Chatbot - Consultative";
+      sourceType = "CHATBOT";
+    } else if (isPDF) {
+      source = "Lead Magnet Download";
+      sourceType = "PDF DOWNLOAD";
+    } else if (isNewsletter) {
+      source = "Newsletter Signup";
+      sourceType = "NEWSLETTER";
+    }
     
     // Build smart tags
     const tags: string[] = [];
@@ -158,8 +176,14 @@ const handler = async (req: Request): Promise<Response> => {
       if (callVolume === "20+ calls" || callVolume === "10-20 calls") {
         tags.push("High Volume");
       }
+    } else if (isPDF) {
+      tags.push("PDF Download");
+      tags.push("Lead Magnet");
+    } else if (isNewsletter) {
+      tags.push("Newsletter Signup");
     } else {
       tags.push("Website Lead");
+      tags.push("Contact Form");
     }
 
     const serviceOffered = businessTypeOther 
@@ -184,8 +208,8 @@ Fit Assessment: ${isGoodFit ? "QUALIFIED" : `Not Ready (${fitReason})`}
 ${notes || "None"}
     `.trim();
     
-    // Get formName and website from request
-    const formName = sanitizeString(requestData.formName, 100) || (isChatbot ? "Chatbot - Alex" : "Contact Page Form");
+    // Use rawFormName or set default based on source type
+    const formName = rawFormName || (isChatbot ? "Chatbot - Alex" : isPDF ? "PDF Download" : isNewsletter ? "Newsletter" : "Contact Page Form");
     const website = sanitizeString(requestData.website, 255);
     
     const webhookPayload = {
@@ -227,7 +251,7 @@ ${notes || "None"}
     
     // Lead source tracking
     console.log("=== LEAD SOURCE TRACKING ===");
-    console.log(`Source: ${isChatbot ? "CHATBOT" : "CONTACT FORM"}`);
+    console.log(`Source: ${sourceType}`);
     console.log(`FormName: ${formName}`);
     console.log(`Email: ${email}`);
     console.log(`Business Type: ${businessType || "Not specified"}`);
