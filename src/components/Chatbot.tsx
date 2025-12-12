@@ -137,6 +137,12 @@ Source: Chatbot Qualification`;
           email: finalData.email,
           phone: finalData.phone,
           message: qualificationSummary,
+          // Send all qualification fields separately
+          businessType: finalData.businessType,
+          teamSize: finalData.teamSize,
+          callVolume: finalData.callVolume,
+          aiTimeline: finalData.aiTimeline,
+          interests: finalData.interests,
         },
       });
 
