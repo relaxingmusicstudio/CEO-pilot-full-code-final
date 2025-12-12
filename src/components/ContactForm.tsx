@@ -53,8 +53,8 @@ const ContactForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Send to Zapier webhook (connects to GHL)
-      await fetch("https://hooks.zapier.com/hooks/catch/25678985/ufl2eoi/", {
+      // Send directly to GHL webhook
+      await fetch("https://services.leadconnectorhq.com/hooks/R76edRoS33Lv8KfpIU5i/webhook-trigger/WeAIRnNsvI426RVqtQhX", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,7 +64,6 @@ const ContactForm = () => {
           name: result.data.name,
           email: result.data.email,
           message: result.data.message,
-          timestamp: new Date().toISOString(),
         }),
       });
 
