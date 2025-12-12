@@ -16,9 +16,11 @@ import {
 
 
 const contactSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
+  firstName: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
   email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
   phone: z.string().trim().min(1, "Phone is required").max(20, "Phone must be less than 20 characters"),
+  businessName: z.string().trim().min(1, "Business name is required").max(100, "Business name must be less than 100 characters"),
   businessType: z.string().min(1, "Business type is required"),
   teamSize: z.string().min(1, "Team size is required"),
   callVolume: z.string().min(1, "Call volume is required"),
@@ -80,9 +82,11 @@ const ContactForm = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<ContactFormData>({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
+    businessName: "",
     businessType: "",
     teamSize: "",
     callVolume: "",
@@ -130,9 +134,11 @@ const ContactForm = () => {
     try {
       const { data, error } = await supabase.functions.invoke('contact-form', {
         body: {
-          name: result.data.name,
+          firstName: result.data.firstName,
+          lastName: result.data.lastName,
           email: result.data.email,
           phone: result.data.phone,
+          businessName: result.data.businessName,
           message: result.data.message || "",
           businessType: result.data.businessType,
           teamSize: result.data.teamSize,
@@ -155,9 +161,11 @@ const ContactForm = () => {
       });
 
       setFormData({
-        name: "",
+        firstName: "",
+        lastName: "",
         email: "",
         phone: "",
+        businessName: "",
         businessType: "",
         teamSize: "",
         callVolume: "",
@@ -199,29 +207,53 @@ const ContactForm = () => {
           {/* Form Card */}
           <div className="bg-card rounded-2xl p-8 md:p-10 shadow-lg border border-border">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Contact Info Row */}
-              <div className="grid md:grid-cols-3 gap-6">
-                {/* Name Field */}
+              {/* Name Row */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* First Name Field */}
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <label htmlFor="firstName" className="text-sm font-medium text-foreground flex items-center gap-2">
                     <User className="w-4 h-4 text-muted-foreground" />
-                    Your Name *
+                    First Name *
                   </label>
                   <Input
-                    id="name"
-                    name="name"
+                    id="firstName"
+                    name="firstName"
                     type="text"
-                    placeholder="John Smith"
-                    value={formData.name}
+                    placeholder="John"
+                    value={formData.firstName}
                     onChange={handleChange}
-                    className={errors.name ? "border-destructive" : ""}
+                    className={errors.firstName ? "border-destructive" : ""}
                     disabled={isSubmitting}
                   />
-                  {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name}</p>
+                  {errors.firstName && (
+                    <p className="text-sm text-destructive">{errors.firstName}</p>
                   )}
                 </div>
 
+                {/* Last Name Field */}
+                <div className="space-y-2">
+                  <label htmlFor="lastName" className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    Last Name *
+                  </label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    placeholder="Smith"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    className={errors.lastName ? "border-destructive" : ""}
+                    disabled={isSubmitting}
+                  />
+                  {errors.lastName && (
+                    <p className="text-sm text-destructive">{errors.lastName}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact Info Row */}
+              <div className="grid md:grid-cols-3 gap-6">
                 {/* Email Field */}
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -261,6 +293,27 @@ const ContactForm = () => {
                   />
                   {errors.phone && (
                     <p className="text-sm text-destructive">{errors.phone}</p>
+                  )}
+                </div>
+
+                {/* Business Name Field */}
+                <div className="space-y-2">
+                  <label htmlFor="businessName" className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Building className="w-4 h-4 text-muted-foreground" />
+                    Business Name *
+                  </label>
+                  <Input
+                    id="businessName"
+                    name="businessName"
+                    type="text"
+                    placeholder="ABC HVAC Services"
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    className={errors.businessName ? "border-destructive" : ""}
+                    disabled={isSubmitting}
+                  />
+                  {errors.businessName && (
+                    <p className="text-sm text-destructive">{errors.businessName}</p>
                   )}
                 </div>
               </div>
