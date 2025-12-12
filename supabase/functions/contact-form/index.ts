@@ -235,9 +235,21 @@ ${notes || "None"}
         website: website,
         tags: tags.join(", "),
         tags_string: tags.join(", "),
+        // Closebot-helpful fields
+        lead_qualified: isGoodFit ? "YES" : "NO",
+        fit_reason: fitReason || "",
+        missed_calls_monthly: missedCalls || "",
+        potential_monthly_loss: potentialLoss ? `$${potentialLoss}` : "",
+        lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+        lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+        first_name: firstName,
+        last_name: lastName,
+        full_name: name,
       },
       
       name: name,
+      first_name: firstName,
+      last_name: lastName,
       message: ghlNotes,
       formName: formName,
       services_offered: businessType || "",
@@ -249,6 +261,13 @@ ${notes || "None"}
       ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
       website: website,
       timestamp: new Date().toISOString(),
+      // Closebot fields at root level too
+      lead_qualified: isGoodFit ? "YES" : "NO",
+      fit_reason: fitReason || "",
+      missed_calls_monthly: missedCalls || "",
+      potential_monthly_loss: potentialLoss ? `$${potentialLoss}` : "",
+      lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+      lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
     };
     
     // Lead source tracking
