@@ -242,6 +242,26 @@ ${notes || "None"}
         potential_monthly_loss: potentialLoss ? `$${potentialLoss}` : "",
         lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
         lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+        // Lead Score (1-100) calculation
+        lead_score: (() => {
+          let score = 0;
+          // Source weight: Chatbot=40, ContactForm=30, PDF=20, Newsletter=10
+          if (isChatbot) score += 40;
+          else if (source === "Contact Form") score += 30;
+          else if (isPDF) score += 20;
+          else if (isNewsletter) score += 10;
+          // Has phone = +15
+          if (phone) score += 15;
+          // Has business type = +10
+          if (businessType) score += 10;
+          // Is qualified = +20
+          if (isGoodFit) score += 20;
+          // Has missed calls data = +10
+          if (missedCalls && parseInt(missedCalls) > 0) score += 10;
+          // High missed calls (20+) = +5 bonus
+          if (missedCalls && parseInt(missedCalls) >= 20) score += 5;
+          return Math.min(score, 100);
+        })(),
         first_name: firstName,
         last_name: lastName,
         full_name: name,
@@ -268,6 +288,20 @@ ${notes || "None"}
       potential_monthly_loss: potentialLoss ? `$${potentialLoss}` : "",
       lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
       lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+      // Lead Score at root level
+      lead_score: (() => {
+        let score = 0;
+        if (isChatbot) score += 40;
+        else if (source === "Contact Form") score += 30;
+        else if (isPDF) score += 20;
+        else if (isNewsletter) score += 10;
+        if (phone) score += 15;
+        if (businessType) score += 10;
+        if (isGoodFit) score += 20;
+        if (missedCalls && parseInt(missedCalls) > 0) score += 10;
+        if (missedCalls && parseInt(missedCalls) >= 20) score += 5;
+        return Math.min(score, 100);
+      })(),
     };
     
     // Lead source tracking
