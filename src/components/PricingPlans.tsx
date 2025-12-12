@@ -142,7 +142,11 @@ const PricingPlans = () => {
                   Running a larger operation?
                 </span>
               </div>
-              <Button variant="outline" size="lg">
+              <Button 
+                variant="outline" 
+                size="lg"
+                onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })}
+              >
                 📞 NEED A CUSTOM QUOTE FOR 5+ TRUCKS?
               </Button>
             </div>
