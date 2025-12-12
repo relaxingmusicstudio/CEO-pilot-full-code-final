@@ -1,16 +1,1 @@
-project_id = "dsgvkzzaimubwzbosepn"
-
-[functions.vapi-call]
-verify_jwt = false
-
-[functions.contact-form]
-verify_jwt = false
-
-[functions.stripe-webhook]
-verify_jwt = false
-
-[functions.test-ghl-webhook]
-verify_jwt = false
-
-[functions.alex-chat]
-verify_jwt = false
+project_id = "xtybowbfihlmtdtdmoyn"
