@@ -318,6 +318,30 @@ ${leadData.notes.join("\n") || "None"}`;
     }
   };
 
+  // Format phone number as XXX-XXX-XXXX
+  const formatPhoneNumber = (value: string): string => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  // Check if we're in phone collection phase
+  const isPhoneInputPhase = (): boolean => {
+    const lastBotMessage = messages.filter(m => m.sender === "bot").pop();
+    if (!lastBotMessage) return false;
+    const text = lastBotMessage.text.toLowerCase();
+    return text.includes("phone") || text.includes("number to reach") || text.includes("best number");
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    if (isPhoneInputPhase()) {
+      value = formatPhoneNumber(value);
+    }
+    setInputValue(value);
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSubmitting || isTyping) return;
     trackActivity();
@@ -583,9 +607,9 @@ ${leadData.notes.join("\n") || "None"}`;
             <input
               type="text"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder="Type a message..."
+              placeholder={isPhoneInputPhase() ? "XXX-XXX-XXXX" : "Type a message..."}
               disabled={isSubmitting || isTyping}
               className="flex-1 h-10 px-4 rounded-full border-2 border-border bg-background text-foreground focus:border-accent focus:ring-0 outline-none transition-all disabled:opacity-50"
             />
