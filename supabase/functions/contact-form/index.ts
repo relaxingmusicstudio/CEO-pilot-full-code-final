@@ -27,19 +27,29 @@ const handler = async (req: Request): Promise<Response> => {
     const { name, email, message }: ContactFormRequest = await req.json();
     console.log("Received form data:", { name, email, messageLength: message?.length });
 
-    // Send to GHL webhook
+    // Send to GHL webhook with contact wrapper to match GHL's expected format
     console.log("Sending to GHL webhook...");
+    const webhookPayload = {
+      // Wrapped in contact object to match {{contact.email}}, {{contact.name}} variable paths
+      contact: {
+        email: email,
+        name: name,
+        type: "Website Form"
+      },
+      // Also send flat for {{email}}, {{name}} access
+      email: email,
+      name: name,
+      message: message,
+      timestamp: new Date().toISOString(),
+    };
+    console.log("Webhook payload:", JSON.stringify(webhookPayload));
+    
     const ghlResponse = await fetch(GHL_WEBHOOK_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name,
-        email,
-        message,
-        timestamp: new Date().toISOString(),
-      }),
+      body: JSON.stringify(webhookPayload),
     });
     console.log("GHL webhook response status:", ghlResponse.status);
 
