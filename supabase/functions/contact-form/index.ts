@@ -46,6 +46,8 @@ interface ContactFormRequest {
   monthlyAdSpend?: string;
   aiTimeline?: string;
   interests?: string[];
+  formName?: string;
+  website?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -182,6 +184,10 @@ Fit Assessment: ${isGoodFit ? "QUALIFIED" : `Not Ready (${fitReason})`}
 ${notes || "None"}
     `.trim();
     
+    // Get formName and website from request
+    const formName = sanitizeString(requestData.formName, 100) || (isChatbot ? "Chatbot - Alex" : "Contact Page Form");
+    const website = sanitizeString(requestData.website, 255);
+    
     const webhookPayload = {
       firstName: firstName,
       lastName: lastName,
@@ -193,31 +199,29 @@ ${notes || "None"}
       
       customField: {
         message: ghlNotes,
-        "Trade": businessType || "",
+        formName: formName,
+        services_offered: businessType || "",
         "Business Name": businessTypeOther || "",
         "Team Size": teamSize || "",
-        "Daily Call Volume": callVolume || "",
-        "Call Handling": currentSolution || "",
+        call_volume_monthly: callVolume || "",
+        "Current Call Handling": currentSolution || "",
         "Avg Job Value": avgJobValue || "",
-        "Missed Calls/Month": missedCalls || "",
-        "Potential Monthly Loss": potentialLoss ? `$${potentialLoss}` : "",
-        "Lead Score": isGoodFit ? "Qualified" : "Nurture",
-        "Conversation Notes": notes || "",
+        ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
+        website: website,
         tags: tags.join(", "),
       },
       
       name: name,
       message: ghlNotes,
-      "Trade": businessType || "",
+      formName: formName,
+      services_offered: businessType || "",
       "Business Name": businessTypeOther || "",
       "Team Size": teamSize || "",
-      "Daily Call Volume": callVolume || "",
-      "Call Handling": currentSolution || "",
+      call_volume_monthly: callVolume || "",
+      "Current Call Handling": currentSolution || "",
       "Avg Job Value": avgJobValue || "",
-      "Missed Calls/Month": missedCalls || "",
-      "Potential Monthly Loss": potentialLoss ? `$${potentialLoss}` : "",
-      "Lead Score": isGoodFit ? "Qualified" : "Nurture",
-      "Conversation Notes": notes || "",
+      ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
+      website: website,
       timestamp: new Date().toISOString(),
     };
     

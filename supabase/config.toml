@@ -1,4 +1,4 @@
-project_id = "dsgvkzzaimubwzbosepn"
+project_id = "xtybowbfihlmtdtdmoyn"
 
 [functions.vapi-call]
 verify_jwt = false
@@ -13,4 +13,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.alex-chat]
+verify_jwt = false
+
+[functions.generate-lead-magnet]
 verify_jwt = false

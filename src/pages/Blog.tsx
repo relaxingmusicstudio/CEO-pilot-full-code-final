@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
@@ -5,9 +6,61 @@ import Footer from "@/components/Footer";
 import { blogPosts, getAllCategories } from "@/data/blogPosts";
 import { Calendar, Clock, ArrowRight, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 const Blog = () => {
   const categories = getAllCategories();
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim()) {
+      toast({
+        title: "Missing email",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-lead-magnet`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            name: "Newsletter Subscriber", 
+            email: newsletterEmail.trim(),
+            formName: "Newsletter Signup"
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to subscribe');
+
+      toast({
+        title: "Subscribed!",
+        description: "You'll receive our weekly tips in your inbox.",
+      });
+      setNewsletterEmail("");
+    } catch (error) {
+      console.error('Newsletter error:', error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -141,16 +194,23 @@ const Blog = () => {
                 Join 2,000+ plumbing business owners getting weekly insights on
                 growth, technology, and profitability.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-3 justify-center">
                 <input
                   type="email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
                   placeholder="Enter your email"
+                  required
                   className="px-4 py-3 rounded-lg border border-border bg-background text-foreground w-full sm:w-80"
                 />
-                <button className="px-6 py-3 bg-accent text-accent-foreground font-semibold rounded-lg hover:bg-accent/90 transition-colors">
-                  Subscribe
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-3 bg-accent text-accent-foreground font-semibold rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? "Subscribing..." : "Subscribe"}
                 </button>
-              </div>
+              </form>
               <p className="text-sm text-muted-foreground mt-3">
                 No spam. Unsubscribe anytime.
               </p>

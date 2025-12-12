@@ -64,7 +64,7 @@ const ExitIntentPopup = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), formName: "Exit Intent Popup" }),
         }
       );
 

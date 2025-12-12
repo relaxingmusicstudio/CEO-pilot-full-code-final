@@ -88,12 +88,16 @@ const handler = async (req: Request): Promise<Response> => {
           source: "Stripe Payment",
           tags: ["Stripe Customer", planName, "Onboarding"],
           customField: {
+            formName: "Stripe Checkout",
             plan: planName,
             amount_paid: `$${amountTotal}`,
             stripe_session_id: session.id,
             payment_date: new Date().toISOString(),
           },
           name: customerName,
+          formName: "Stripe Checkout",
+          plan: planName,
+          amount_paid: `$${amountTotal}`,
           timestamp: new Date().toISOString(),
         };
 

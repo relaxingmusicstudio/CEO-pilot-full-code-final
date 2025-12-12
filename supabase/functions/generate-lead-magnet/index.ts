@@ -615,7 +615,7 @@ serve(async (req) => {
   }
 
   try {
-    const { name, email, action } = await req.json();
+    const { name, email, action, formName } = await req.json();
     
     // If action is 'download', just return the PDF
     if (action === 'download') {
@@ -638,25 +638,44 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Lead captured for ApexLocal360: ${name} - ${email}`);
+    console.log(`Lead captured for ApexLocal360: ${name} - ${email} - Form: ${formName || 'Unknown'}`);
 
     // Send to GHL webhook with source
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0] || name;
     const lastName = nameParts.slice(1).join(' ') || '';
 
+    // Determine tags and source based on formName
+    const resolvedFormName = formName || "Playbook Download Form";
+    let tags: string[];
+    let leadMagnetName: string;
+    
+    if (resolvedFormName === "Newsletter Signup") {
+      tags = ["Newsletter Subscriber", "Blog Reader", "HVAC Interest"];
+      leadMagnetName = "Newsletter Subscription";
+    } else if (resolvedFormName === "Exit Intent Popup") {
+      tags = ["Lead Magnet Download", "Exit Intent", "HVAC Interest"];
+      leadMagnetName = "The Local Service Playbook";
+    } else {
+      tags = ["Lead Magnet Download", "Playbook Download", "HVAC Interest"];
+      leadMagnetName = "The Local Service Playbook";
+    }
+
     const ghlPayload = {
       firstName,
       lastName,
       email,
       name,
-      source: "Lead Magnet - ApexLocal360 - Local Service Playbook",
-      tags: ["Lead Magnet Download", "Local Service Playbook", "ApexLocal360", "Website Visitor", "Playbook Download"],
+      source: `Lead Magnet - ApexLocal360 - ${leadMagnetName}`,
+      tags: tags,
       customField: {
-        lead_magnet: "The Local Service Playbook",
+        formName: resolvedFormName,
+        lead_magnet: leadMagnetName,
         download_date: new Date().toISOString(),
-        source_url: "ApexLocal360.com",
       },
+      formName: resolvedFormName,
+      lead_magnet: leadMagnetName,
+      download_date: new Date().toISOString(),
       timestamp: new Date().toISOString(),
     };
 
