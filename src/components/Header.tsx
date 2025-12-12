@@ -1,12 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Phone, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const isHomePage = location.pathname === "/";
 
   const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (isHomePage) {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      window.location.href = `/#${id}`;
+    }
     setIsMobileMenuOpen(false);
   };
 
@@ -14,14 +21,14 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-primary/95 backdrop-blur-md border-b border-primary-foreground/10">
       <div className="container flex items-center justify-between h-16 md:h-20">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
             <Phone className="w-5 h-5 text-accent-foreground" />
           </div>
           <span className="text-xl font-bold text-primary-foreground">
             Apex<span className="text-accent">Local</span>360
           </span>
-        </div>
+        </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
@@ -44,11 +51,17 @@ const Header = () => {
             Pricing
           </button>
           <button 
-            onClick={() => scrollToSection("pricing")}
+            onClick={() => scrollToSection("faq")}
             className="text-primary-foreground/80 hover:text-accent transition-colors font-medium"
           >
-            Sign Up
+            FAQ
           </button>
+          <Link 
+            to="/blog"
+            className="text-primary-foreground/80 hover:text-accent transition-colors font-medium"
+          >
+            Blog
+          </Link>
         </nav>
 
         {/* Desktop CTA */}
@@ -94,11 +107,18 @@ const Header = () => {
               Pricing
             </button>
             <button 
-              onClick={() => scrollToSection("pricing")}
+              onClick={() => scrollToSection("faq")}
               className="text-primary-foreground/80 hover:text-accent transition-colors font-medium text-left py-2"
             >
-              Sign Up
+              FAQ
             </button>
+            <Link 
+              to="/blog"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-primary-foreground/80 hover:text-accent transition-colors font-medium text-left py-2"
+            >
+              Blog
+            </Link>
             <Button 
               variant="accent" 
               size="lg"
