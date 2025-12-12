@@ -108,11 +108,11 @@ const Chatbot = () => {
     };
   }, [hasAutoOpened, isOpen]);
 
-  // Inactivity timer - save data after 2 minutes of no activity
+  // Inactivity timer - save data after 5 minutes of no activity
   useEffect(() => {
     const checkInactivity = () => {
       const now = Date.now();
-      if (now - lastActivityRef.current > 120000 && !hasSubmitted && leadData.email) {
+      if (now - lastActivityRef.current > 300000 && !hasSubmitted && leadData.email) {
         savePartialLead();
       }
     };
@@ -474,35 +474,102 @@ ${updatedData.notes.join("\n") || "None"}`;
         break;
 
       case 14:
-        addUserMessage(option);
         addNote(`Top priority: ${option}`);
-        setCurrentStep(15);
+        setCurrentStep(100);
         await addBotMessage(
-          `${option} — that's exactly what we focus on. One more thing: how soon would you want to see results if you started today?`,
-          ["This week", "Within a month", "Just want to see how it works first"]
+          `${option} is a game-changer for most of our clients. I've got some resources that'll help you see exactly how this works. Which sounds most useful?`,
+          ["📊 See what missed calls cost you", "🎧 Hear a real AI call", "💰 Check our pricing", "I'm good for now"]
         );
         break;
 
       case 15:
-        addUserMessage(option);
         addNote(`Timeline expectation: ${option}`);
         setCurrentStep(100);
         await addBotMessage(
-          "Love it! You're now in our priority list. Here's what I'd recommend checking out next:",
-          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+          `Perfect timing! Here's what I'd check out based on what you told me:`,
+          ["📊 See what missed calls cost you", "🎧 Hear a real AI call", "💰 Check our pricing", "I'm good for now"]
         );
         break;
 
       case 100:
-        if (option === "See Pricing") {
+      case 101:
+        if (option === "💰 Check our pricing" || option === "See Pricing") {
           document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessage("Scrolled you to pricing! Let me know if you have questions 😊");
-        } else if (option === "Hear Demo") {
+          setCurrentStep(101);
+          await addBotMessage(
+            "Take a look at the plans above. Quick question — are you leaning toward handling this yourself or would you want us to set everything up for you?",
+            ["I'd set it up myself", "I'd want help with setup", "Still deciding"]
+          );
+        } else if (option === "🎧 Hear a real AI call" || option === "Hear Demo") {
           document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessage("Check out the demo above — hear how our AI handles real calls 🎧");
-        } else if (option === "Calculate My Losses") {
+          setCurrentStep(101);
+          await addBotMessage(
+            "Give that a listen! Pretty cool how it handles objections, right? After hearing it — does this feel like something that could work for your business?",
+            ["Yeah, I can see it working", "I have some questions", "Not sure yet"]
+          );
+        } else if (option === "📊 See what missed calls cost you" || option === "Calculate My Losses") {
           document.getElementById("calculator")?.scrollIntoView({ behavior: "smooth" });
-          await addBotMessage("Here's the calculator — see what missed calls are really costing you 📊");
+          setCurrentStep(101);
+          await addBotMessage(
+            "Plug in your numbers above and see the real impact. Most folks are shocked when they see it. What does your gut say — is that number higher or lower than you expected?",
+            ["Way higher than I thought", "About what I expected", "Still want to crunch more numbers"]
+          );
+        } else if (option === "I'm good for now") {
+          setCurrentStep(102);
+          await addBotMessage(
+            "No worries at all! If you ever want to revisit this, everything we talked about is saved. Have a great one! 👋"
+          );
+        } else {
+          // Follow-up responses
+          if (option === "I'd set it up myself" || option === "I'd want help with setup") {
+            addNote(`Setup preference: ${option}`);
+            setCurrentStep(102);
+            await addBotMessage(
+              `Got it! Either way works great. When you're ready to move forward, everything's here. Anything else I can help with today?`,
+              ["Actually, one more question", "I'm all set, thanks!"]
+            );
+          } else if (option === "Yeah, I can see it working") {
+            addNote("Demo reaction: positive");
+            setCurrentStep(102);
+            await addBotMessage(
+              "Love to hear that! When you're ready to get started, the pricing section has all the details. Anything else on your mind?",
+              ["Show me pricing", "I'm all set, thanks!"]
+            );
+          } else if (option === "I have some questions") {
+            setCurrentStep(102);
+            await addBotMessage(
+              "Fire away! What's on your mind?",
+              undefined, false, "text", "Type your question..."
+            );
+          } else if (option === "Way higher than I thought") {
+            addNote("Calculator reaction: shocked at losses");
+            setCurrentStep(102);
+            await addBotMessage(
+              "Yeah, it adds up fast. The good news? Most of that is recoverable. Want to see how our pricing stacks up against what you're losing?",
+              ["Show me pricing", "I need to think about it"]
+            );
+          } else if (option === "Show me pricing") {
+            document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+            setCurrentStep(102);
+            await addBotMessage("There you go! Take your time. I'm here if you have questions. 👋");
+          } else {
+            setCurrentStep(102);
+            await addBotMessage("Sounds good! Take your time — I'm here if you need anything. Have a great day! 👋");
+          }
+        }
+        break;
+
+      case 102:
+        if (option === "Actually, one more question") {
+          await addBotMessage(
+            "Sure thing! What would you like to know?",
+            undefined, false, "text", "Type your question..."
+          );
+        } else if (option === "I'm all set, thanks!" || option === "I need to think about it") {
+          await addBotMessage("Absolutely! Everything's saved. Come back anytime. Take care! 👋");
+        } else {
+          addNote(`Follow-up: ${option}`);
+          await addBotMessage("Thanks for sharing! If you think of anything else, I'm here. Have a great one! 👋");
         }
         break;
 
@@ -633,8 +700,18 @@ ${updatedData.notes.join("\n") || "None"}`;
         addNote(`Timeline expectation: ${value}`);
         setCurrentStep(100);
         await addBotMessage(
-          "Love it! You're now in our priority list. Here's what I'd recommend checking out next:",
-          ["See Pricing", "Hear Demo", "Calculate My Losses"]
+          `That's helpful to know! Here's what I'd check out based on everything you shared:`,
+          ["📊 See what missed calls cost you", "🎧 Hear a real AI call", "💰 Check our pricing", "I'm good for now"]
+        );
+        break;
+      
+      case 101:
+      case 102:
+        // Handle typed questions at the end
+        addNote(`Question from user: ${value}`);
+        await addBotMessage(
+          "Great question! Our team will follow up with a detailed answer. In the meantime, feel free to explore the resources above. Anything else?",
+          ["💰 Check our pricing", "🎧 Hear a real AI call", "I'm all set, thanks!"]
         );
         break;
 
