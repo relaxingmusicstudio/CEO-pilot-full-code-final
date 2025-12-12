@@ -1,19 +1,57 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Volume2, CheckCircle, Clock, Search, Bot, Phone } from "lucide-react";
+import { Play, Pause, Volume2, CheckCircle, Clock, Search, Bot, Phone, DollarSign } from "lucide-react";
 import LiveVideoCall from "@/components/LiveVideoCall";
 
 const transcriptData = [
-  { time: 0, speaker: "Customer", text: "Hello? I have water everywhere! My pipe just burst!", emotion: "urgent" },
-  { time: 4, speaker: "AI", text: "I'm so sorry to hear that! I'm dispatching our emergency team right now. Can you tell me your address?", action: "empathy" },
-  { time: 10, speaker: "Customer", text: "It's 1234 Oak Street. Please hurry!", emotion: "stressed" },
-  { time: 14, speaker: "AI", text: "Got it - 1234 Oak Street. I have a certified technician 30 minutes away. The emergency dispatch fee is $149. Shall I book you in right now?", action: "booking" },
-  { time: 24, speaker: "Customer", text: "Yes, please! Whatever it takes!", emotion: "relieved" },
-  { time: 28, speaker: "AI", text: "You're all set. Mike will be there by 8:30 PM. While he's there, would you like a complimentary water pressure check to prevent future issues?", action: "upsell" },
-  { time: 38, speaker: "Customer", text: "That would be great, thank you!", emotion: "happy" },
-  { time: 42, speaker: "AI", text: "Is this an older home? We specialize in proactive pipe inspections that could save you thousands.", action: "probe" },
-  { time: 50, speaker: "Customer", text: "It is, actually. Built in the 70s.", emotion: "interested" },
-  { time: 54, speaker: "AI", text: "I'll have Mike discuss our comprehensive inspection package. You'll get a text confirmation shortly. We're on our way!", action: "close" },
+  {
+    time: 0,
+    speaker: "Customer",
+    text: "Hi, my AC just stopped working completely. It's 95 degrees and I have elderly parents visiting.",
+    emotion: "urgent"
+  },
+  {
+    time: 4,
+    speaker: "AI",
+    text: "I completely understand the urgency - that's a serious situation with elderly family members. I'm dispatching our nearest HVAC technician to you right now. Can I get your address?",
+    action: "empathy"
+  },
+  {
+    time: 10,
+    speaker: "Customer",
+    text: "It's 742 Oak Street. How soon can someone get here? My parents can't handle this heat.",
+    emotion: "worried"
+  },
+  {
+    time: 14,
+    speaker: "AI",
+    text: "I have a technician 12 minutes away who's completing another call. For emergency situations like yours, we have a $149 diagnostic fee that gets waived if you proceed with repairs. Does that work for you?",
+    action: "booking"
+  },
+  {
+    time: 22,
+    speaker: "Customer",
+    text: "Yes, absolutely. Please send them as fast as possible.",
+    emotion: "relieved"
+  },
+  {
+    time: 26,
+    speaker: "AI",
+    text: "Done - Mike is on his way and will arrive by 2:45 PM. I'm texting you his photo and live tracking link now. He's certified in all major brands. Is there anything else I can help with?",
+    action: "upsell"
+  },
+  {
+    time: 34,
+    speaker: "Customer",
+    text: "No, that's perfect. Thank you so much for the quick response.",
+    emotion: "grateful"
+  },
+  {
+    time: 38,
+    speaker: "AI",
+    text: "You're welcome! Mike will take great care of you. After the repair, I'll also send information about our preventive maintenance plans - only 30% of homeowners schedule regular maintenance, but it can prevent 80% of emergency breakdowns. Stay cool!",
+    action: "close"
+  },
 ];
 
 const VoiceDemo = () => {
@@ -23,7 +61,7 @@ const VoiceDemo = () => {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const totalDuration = 60; // seconds
+  const totalDuration = 45; // seconds
 
   useEffect(() => {
     if (isPlaying) {
@@ -65,9 +103,10 @@ const VoiceDemo = () => {
   };
 
   const stats = [
-    { icon: CheckCircle, label: "Job Booked", value: "+$1,295", color: "text-accent" },
-    { icon: Clock, label: "Time Saved", value: "18 min", color: "text-primary" },
-    { icon: Search, label: "Upsell Potential", value: "+$350", color: "text-accent" },
+    { icon: CheckCircle, label: "Job Booked", value: "+$351", color: "text-accent" },
+    { icon: Clock, label: "Response Time", value: "1.2 sec", color: "text-primary" },
+    { icon: Search, label: "Booking Rate", value: "94%", color: "text-accent" },
+    { icon: DollarSign, label: "Avg Repair Value", value: "$351", color: "text-primary" },
   ];
 
   return (
@@ -78,7 +117,7 @@ const VoiceDemo = () => {
             Hear Your Future <span className="text-accent">24/7 Dispatcher</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            No scripts. Just results. Listen to a Friday night emergency call with a homeowner with a burst pipe.
+            No scripts. Just results. Listen to a Friday night emergency call with a homeowner with a broken AC.
           </p>
         </div>
 
@@ -101,7 +140,7 @@ const VoiceDemo = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-primary-foreground mb-2">
                     <Volume2 className="w-5 h-5" />
-                    <span className="font-semibold">Emergency Call Demo</span>
+                    <span className="font-semibold">Emergency HVAC Call Demo</span>
                   </div>
                   
                   {/* Progress Bar */}
@@ -150,12 +189,12 @@ const VoiceDemo = () => {
                       
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-foreground">{item.speaker}</span>
+                          <span className="font-semibold text-foreground">{item.speaker === "AI" ? "AI Dispatcher" : item.speaker}</span>
                           {item.action && (
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                               item.action === "booking" ? "bg-accent/20 text-accent" :
                               item.action === "upsell" ? "bg-primary/20 text-primary" :
-                              item.action === "probe" ? "bg-accent/20 text-accent" :
+                              item.action === "close" ? "bg-accent/20 text-accent" :
                               "bg-muted text-muted-foreground"
                             }`}>
                               {item.action.toUpperCase()}
@@ -176,7 +215,7 @@ const VoiceDemo = () => {
                     <div
                       key={index}
                       className={`p-4 rounded-xl bg-secondary border-2 transition-all duration-500 ${
-                        activeIndex >= (index + 1) * 3 - 1
+                        activeIndex >= (index + 1) * 2 - 1
                           ? "border-accent/50 shadow-md scale-105"
                           : "border-transparent"
                       }`}
@@ -212,7 +251,7 @@ const VoiceDemo = () => {
           {/* Bottom CTA */}
           <div className="mt-10 text-center">
             <p className="text-muted-foreground mb-4">
-              Try an AI voice demo to see how it would work for your business.
+              Try an AI voice demo to see how it would work for your HVAC business.
             </p>
             <Button
               variant="hero"

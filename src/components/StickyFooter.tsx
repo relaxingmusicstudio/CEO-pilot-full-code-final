@@ -12,7 +12,7 @@ const StickyFooter = () => {
         <div className="flex items-center gap-3 text-primary-foreground">
           <Clock className="w-5 h-5 text-accent animate-pulse" />
           <span className="font-semibold">
-            Stop Losing Money. Start Your <span className="text-accent">48-Hour Build.</span>
+            Ready to capture every HVAC call? Start Your <span className="text-accent">48-Hour Build.</span>
           </span>
         </div>
         

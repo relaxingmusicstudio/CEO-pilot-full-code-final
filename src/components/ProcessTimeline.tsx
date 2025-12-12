@@ -5,21 +5,21 @@ const ProcessTimeline = () => {
     {
       day: "Day 1",
       title: "Kickoff",
-      description: "We learn your business, services, pricing, and how you handle calls.",
+      description: "We learn your HVAC business, services, pricing, and how you handle service calls.",
       icon: Lightbulb,
       color: "bg-primary",
     },
     {
       day: "Day 2",
       title: "Build",
-      description: "We craft your custom AI agent and connect to your scheduling tools.",
+      description: "We craft your custom AI agent and connect to your scheduling and dispatching tools.",
       icon: Wrench,
       color: "bg-accent",
     },
     {
       day: "Day 3",
       title: "Launch",
-      description: "We go live and manage everything. You start capturing lost revenue.",
+      description: "We go live and manage everything. You start capturing lost HVAC revenue.",
       icon: Rocket,
       color: "bg-primary",
     },
@@ -39,7 +39,7 @@ const ProcessTimeline = () => {
             We Build It. <span className="text-accent">You Profit.</span> It's That Simple.
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Your AI dispatcher is live in 48 hours. No meetings. No hassle.
+            Your AI dispatcher is live in 48 hours. No meetings. No hassle. Start capturing every HVAC call.
           </p>
         </div>
 

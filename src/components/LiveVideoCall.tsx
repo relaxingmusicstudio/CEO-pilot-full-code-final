@@ -188,7 +188,7 @@ const LiveVideoCall = ({ isOpen, onClose }: LiveVideoCallProps) => {
 
           {!isConnecting && (
             <p className="text-center text-primary-foreground/60 text-sm mt-4">
-              Ask Sarah anything about our AI dispatcher service. She's ready to help!
+              Ask Sarah anything about our AI dispatcher service for HVAC companies. She's ready to help!
             </p>
           )}
         </div>

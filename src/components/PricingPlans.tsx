@@ -7,7 +7,7 @@ const PricingPlans = () => {
       name: "STARTER",
       price: "$497",
       period: "/mo",
-      bestFor: "Solo plumber / 1 truck",
+      bestFor: "Solo HVAC tech / 1 truck",
       icon: Wrench,
       popular: false,
       features: [
@@ -18,13 +18,13 @@ const PricingPlans = () => {
         { text: "Basic Analytics", included: true },
       ],
       cta: "🛠️ ACTIVATE STARTER PLAN",
-      stripeLink: "https://buy.stripe.com/7sY14g3Ml3Cd8LtdbQgYU02",
+      stripeLink: "[STRIPE_STARTER_LINK]",
     },
     {
       name: "PROFESSIONAL",
       price: "$1,497",
       period: "/mo",
-      bestFor: "2-4 truck operations",
+      bestFor: "2-4 truck HVAC operations",
       icon: Rocket,
       popular: true,
       features: [
@@ -36,7 +36,7 @@ const PricingPlans = () => {
         { text: "Full Analytics Dashboard", included: true },
       ],
       cta: "🚀 ACTIVATE PROFESSIONAL PLAN",
-      stripeLink: "https://buy.stripe.com/14A4gs3Mlc8J2n54FkgYU03",
+      stripeLink: "[STRIPE_GROWTH_LINK]",
     },
   ];
 
@@ -48,7 +48,7 @@ const PricingPlans = () => {
             Choose Your <span className="text-accent">AI Partner</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            No meetings. No contracts. Just activation.
+            No meetings. No contracts. Just activation. Built for HVAC companies.
           </p>
         </div>
 
@@ -139,7 +139,7 @@ const PricingPlans = () => {
               <div className="flex items-center justify-center gap-3 mb-4">
                 <Phone className="w-6 h-6 text-primary" />
                 <span className="text-lg font-semibold text-foreground">
-                  Running a larger operation?
+                  Running a larger HVAC operation?
                 </span>
               </div>
               <Button 

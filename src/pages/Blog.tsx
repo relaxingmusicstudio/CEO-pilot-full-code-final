@@ -12,12 +12,12 @@ const Blog = () => {
   return (
     <>
       <Helmet>
-        <title>Plumbing Business Blog | AI & Growth Tips - ApexLocal360</title>
+        <title>HVAC Business Insights | AI & Growth Tips</title>
         <meta
           name="description"
-          content="Expert insights on growing your plumbing business with AI technology, capturing more leads, and maximizing revenue. Practical tips from industry experts."
+          content="Expert tips for HVAC contractors on capturing more calls, booking more jobs, and growing revenue with AI technology."
         />
-        <link rel="canonical" href="https://apexlocal360.com/blog" />
+        <link rel="canonical" href="https://example.com/blog" />
       </Helmet>
 
       <main className="min-h-screen bg-background">
@@ -28,11 +28,11 @@ const Blog = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                The Plumber's Growth Blog
+                HVAC Business Insights
               </h1>
               <p className="text-xl opacity-90">
                 Practical strategies to capture more leads, boost revenue, and
-                leverage AI technology for your plumbing business.
+                leverage AI technology for your HVAC business.
               </p>
             </div>
           </div>
@@ -135,10 +135,10 @@ const Blog = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto text-center">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-                Get Plumbing Business Tips in Your Inbox
+                Get HVAC Business Tips in Your Inbox
               </h2>
               <p className="text-muted-foreground mb-6">
-                Join 2,000+ plumbing business owners getting weekly insights on
+                Join 2,000+ HVAC business owners getting weekly insights on
                 growth, technology, and profitability.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">

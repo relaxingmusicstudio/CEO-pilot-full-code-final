@@ -15,42 +15,47 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
-    slug: "how-much-missed-calls-cost-plumbing-business",
-    title: "How Much Are Missed Calls Really Costing Your Plumbing Business?",
-    excerpt: "The average plumber misses 30% of incoming calls. Here's the real math behind those missed opportunities—and what you can do about it.",
+    slug: "cost-of-missed-calls-hvac",
+    title: "The $156 Billion Problem: What Every Missed Call Costs Your HVAC Company",
+    excerpt: "HVAC contractors miss 27% of incoming calls. 80% of those callers hang up and call your competitor. Here's the real math behind those missed opportunities.",
     content: `
 ## The Hidden Revenue Drain You're Not Tracking
 
-Every plumbing business owner knows the feeling: you're elbow-deep in a water heater replacement when your phone rings. By the time you can answer, they've hung up. No voicemail. No callback. Just another potential customer who called the next plumber on Google.
+Every HVAC business owner knows the feeling: you're in the middle of a system replacement when your phone rings. By the time you can answer, they've hung up. No voicemail. No callback. Just another potential customer who called the next contractor on Google.
 
 But here's what most owners don't realize: **those missed calls add up to tens of thousands of dollars in lost revenue every year.**
 
 ## Breaking Down the Numbers
 
-Let's do some simple math:
+Let's do some simple math using HVAC industry data:
 
-- **Average service call value**: $350-$500
-- **Average emergency call value**: $800-$3,000
-- **Percentage of callers who won't leave a voicemail**: 85%
+- **Average HVAC repair cost**: $351
+- **Average system replacement**: $8,000-$15,000
+- **Customer lifetime value**: $15,340
+- **Percentage of callers who won't leave a voicemail**: 80%
 - **Percentage of callers who won't call back**: 75%
 
-If you're missing just 5 calls per week at an average value of $400, that's:
-- **$2,000/week** in potential lost revenue
-- **$8,000/month** walking out the door
-- **$104,000/year** you're leaving on the table
+If you're missing just 5 calls per week at an average repair value of $351, that's:
+- **$1,755/week** in potential lost revenue
+- **$7,581/month** walking out the door
+- **$91,000/year** you're leaving on the table
 
-And that's a conservative estimate.
+And that's just repairs. Miss one system replacement call per month, and you're looking at another $120,000+ annually.
+
+## The 27% Problem
+
+Industry data shows HVAC contractors miss an average of 27% of incoming calls. For a company receiving 200 calls per month, that's 54 missed calls. At a 30% conversion rate and $351 average job value, you're losing over $5,600 every single month.
 
 ## When Are You Missing the Most Calls?
 
-Data from plumbing businesses using call tracking shows the most missed calls happen:
+Data from HVAC businesses using call tracking shows the most missed calls happen:
 
-1. **Before 8 AM** - Early morning emergencies when you're still getting ready
-2. **During jobs** - When you're physically unable to answer
-3. **After 5 PM** - When you've "closed" but customers haven't
+1. **During extreme weather** - Heat waves and cold snaps increase call volume 300-400%
+2. **After 5 PM** - Emergency calls when you've "closed" but homeowners haven't
+3. **During jobs** - When technicians can't answer
 4. **Weekends** - When you're trying to have a life
 
-The irony? These are often the highest-value calls. Emergency situations don't wait for business hours.
+The irony? These are often the highest-value calls. Emergency situations don't wait for business hours, and customers will pay premium rates.
 
 ## The Ripple Effect of Missed Calls
 
@@ -58,29 +63,29 @@ Beyond the immediate lost job, there's a compounding effect:
 
 - **Lost referrals**: Every missed customer is also their network of friends and family
 - **Negative perception**: "They never answer" becomes word of mouth
+- **55% of negative reviews** cite slow response time
 - **Competitor advantage**: Your missed call is their new customer
-- **Review impact**: Frustrated callers may leave negative reviews
 
 ## What Can You Do About It?
 
 ### Option 1: Hire a Receptionist
 - **Cost**: $35,000-$50,000/year + benefits
 - **Coverage**: 40 hours/week (leaves 128 hours uncovered)
-- **Downsides**: Sick days, vacation, turnover
+- **Downsides**: Sick days, vacation, can't handle call spikes
 
 ### Option 2: Answering Service
 - **Cost**: $200-$500/month
 - **Coverage**: 24/7
-- **Downsides**: Generic scripts, no booking ability, frustrated customers
+- **Downsides**: Can't book appointments, generic scripts, no HVAC knowledge
 
 ### Option 3: AI Voice Agent
-- **Cost**: $297-$997/month
-- **Coverage**: 24/7/365
-- **Benefits**: Books appointments, upsells services, sounds natural, never calls in sick
+- **Cost**: $497-$1,497/month
+- **Coverage**: 24/7/365, unlimited simultaneous calls
+- **Benefits**: Books appointments, qualifies repair vs replacement leads, handles peak demand
 
 ## The Bottom Line
 
-If you're a plumbing business doing $500K+ in revenue, you're likely losing $50,000-$100,000 annually to missed calls. The question isn't whether you can afford a solution—it's whether you can afford not to have one.
+In the $156.2 billion HVAC industry, every missed call is revenue walking to your competitor. The question isn't whether you can afford a solution—it's whether you can afford not to have one.
 
 **Ready to stop the bleeding?** [Talk to our AI advisor](/contact) to see how many calls you're really missing.
     `,
@@ -89,20 +94,20 @@ If you're a plumbing business doing $500K+ in revenue, you're likely losing $50,
     updatedAt: "2024-12-10",
     readTime: 6,
     category: "Business Growth",
-    tags: ["missed calls", "revenue", "plumbing business", "ROI"],
+    tags: ["missed calls", "revenue", "HVAC business", "ROI"],
     featuredImage: "/blog/missed-calls-cost.jpg",
-    metaDescription: "Discover how missed calls cost plumbing businesses $50,000-$100,000 annually. Learn the real math and solutions to capture every lead."
+    metaDescription: "Discover how missed calls cost HVAC businesses $91,000+ annually. Learn the real math behind the 27% missed call rate and solutions to capture every lead."
   },
   {
-    slug: "ai-voice-agents-vs-answering-services",
-    title: "AI Voice Agents vs. Traditional Answering Services: Which Is Right for Your Plumbing Business?",
-    excerpt: "Comparing the pros, cons, and ROI of AI voice agents versus human answering services for plumbers.",
+    slug: "ai-voice-agent-vs-answering-service-hvac",
+    title: "AI Voice Agents vs. Traditional Answering Services for HVAC Contractors",
+    excerpt: "Comparing the pros, cons, and ROI of AI voice agents versus human answering services for HVAC companies.",
     content: `
-## The Evolution of Phone Answering for Service Businesses
+## The Evolution of Phone Answering for HVAC Businesses
 
-For decades, plumbers had two options for handling calls they couldn't answer: voicemail (terrible) or answering services (expensive and limited). But AI voice technology has created a third option that's changing the game.
+For decades, HVAC contractors had two options for handling calls they couldn't answer: voicemail (terrible) or answering services (expensive and limited). But AI voice technology has created a third option that's changing the game.
 
-Let's break down how these solutions compare for real plumbing businesses.
+Let's break down how these solutions compare for real HVAC businesses.
 
 ## Traditional Answering Services: The Old Guard
 
@@ -116,9 +121,10 @@ Let's break down how these solutions compare for real plumbing businesses.
 ### Cons:
 - **Can't book appointments**: They take messages, period
 - **Generic scripts**: Often sound like they're reading (because they are)
-- **No business knowledge**: Can't answer questions about your services or pricing
+- **No HVAC knowledge**: Can't answer questions about services, brands, or pricing
 - **Per-minute billing**: Costs add up fast with longer calls
 - **Quality varies wildly**: Depends on who picks up
+- **Can't handle call spikes**: During heat waves, you get busy signals
 
 **Typical cost**: $200-$800/month depending on call volume
 
@@ -128,17 +134,18 @@ Let's break down how these solutions compare for real plumbing businesses.
 
 ### Pros:
 - **Books appointments directly**: Syncs with your calendar in real-time
-- **Knows your business**: Trained on your services, pricing, and policies
-- **Upsells intelligently**: "While we're there, would you like us to check your water heater?"
+- **Knows your business**: Trained on your services, brands, and pricing
+- **Qualifies leads**: Identifies repair vs. replacement opportunities
+- **Handles unlimited calls**: No busy signals during heat waves
 - **Consistent quality**: Every call is handled the same way
 - **Flat monthly pricing**: No surprise bills
 
 ### Cons:
 - Some customers prefer humans (though fewer than you'd think)
 - Requires initial setup and training
-- Can't handle truly complex situations (but transfers to you when needed)
+- Transfers to you for truly complex situations
 
-**Typical cost**: $297-$997/month depending on features
+**Typical cost**: $497-$1,497/month depending on features
 
 ## Head-to-Head Comparison
 
@@ -146,35 +153,35 @@ Let's break down how these solutions compare for real plumbing businesses.
 |---------|------------------|----------------|
 | 24/7 Availability | ✅ | ✅ |
 | Books Appointments | ❌ | ✅ |
-| Answers Business Questions | ❌ | ✅ |
-| Upsells Services | ❌ | ✅ |
+| Answers HVAC Questions | ❌ | ✅ |
+| Qualifies Repair vs Replace | ❌ | ✅ |
+| Handles Call Spikes | ❌ | ✅ |
 | Consistent Quality | ❌ | ✅ |
 | Flat Pricing | ❌ | ✅ |
-| Natural Conversation | ✅ | ✅ |
 | CRM Integration | Limited | ✅ |
 
 ## Real ROI Comparison
 
-Let's look at a plumbing business that receives 100 after-hours calls per month:
+Let's look at an HVAC business that receives 100 after-hours calls per month:
 
 **With Traditional Answering Service:**
 - Messages taken: 100
 - Appointments booked: 0 (you have to call them back)
 - Callback success rate: ~40% (customers moved on)
 - Jobs booked: 40
-- Average job value: $400
-- Revenue captured: $16,000
+- Average job value: $351
+- Revenue captured: $14,040
 - Service cost: $400/month
 
 **With AI Voice Agent:**
 - Calls answered: 100
 - Appointments booked on-call: 75
 - Jobs completed: 70 (some cancellations)
-- Average job value: $450 (upselling adds $50)
-- Revenue captured: $31,500
+- Average job value: $400 (upselling adds $49)
+- Revenue captured: $28,000
 - Service cost: $497/month
 
-**Difference: $15,500/month in additional revenue**
+**Difference: $13,960/month in additional revenue**
 
 ## Who Should Choose What?
 
@@ -185,13 +192,13 @@ Let's look at a plumbing business that receives 100 after-hours calls per month:
 
 **AI voice agent is likely better if:**
 - You're missing calls that turn into lost revenue
+- You need to handle extreme weather call spikes
 - You want appointments booked without callback delays
 - You want to capture after-hours and weekend emergencies
-- You value consistency and scalability
 
 ## The Verdict
 
-For most plumbing businesses in 2024, AI voice agents deliver significantly better ROI than traditional answering services. The ability to book appointments on the first call—rather than playing phone tag—is the game-changer.
+For most HVAC businesses in 2024, AI voice agents deliver significantly better ROI than traditional answering services. The ability to book appointments on the first call—rather than playing phone tag—is the game-changer, especially during peak demand seasons.
 
 **Want to see an AI voice agent in action?** [Talk to our demo AI](/demo) and experience the difference yourself.
     `,
@@ -202,20 +209,20 @@ For most plumbing businesses in 2024, AI voice agents deliver significantly bett
     category: "Technology",
     tags: ["AI", "answering service", "comparison", "technology"],
     featuredImage: "/blog/ai-vs-answering-service.jpg",
-    metaDescription: "Compare AI voice agents vs traditional answering services for plumbers. See real ROI numbers and decide which solution fits your business."
+    metaDescription: "Compare AI voice agents vs traditional answering services for HVAC contractors. See real ROI numbers and decide which solution fits your business."
   },
   {
-    slug: "after-hours-plumbing-calls-emergency-revenue",
-    title: "After-Hours Plumbing Calls: The Untapped Gold Mine Most Plumbers Ignore",
+    slug: "after-hours-hvac-calls-revenue",
+    title: "After-Hours HVAC Calls: The Hidden Revenue Stream You're Missing",
     excerpt: "Emergency calls after 5 PM often pay 2-3x regular rates. Here's how to capture them without sacrificing your personal life.",
     content: `
 ## The 5 PM Paradox
 
-Here's a frustrating truth about the plumbing business: the most valuable calls come at the worst times.
+Here's a frustrating truth about the HVAC business: the most valuable calls come at the worst times.
 
-When does a pipe burst? Not conveniently at 2 PM on a Tuesday. It happens at 11 PM on a Saturday, or 6 AM on Christmas morning, or right when you're sitting down for your kid's birthday dinner.
+When does an AC fail? Not conveniently at 2 PM on a Tuesday. It happens at 11 PM during a heat wave, or 6 AM when there's a newborn in the house, or right when you're sitting down for your kid's birthday dinner.
 
-And here's the thing: **customers will pay premium rates for after-hours service**. We're talking 1.5x to 3x your normal rates. But most plumbers either:
+And here's the thing: **customers will pay premium rates for after-hours service**. We're talking 1.5x to 3x your normal rates. But most HVAC contractors either:
 
 1. Don't answer (losing the job entirely)
 2. Answer every call (burning out and damaging relationships)
@@ -224,65 +231,66 @@ There's a better way.
 
 ## The After-Hours Revenue Opportunity
 
-Let's look at the math:
+Let's look at the math for HVAC:
 
-**Regular hours service call**: $350
-**After-hours service call**: $500-$700
-**Emergency service call**: $800-$1,500
+**Regular hours AC repair**: $351
+**After-hours AC repair**: $500-$700
+**Emergency system failure**: $800-$1,500
 
 If you're currently closed after 5 PM, you're missing:
-- 5-10 calls per week (conservative estimate)
+- 5-10 emergency calls per week (conservative estimate)
 - At an average value of $600
 - That's **$3,000-$6,000 per week** in potential revenue
 - Or **$150,000-$300,000 per year**
 
-Even if you only captured half of those calls, you're looking at a massive revenue increase.
+During heat waves and cold snaps, these numbers can triple.
 
-## Why Most Plumbers Don't Capture After-Hours Calls
+## Why Most HVAC Contractors Don't Capture After-Hours Calls
 
 **1. Burnout fear**: "I can't be on-call 24/7"
 **2. Quality of life**: "I need time with my family"
-**3. Logistics**: "I can't answer while I'm at dinner"
-**4. Staffing**: "My team doesn't want on-call shifts"
+**3. Technician availability**: "My team doesn't want on-call shifts"
+**4. Call volume spikes**: "I can't handle 50 calls during a heat wave"
 
 These are all valid concerns. But they're based on a false assumption: that YOU need to answer every call.
 
-## The Solution: Triage Without Being There
+## The Solution: AI-Powered Triage
 
 The key is separating call answering from call handling. You don't need to personally answer every after-hours call—you need a system that:
 
 1. **Answers immediately** (no voicemail, no missed calls)
 2. **Qualifies the emergency** (is it urgent or can it wait?)
 3. **Books the appointment** (or schedules for the next day)
-4. **Escalates true emergencies** (burst pipes, gas leaks, flooding)
+4. **Escalates true emergencies** (no AC with elderly residents, gas smell, system failure)
 
 This is exactly what an AI voice agent does. It handles the 70% of calls that can be scheduled for tomorrow while immediately alerting you to the 30% that are genuine emergencies.
 
 ## Setting Up After-Hours Emergency Triage
 
 **Tier 1: True Emergencies (Immediate escalation)**
-- Burst pipes or active flooding
-- No water to the entire house
+- No AC/heat with elderly, infants, or medical conditions
 - Gas smell or suspected leak
-- Sewage backup into living spaces
+- Complete system failure during extreme weather
+- Carbon monoxide detector issues
 
 **Tier 2: Same-Day Urgent (Book for first available)**
-- No hot water
-- Single toilet clogged (if only one in home)
-- Slow drain causing backup
-- Water heater making strange noises
+- No AC in 90+ degree weather
+- No heat in freezing conditions
+- System making dangerous noises
+- Water leak from HVAC unit
 
 **Tier 3: Scheduled Service (Book for next business day)**
-- Dripping faucets
-- Running toilets
-- Slow drains
-- Water heater maintenance
+- AC not cooling as well as usual
+- Uneven temperatures
+- Strange smells (non-gas)
+- Thermostat issues
+- Preventive maintenance requests
 
 With this system, you only get woken up for true emergencies—maybe 2-3 calls per week. Everything else is handled and booked automatically.
 
 ## The Quality of Life Improvement
 
-Plumbers using AI voice agents for after-hours calls report:
+HVAC contractors using AI voice agents for after-hours calls report:
 
 - **80% reduction** in after-hours phone interruptions
 - **$5,000-$15,000/month** increase in after-hours revenue
@@ -304,36 +312,49 @@ If you're ready to capture after-hours revenue without sacrificing your personal
     publishedAt: "2024-12-05",
     updatedAt: "2024-12-05",
     readTime: 6,
-    category: "Business Growth",
+    category: "Revenue",
     tags: ["after-hours", "emergency", "revenue", "work-life balance"],
     featuredImage: "/blog/after-hours-calls.jpg",
-    metaDescription: "Learn how plumbers can capture $150K+ in after-hours emergency call revenue without sacrificing personal time. Smart triage strategies inside."
+    metaDescription: "Learn how HVAC contractors can capture $150K+ in after-hours emergency call revenue without sacrificing personal time. Smart triage strategies inside."
   },
   {
-    slug: "plumber-ai-technology-2024-guide",
-    title: "The Plumber's Guide to AI Technology in 2024: What Actually Works",
-    excerpt: "Cut through the hype. Here's what AI technology actually delivers for plumbing businesses—and what's still just marketing fluff.",
+    slug: "hvac-contractor-guide-to-ai",
+    title: "The HVAC Contractor's Complete Guide to AI Customer Service in 2025",
+    excerpt: "Cut through the hype. Here's what AI technology actually delivers for HVAC businesses—and what's still just marketing fluff.",
     content: `
-## AI Is Everywhere. But Does It Work for Plumbers?
+## AI Is Everywhere. But Does It Work for HVAC Contractors?
 
-Every tech company is slapping "AI" on their products these days. AI scheduling. AI marketing. AI everything. But as a plumber, you don't have time for hype—you need to know what actually works.
+Every tech company is slapping "AI" on their products these days. AI scheduling. AI marketing. AI everything. But as an HVAC contractor, you don't have time for hype—you need to know what actually works.
 
-Let's cut through the noise and look at which AI technologies are delivering real results for plumbing businesses in 2024.
+Let's cut through the noise and look at which AI technologies are delivering real results for HVAC businesses in 2025.
+
+## The HVAC Industry Challenge
+
+Before we dive into AI, let's understand why HVAC contractors need better solutions:
+
+- **110,000 technician shortage** across the industry
+- **27% average missed call rate** for service businesses
+- **300-400% call volume spikes** during extreme weather
+- **Only 30%** of homeowners schedule preventive maintenance
+- **Heat pumps outselling gas furnaces** since 2021
+
+These challenges create both problems and opportunities for contractors who adapt.
 
 ## AI Technologies That Actually Work
 
 ### 1. AI Voice Agents (Phone Answering)
 **Reality check: Actually delivers**
 
-This is the most impactful AI technology for plumbers right now. Modern AI voice agents can:
+This is the most impactful AI technology for HVAC contractors right now. Modern AI voice agents can:
 
 - Answer calls naturally (customers often can't tell it's AI)
 - Book appointments directly into your calendar
-- Answer questions about services and pricing
-- Qualify leads and identify emergencies
+- Answer questions about AC, heating, heat pumps, and pricing
+- Qualify leads and identify repair vs. replacement opportunities
+- Handle unlimited simultaneous calls during demand spikes
 - Work 24/7 without breaks or sick days
 
-**Real results**: Plumbers using AI voice agents report 40-60% increases in booked appointments from incoming calls.
+**Real results**: HVAC companies using AI voice agents report 40-60% increases in booked appointments from incoming calls.
 
 ### 2. AI-Powered Dispatching
 **Reality check: Works well for larger operations**
@@ -341,82 +362,87 @@ This is the most impactful AI technology for plumbers right now. Modern AI voice
 If you're running 3+ trucks, AI dispatching can optimize routes, reduce drive time, and fit in more jobs per day. It analyzes:
 
 - Job locations and estimated durations
-- Traffic patterns
-- Technician skills and availability
+- Traffic patterns and weather conditions
+- Technician certifications and equipment on truck
 - Customer time preferences
+- Emergency priority levels
 
 **Real results**: 15-25% increase in jobs completed per day for multi-truck operations.
 
-### 3. AI Review Management
-**Reality check: Helpful but limited**
+### 3. AI for Preventive Maintenance Marketing
+**Reality check: Underutilized opportunity**
 
-AI tools can:
-- Alert you to new reviews instantly
-- Draft response suggestions
-- Analyze sentiment trends
+With only 30% of homeowners scheduling maintenance, there's huge potential. AI can:
 
-But they can't fix a legitimate customer complaint. The "AI" here is mostly about efficiency, not magic.
+- Automatically remind customers when maintenance is due
+- Personalize outreach based on system age and history
+- Predict which customers are likely to need service soon
+- Schedule appointments during slower periods
 
-**Real results**: Faster response times to reviews, but impact on ratings depends on service quality.
+**Real results**: Companies report 40-60% increases in maintenance agreement signups.
 
 ## AI Technologies That Are Overhyped
 
 ### 1. "AI Marketing"
 **Reality check: Mostly rebranded automation**
 
-Most "AI marketing" for plumbers is just email automation and ad targeting that's existed for years. True AI marketing (like dynamic ad creative) exists but isn't necessary for most local plumbing businesses.
+Most "AI marketing" for HVAC is just email automation and ad targeting that's existed for years. True AI marketing exists but isn't necessary for most local businesses.
 
 **Our take**: Basic marketing automation works fine. Don't pay premium "AI" prices.
 
-### 2. AI Lead Scoring
-**Reality check: Overkill for most plumbers**
-
-Enterprise companies use AI to score leads, but for a local plumber? If someone calls about a broken water heater, that's a hot lead. You don't need machine learning to figure that out.
-
-**Our take**: Answer the phone fast and you won't need lead scoring.
-
-### 3. AI Chatbots (Text-Based)
+### 2. AI Chatbots (Text-Based)
 **Reality check: Frustrating for customers**
 
-Text-based chatbots on websites sound good but often frustrate customers who just want to call or book. Phone calls convert 5-10x better than chat for service businesses.
+Text-based chatbots on websites sound good but often frustrate customers who just want to call during an emergency. Phone calls convert 5-10x better than chat for service businesses.
 
-**Our take**: If you're going to use AI, use it for calls—that's where customers are.
+**Our take**: If you're going to use AI, use it for calls—that's where HVAC customers are.
 
 ## What to Look for in AI Solutions
 
-When evaluating any AI product for your plumbing business, ask:
+When evaluating any AI product for your HVAC business, ask:
 
-**1. What's the actual ROI?**
-Can they show you real numbers from real plumbing businesses? Vague promises mean vague results.
+**1. Can it handle HVAC-specific scenarios?**
+Emergency AC failure, repair vs replacement qualification, heat pump questions—can the AI handle these naturally?
 
-**2. What happens when it fails?**
-All AI has limits. How does the system handle situations it can't manage?
+**2. What happens during demand spikes?**
+Heat waves and cold snaps are when you need help most. Can it handle 50 simultaneous calls?
 
-**3. Is it trainable on YOUR business?**
-Generic AI is generic results. Can it learn your pricing, services, and policies?
+**3. What's the actual ROI?**
+Can they show you real numbers from real HVAC businesses? Vague promises mean vague results.
 
-**4. What's the real cost?**
-Including setup, training, integrations, and ongoing fees. No surprises.
+**4. Is it trainable on YOUR business?**
+Generic AI is generic results. Can it learn your brands, pricing, and service area?
 
 **5. Can you try before you buy?**
 Any confident vendor should offer a demo or trial.
 
+## The Technician Shortage Solution
+
+With 110,000 technicians needed, efficiency is everything. AI helps by:
+
+- **Eliminating phone time**: Technicians focus on repairs, not calls
+- **Reducing no-shows**: Automated confirmations and reminders
+- **Optimizing routes**: Less driving, more billing
+- **Capturing after-hours calls**: Revenue without overtime
+
+Every hour saved on administrative work is an hour a technician can spend on billable jobs.
+
 ## The Bottom Line
 
-In 2024, the AI technology that delivers the most value for plumbers is **AI voice agents**. Everything else either requires scale you probably don't have or delivers marginal improvements over existing solutions.
+In 2025, the AI technology that delivers the most value for HVAC contractors is **AI voice agents**. Everything else either requires scale you probably don't have or delivers marginal improvements over existing solutions.
 
-If you're going to invest in one AI technology this year, make it one that answers your phone 24/7 and books appointments while you sleep.
+If you're going to invest in one AI technology this year, make it one that answers your phone 24/7, handles demand spikes during extreme weather, and books appointments while you sleep.
 
 **Want to see what good AI looks like?** [Talk to our demo AI agent](/demo) and experience the difference.
     `,
     author: "Alex Thompson",
     publishedAt: "2024-12-01",
     updatedAt: "2024-12-01",
-    readTime: 7,
-    category: "Technology",
-    tags: ["AI", "technology", "2024", "plumber tools"],
+    readTime: 8,
+    category: "Industry Trends",
+    tags: ["AI", "technology", "2025", "HVAC tools", "technician shortage"],
     featuredImage: "/blog/ai-guide-2024.jpg",
-    metaDescription: "Cut through the AI hype. Learn which AI technologies actually work for plumbing businesses in 2024 and which are just marketing fluff."
+    metaDescription: "Cut through the AI hype. Learn which AI technologies actually work for HVAC contractors in 2025, including solutions for the 110,000 technician shortage."
   }
 ];
 
@@ -436,8 +462,4 @@ export const getPostsByCategory = (category: string): BlogPost[] => {
 
 export const getAllCategories = (): string[] => {
   return [...new Set(blogPosts.map(post => post.category))];
-};
-
-export const getAllTags = (): string[] => {
-  return [...new Set(blogPosts.flatMap(post => post.tags))];
 };

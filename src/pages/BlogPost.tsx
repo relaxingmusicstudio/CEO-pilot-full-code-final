@@ -112,12 +112,12 @@ const BlogPost = () => {
     });
   };
 
-  const shareUrl = `https://apexlocal360.com/blog/${post.slug}`;
+  const shareUrl = `https://example.com/blog/${post.slug}`;
 
   return (
     <>
       <Helmet>
-        <title>{post.title} | ApexLocal360 Blog</title>
+        <title>{post.title} | HVAC Business Blog</title>
         <meta name="description" content={post.metaDescription} />
         <link rel="canonical" href={shareUrl} />
 
@@ -231,7 +231,7 @@ const BlogPost = () => {
                       Found this helpful?
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Share it with other plumbing business owners.
+                      Share it with other HVAC business owners.
                     </p>
                   </div>
                   <Button
@@ -249,11 +249,11 @@ const BlogPost = () => {
               {/* CTA */}
               <div className="mt-12 p-8 bg-primary text-primary-foreground rounded-lg text-center">
                 <h3 className="text-2xl font-bold mb-3">
-                  Ready to Stop Missing Calls?
+                  Ready to Stop Missing HVAC Calls?
                 </h3>
                 <p className="opacity-90 mb-6">
                   See how an AI voice agent can book more appointments for your
-                  plumbing business.
+                  HVAC business.
                 </p>
                 <Link
                   to="/#contact"

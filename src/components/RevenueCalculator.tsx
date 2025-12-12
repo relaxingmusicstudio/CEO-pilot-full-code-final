@@ -5,11 +5,11 @@ import { Calculator, TrendingDown, TrendingUp, Phone } from "lucide-react";
 
 const RevenueCalculator = () => {
   const [monthlyCalls, setMonthlyCalls] = useState([200]);
-  const [avgJobValue, setAvgJobValue] = useState(850);
+  const [avgJobValue, setAvgJobValue] = useState(351);
   const [conversionRate, setConversionRate] = useState(30);
   const [showResults, setShowResults] = useState(false);
 
-  const missedCallRate = 0.28; // 28% missed calls industry average
+  const missedCallRate = 0.27; // 27% missed calls HVAC industry average
   const missedCalls = Math.round(monthlyCalls[0] * missedCallRate);
   const potentialJobs = Math.round(missedCalls * (conversionRate / 100));
   const lostRevenue = potentialJobs * avgJobValue;
@@ -27,7 +27,7 @@ const RevenueCalculator = () => {
             How Much Is Your Phone <span className="text-accent">Costing You?</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Calculate the revenue you're losing from missed calls right now.
+            HVAC contractors miss 27% of calls on average. Calculate the revenue you're losing right now.
           </p>
         </div>
 
@@ -38,7 +38,7 @@ const RevenueCalculator = () => {
               <div className="space-y-4">
                 <label className="flex items-center gap-2 font-semibold text-foreground">
                   <Phone className="w-5 h-5 text-primary" />
-                  Monthly Calls
+                  Monthly Service Calls
                 </label>
                 <Slider
                   value={monthlyCalls}
@@ -58,7 +58,7 @@ const RevenueCalculator = () => {
               <div className="space-y-4">
                 <label className="flex items-center gap-2 font-semibold text-foreground">
                   <TrendingUp className="w-5 h-5 text-primary" />
-                  Avg. Job Value
+                  Average HVAC Job Value
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -112,7 +112,7 @@ const RevenueCalculator = () => {
                 <div className="grid md:grid-cols-3 gap-6 mb-6">
                   <div className="text-center p-4 bg-card rounded-lg">
                     <div className="text-3xl font-bold text-destructive mb-1">{missedCalls}</div>
-                    <div className="text-muted-foreground text-sm">Missed Calls</div>
+                    <div className="text-muted-foreground text-sm">Missed Calls (27%)</div>
                   </div>
                   <div className="text-center p-4 bg-card rounded-lg">
                     <div className="text-3xl font-bold text-destructive mb-1">${lostRevenue.toLocaleString()}</div>
@@ -120,9 +120,13 @@ const RevenueCalculator = () => {
                   </div>
                   <div className="text-center p-4 bg-accent/10 rounded-lg border-2 border-accent/30">
                     <div className="text-3xl font-bold text-accent mb-1">+${recoveredRevenue.toLocaleString()}</div>
-                    <div className="text-foreground text-sm font-medium">Recover with ApexLocal360</div>
+                    <div className="text-foreground text-sm font-medium">Recover with AI</div>
                   </div>
                 </div>
+
+                <p className="text-center text-muted-foreground text-sm mb-4">
+                  In the $156.2 billion HVAC industry, every missed call is revenue walking to your competitor.
+                </p>
 
                 <div className="flex justify-center">
                   <Button

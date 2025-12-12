@@ -14,15 +14,15 @@ interface ContactFormRequest {
   email: string;
   message: string;
   phone?: string;
-  // Chatbot qualification fields (updated for new flow)
-  businessType?: string;        // trade: Plumbing, HVAC, etc.
-  businessTypeOther?: string;   // businessName
-  teamSize?: string;            // Solo operator, 2-5 trucks, 6+ trucks
-  callVolume?: string;          // daily calls as string
-  currentSolution?: string;     // callHandling: what happens to calls
-  avgJobValue?: string;         // ticketValue as string
-  missedCalls?: string;         // calculated missed calls
-  potentialLoss?: string;       // calculated monthly loss
+  // Chatbot qualification fields
+  businessType?: string;
+  businessTypeOther?: string;
+  teamSize?: string;
+  callVolume?: string;
+  currentSolution?: string;
+  avgJobValue?: string;
+  missedCalls?: string;
+  potentialLoss?: string;
   notes?: string;
   isGoodFit?: boolean;
   fitReason?: string;
@@ -89,12 +89,12 @@ const handler = async (req: Request): Promise<Response> => {
     
     // Determine source and tags based on qualification
     const isChatbot = !!phone && !!businessType;
-    const source = isChatbot ? "Chatbot - Consultative" : "Website Form";
+    const source = isChatbot ? "hvac-ai-website" : "Website Form";
     
     // Build smart tags
-    const tags: string[] = [];
+    const tags: string[] = ["hvac-lead"];
     if (isChatbot) {
-      tags.push("Chatbot Lead");
+      tags.push("website-contact", "ai-voice-interest");
       
       // Qualification status
       if (isGoodFit === true) {
@@ -220,32 +220,32 @@ ${notes || "None"}
       ? `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1e3a5f;">Thanks for chatting with us, ${firstName}!</h1>
-          <p style="font-size: 16px; color: #333;">Great conversation! Based on what you shared about your ${businessType || "service"} business, I think we can really help.</p>
+          <p style="font-size: 16px; color: #333;">Great conversation! Based on what you shared about your ${businessType || "HVAC"} business, I think we can really help.</p>
           <p style="font-size: 16px; color: #333;">One of our specialists will reach out within <strong>24 hours</strong> to discuss a custom plan for your situation.</p>
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0; color: #666;"><strong>What happens next:</strong></p>
             <ul style="color: #333;">
               <li>We'll review your specific situation</li>
               <li>Our team will call you to discuss solutions</li>
-              <li>If it's a fit, we can have you live in under a week</li>
+              <li>If it's a fit, we can have you live in under 48 hours</li>
             </ul>
           </div>
-          <p style="font-size: 14px; color: #666;">Talk soon!<br>The ApexLocal360 Team</p>
+          <p style="font-size: 14px; color: #666;">Talk soon!<br>The [MY_COMPANY_NAME] Team</p>
         </div>
       `
       : `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1e3a5f;">Thanks for stopping by, ${firstName}!</h1>
-          <p style="font-size: 16px; color: #333;">Appreciate you taking the time to chat with us about your business.</p>
-          <p style="font-size: 16px; color: #333;">We've saved your info — when you're ready to explore AI solutions for your ${businessType || "service"} business, just reach out. We'll be here!</p>
+          <p style="font-size: 16px; color: #333;">Appreciate you taking the time to chat with us about your HVAC business.</p>
+          <p style="font-size: 16px; color: #333;">We've saved your info — when you're ready to explore AI solutions for your ${businessType || "HVAC"} business, just reach out. We'll be here!</p>
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0; color: #666;"><strong>In the meantime, check out:</strong></p>
             <ul style="color: #333;">
               <li>Our calculator to see what missed calls cost</li>
-              <li>Demo of how our AI handles calls</li>
+              <li>Demo of how our AI handles HVAC calls</li>
             </ul>
           </div>
-          <p style="font-size: 14px; color: #666;">Best of luck!<br>The ApexLocal360 Team</p>
+          <p style="font-size: 14px; color: #666;">Best of luck!<br>The [MY_COMPANY_NAME] Team</p>
         </div>
       `;
     
@@ -256,7 +256,7 @@ ${notes || "None"}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "ApexLocal360 <onboarding@resend.dev>",
+        from: "[MY_COMPANY_NAME] <onboarding@resend.dev>",
         to: [email],
         subject: emailSubject,
         html: emailBody,

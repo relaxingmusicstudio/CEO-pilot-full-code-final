@@ -25,14 +25,14 @@ const HeroSection = () => {
           {/* Left Content */}
           <div className="flex-1 text-center lg:text-left animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight mb-6">
-              Stop Missing{" "}
-              <span className="text-accent">$1,200 Calls.</span>
+              Stop Losing{" "}
+              <span className="text-accent">$156B Industry Revenue</span>
               <br />
-              Your AI Dispatcher Is Ready.
+              to Missed Calls.
             </h1>
             
             <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mb-8">
-              We build your 24/7 AI agent that answers, books, upsells, and probes for large jobs. 
+              HVAC contractors miss 27% of incoming calls. 80% of those callers hang up on voicemail and call your competitor. Our AI answers every call in under 3 rings, 24/7.
               <span className="font-semibold text-primary-foreground"> Done-for-you in 48 hours. No contracts.</span>
             </p>
 
@@ -129,7 +129,7 @@ const HeroSection = () => {
                   {/* Bottom Bar */}
                   <div className="p-3 bg-primary/80">
                     <p className="text-primary-foreground/80 text-sm text-center">
-                      "Ready to show you how we recover your missed calls!"
+                      "Ready to show you how we recover your missed HVAC calls!"
                     </p>
                   </div>
                 </div>
@@ -139,7 +139,7 @@ const HeroSection = () => {
               <div className="absolute -bottom-4 -left-8 md:-left-16 max-w-xs bg-card rounded-2xl p-4 shadow-xl animate-bounce-subtle">
                 <div className="absolute -top-2 right-8 w-4 h-4 bg-card transform rotate-45" />
                 <p className="text-foreground text-sm md:text-base font-medium leading-relaxed">
-                  "Hi! I'm Sarah. Let's hop on a quick <span className="text-accent font-bold">live video call</span> and I'll show you exactly how our AI handles your calls."
+                  "Hi! I'm Sarah. Let's hop on a quick <span className="text-accent font-bold">live video call</span> and I'll show you exactly how our AI handles your HVAC calls."
                 </p>
               </div>
 

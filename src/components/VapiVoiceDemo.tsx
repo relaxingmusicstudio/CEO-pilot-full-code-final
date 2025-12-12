@@ -9,8 +9,8 @@ interface VapiVoiceDemoProps {
   onClose: () => void;
 }
 
-// Your Vapi assistant ID
-const VAPI_ASSISTANT_ID = "299cdcb8-642d-4728-b434-196724f53ae6";
+// Your Vapi assistant ID - replace with HVAC-trained agent
+const VAPI_ASSISTANT_ID = "[VAPI_ASSISTANT_ID]";
 
 const VapiVoiceDemo = ({ isOpen, onClose }: VapiVoiceDemoProps) => {
   const { toast } = useToast();
@@ -165,10 +165,10 @@ const VapiVoiceDemo = ({ isOpen, onClose }: VapiVoiceDemoProps) => {
                 <Phone className="w-12 h-12 text-accent" />
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-2">
-                Talk to Our AI Demo Agent
+                Talk to Our HVAC AI Demo Agent
               </h3>
               <p className="text-muted-foreground mb-6">
-                Experience how our AI handles calls - ask about our services, pricing, or schedule a demo.
+                Experience how our AI handles HVAC calls - ask about services, pricing, or schedule a demo.
               </p>
               <Button variant="hero" size="xl" onClick={startCall} className="w-full">
                 <Phone className="w-5 h-5" />

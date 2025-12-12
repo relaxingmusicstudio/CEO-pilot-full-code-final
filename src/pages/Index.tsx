@@ -18,8 +18,8 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>AI Voice Agent for Plumbers | 24/7 Dispatcher - ApexLocal360</title>
-        <meta name="description" content="Stop missing $1,200+ plumbing calls. Our AI voice agent answers 24/7, books appointments, upsells services, and qualifies leads. Done-for-you setup in 48 hours. No contracts." />
+        <title>AI Voice Agent for HVAC Companies | Never Miss Another Service Call</title>
+        <meta name="description" content="24/7 AI receptionist for HVAC contractors. Capture every emergency call, book more jobs, and grow revenue. 48-hour setup, no contracts." />
       </Helmet>
       <main className="min-h-screen bg-background" itemScope itemType="https://schema.org/WebPage">
         <Header />
