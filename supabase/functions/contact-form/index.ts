@@ -234,6 +234,7 @@ ${notes || "None"}
         ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
         website: website,
         tags: tags.join(", "),
+        tags_string: tags.join(", "),
       },
       
       name: name,
