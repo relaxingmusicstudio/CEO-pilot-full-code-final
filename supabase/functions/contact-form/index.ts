@@ -224,6 +224,7 @@ ${notes || "None"}
       customField: {
         message: ghlNotes,
         formName: formName,
+        contact_source: source,
         services_offered: businessType || "",
         "Business Name": businessTypeOther || "",
         "Team Size": teamSize || "",
