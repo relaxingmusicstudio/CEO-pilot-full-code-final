@@ -323,6 +323,11 @@ ${notes || "None"}
     console.log(`Tags: ${tags.join(", ")}`);
     console.log("============================");
     
+    // Log FULL payload for debugging
+    console.log("=== FULL GHL PAYLOAD ===");
+    console.log(JSON.stringify(webhookPayload, null, 2));
+    console.log("========================");
+    
     console.log("Sending to GHL webhook");
     
     if (!GHL_WEBHOOK_URL) {
