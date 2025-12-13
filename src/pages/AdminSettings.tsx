@@ -28,72 +28,149 @@ interface IntegrationConfig {
   icon: React.ReactNode;
   category: string;
   placeholder: string;
+  required?: boolean;
 }
 
 const integrations: IntegrationConfig[] = [
-  {
-    key: "GOOGLE_API_KEY",
-    label: "Google API Key",
-    description: "YouTube Data API, Google Trends, Search Console",
-    icon: <TrendingUp className="h-5 w-5" />,
-    category: "Google",
-    placeholder: "AIza..."
-  },
-  {
-    key: "GOOGLE_ADS_DEVELOPER_TOKEN",
-    label: "Google Ads Developer Token",
-    description: "Create and manage Google Ads campaigns",
-    icon: <BarChart3 className="h-5 w-5" />,
-    category: "Google",
-    placeholder: "Your developer token"
-  },
+  // Google / YouTube (Core for video platform)
   {
     key: "YOUTUBE_API_KEY",
-    label: "YouTube API Key",
-    description: "Trending videos, transcripts, channel analytics",
+    label: "YouTube Data API v3",
+    description: "Channel analytics, video management, trending videos",
     icon: <Youtube className="h-5 w-5" />,
     category: "Google",
-    placeholder: "AIza..."
+    placeholder: "AIza...",
+    required: true
   },
+  {
+    key: "GOOGLE_OAUTH_CLIENT_ID",
+    label: "Google OAuth Client ID",
+    description: "User authentication & YouTube channel access",
+    icon: <Key className="h-5 w-5" />,
+    category: "Google",
+    placeholder: "447868455528-...",
+    required: true
+  },
+  {
+    key: "GOOGLE_OAUTH_CLIENT_SECRET",
+    label: "Google OAuth Client Secret",
+    description: "OAuth authentication secret",
+    icon: <Key className="h-5 w-5" />,
+    category: "Google",
+    placeholder: "GOCSPX-...",
+    required: true
+  },
+  {
+    key: "YOUTUBE_ANALYTICS_API",
+    label: "YouTube Analytics API",
+    description: "CTR, watch time & retention for A/B testing",
+    icon: <BarChart3 className="h-5 w-5" />,
+    category: "Google",
+    placeholder: "Same as YouTube API key",
+    required: false
+  },
+  // Social Media Publishing
   {
     key: "META_ACCESS_TOKEN",
     label: "Meta Access Token",
-    description: "Facebook & Instagram Ads management",
+    description: "Facebook & Instagram auto-posting",
     icon: <Facebook className="h-5 w-5" />,
-    category: "Meta",
-    placeholder: "EAA..."
+    category: "Social",
+    placeholder: "EAA...",
+    required: false
   },
+  {
+    key: "TIKTOK_ACCESS_TOKEN",
+    label: "TikTok Access Token",
+    description: "TikTok auto-posting & analytics",
+    icon: <Video className="h-5 w-5" />,
+    category: "Social",
+    placeholder: "Your TikTok token",
+    required: false
+  },
+  {
+    key: "TWITTER_API_KEY",
+    label: "Twitter/X API Key",
+    description: "Twitter auto-posting & engagement",
+    icon: <MessageSquare className="h-5 w-5" />,
+    category: "Social",
+    placeholder: "Your Twitter API key",
+    required: false
+  },
+  {
+    key: "LINKEDIN_ACCESS_TOKEN",
+    label: "LinkedIn Access Token",
+    description: "LinkedIn auto-posting for B2B content",
+    icon: <TrendingUp className="h-5 w-5" />,
+    category: "Social",
+    placeholder: "Your LinkedIn token",
+    required: false
+  },
+  // Video Production
   {
     key: "HEYGEN_API_KEY",
     label: "HeyGen API Key",
     description: "AI avatar video generation",
     icon: <Video className="h-5 w-5" />,
     category: "Video",
-    placeholder: "Your HeyGen API key"
+    placeholder: "Your HeyGen API key",
+    required: false
   },
+  {
+    key: "ELEVENLABS_API_KEY",
+    label: "ElevenLabs API Key",
+    description: "AI voice cloning & text-to-speech",
+    icon: <Phone className="h-5 w-5" />,
+    category: "Video",
+    placeholder: "Your ElevenLabs key",
+    required: false
+  },
+  {
+    key: "CLOUDINARY_API_KEY",
+    label: "Cloudinary API Key",
+    description: "Video processing & clip extraction",
+    icon: <Video className="h-5 w-5" />,
+    category: "Video",
+    placeholder: "Your Cloudinary key",
+    required: false
+  },
+  // Messaging (for HVAC leads)
   {
     key: "TWILIO_ACCOUNT_SID",
     label: "Twilio Account SID",
-    description: "SMS and voice messaging",
+    description: "SMS notifications & voice calls",
     icon: <Phone className="h-5 w-5" />,
     category: "Messaging",
-    placeholder: "AC..."
+    placeholder: "AC...",
+    required: false
   },
   {
     key: "TWILIO_AUTH_TOKEN",
     label: "Twilio Auth Token",
-    description: "Authentication for Twilio API",
+    description: "Twilio authentication",
     icon: <Key className="h-5 w-5" />,
     category: "Messaging",
-    placeholder: "Your auth token"
+    placeholder: "Your auth token",
+    required: false
   },
   {
     key: "WHATSAPP_ACCESS_TOKEN",
-    label: "WhatsApp Access Token",
-    description: "WhatsApp Business API messaging",
+    label: "WhatsApp Business API",
+    description: "WhatsApp messaging for leads",
     icon: <MessageSquare className="h-5 w-5" />,
     category: "Messaging",
-    placeholder: "Your WhatsApp token"
+    placeholder: "Your WhatsApp token",
+    required: false
+  },
+  // Ads
+  {
+    key: "GOOGLE_ADS_DEVELOPER_TOKEN",
+    label: "Google Ads Developer Token",
+    description: "Automated Google Ads management",
+    icon: <BarChart3 className="h-5 w-5" />,
+    category: "Ads",
+    placeholder: "Your developer token",
+    required: false
   }
 ];
 
@@ -271,10 +348,11 @@ const AdminSettings = () => {
         {categories.map(category => (
           <div key={category} className="mb-8">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              {category === "Google" && <TrendingUp className="h-5 w-5 text-red-400" />}
-              {category === "Meta" && <Facebook className="h-5 w-5 text-blue-400" />}
+              {category === "Google" && <Youtube className="h-5 w-5 text-red-400" />}
+              {category === "Social" && <Facebook className="h-5 w-5 text-blue-400" />}
               {category === "Video" && <Video className="h-5 w-5 text-purple-400" />}
               {category === "Messaging" && <MessageSquare className="h-5 w-5 text-green-400" />}
+              {category === "Ads" && <BarChart3 className="h-5 w-5 text-orange-400" />}
               {category} Integrations
             </h2>
             
@@ -288,15 +366,25 @@ const AdminSettings = () => {
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted">
+                            <div className={`p-2 rounded-lg ${
+                              setting?.test_status === "success" 
+                                ? "bg-green-500/20" 
+                                : "bg-muted"
+                            }`}>
                               {integration.icon}
                             </div>
                             <div>
-                              <CardTitle className="text-base">{integration.label}</CardTitle>
+                              <div className="flex items-center gap-2">
+                                <CardTitle className="text-base">{integration.label}</CardTitle>
+                                {integration.required && (
+                                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                                    Required
+                                  </Badge>
+                                )}
+                              </div>
                               <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
                           </div>
-                          {getStatusBadge(setting)}
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
