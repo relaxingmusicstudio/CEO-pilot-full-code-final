@@ -31,6 +31,7 @@ interface ContactFormRequest {
   email: string;
   message: string;
   phone?: string;
+  businessName?: string;
   businessType?: string;
   businessTypeOther?: string;
   teamSize?: string;
@@ -96,6 +97,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
     
     // Sanitize other fields
+    const businessName = sanitizeString(requestData.businessName, 100);
     const businessType = sanitizeString(requestData.businessType, 50);
     const businessTypeOther = sanitizeString(requestData.businessTypeOther, 100);
     const teamSize = sanitizeString(requestData.teamSize, 20);
@@ -106,22 +108,29 @@ const handler = async (req: Request): Promise<Response> => {
     const potentialLoss = sanitizeString(requestData.potentialLoss, 20);
     const notes = sanitizeString(requestData.notes, 1000);
     const isGoodFit = requestData.isGoodFit;
-    const fitReason = sanitizeString(requestData.fitReason, 50);
-    
-    console.log("Validated form data:", { 
-      name, 
-      emailLength: email.length, 
-      phone: phone ? "provided" : "not provided", 
-      businessType,
-      teamSize, 
-      callVolume,
-      messageLength: message.length 
-    });
+    const fitReason = sanitizeString(requestData.fitReason, 200);
+    const aiTimeline = sanitizeString(requestData.aiTimeline, 50);
 
     // Split name into firstName and lastName for GHL
     const nameParts = name.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
+    
+    // Derive business name from multiple sources
+    const derivedBusinessName = businessName || businessTypeOther || `${firstName}'s ${businessType || 'Business'}`;
+    
+    console.log("Validated form data:", { 
+      name, 
+      emailLength: email.length, 
+      phone: phone ? "provided" : "not provided", 
+      businessName: derivedBusinessName,
+      businessType,
+      teamSize, 
+      callVolume,
+      fitReason,
+      aiTimeline,
+      messageLength: message.length 
+    });
     
     // Get formName from request to determine source
     const rawFormName = sanitizeString(requestData.formName, 100);
@@ -258,8 +267,8 @@ ${notes || "None"}
       tags_string: tags.join(", "),
       
       // GHL Standard Fields
-      companyName: businessTypeOther || name + "'s Business",
-      company_name: businessTypeOther || name + "'s Business",
+      companyName: derivedBusinessName,
+      company_name: derivedBusinessName,
       website: website,
       
       // Custom fields - using exact GHL field names from screenshot
@@ -267,11 +276,12 @@ ${notes || "None"}
         // Form identification
         formName: formName,
         form_name: formName,
+        "Form Name": formName,
         
-        // Business info
-        business_name: businessTypeOther || "",
-        businessName: businessTypeOther || "",
-        "Business Name": businessTypeOther || "",
+        // Business info - use derivedBusinessName
+        business_name: derivedBusinessName,
+        businessName: derivedBusinessName,
+        "Business Name": derivedBusinessName,
         services_offered: businessType || "",
         "Services Offered": businessType || "",
         
@@ -290,35 +300,43 @@ ${notes || "None"}
         "Avg Job Value": avgJobValue || "",
         
         // AI Timeline
-        ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
-        "AI Timeline": sanitizeString(requestData.aiTimeline, 50) || "",
-        aiTimeline: sanitizeString(requestData.aiTimeline, 50) || "",
+        ai_timeline: aiTimeline || "",
+        "AI Timeline": aiTimeline || "",
+        aiTimeline: aiTimeline || "",
         
         // Other services/interests
         other_services_needed: otherServicesNeeded,
         "Other Services Needed": otherServicesNeeded,
         interests: otherServicesNeeded,
         
-        // Lead qualification
-        lead_qualification: isGoodFit ? "YES" : "NO",
-        "Lead Qualification": isGoodFit ? "YES" : "NO",
-        lead_qualified: isGoodFit ? "YES" : "NO",
+        // Lead qualification - use YES/NO for GHL compatibility
+        lead_qualification: isGoodFit === true ? "YES" : "NO",
+        "Lead Qualification": isGoodFit === true ? "YES" : "NO",
+        lead_qualified: isGoodFit === true ? "YES" : "NO",
+        
+        // Fit reason - explicit mapping
         fit_reason: fitReason || "",
+        "Fit Reason": fitReason || "",
+        fitReason: fitReason || "",
         
         // Missed calls data
         missed_calls_monthly: missedCallsNumeric.toString(),
         "Missed Calls Monthly": missedCallsNumeric.toString(),
         
-        // Revenue calculations
+        // Revenue calculations - both formatted and numeric
         missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
         "Missed Call Revenue": `$${missedCallRevenue.toLocaleString()}`,
+        missed_call_revenue_numeric: missedCallRevenue,
         potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
         "Potential Revenue Loss": `$${potentialLossNumeric.toLocaleString()}`,
+        potential_revenue_loss_numeric: potentialLossNumeric,
         potential_monthly_loss: `$${potentialLossNumeric.toLocaleString()}`,
         
         // Lead scoring
         lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+        "Lead Temperature": isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
         lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+        "Lead Intent": isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
         lead_score: calculateLeadScore(),
         "Lead Score": calculateLeadScore(),
         
@@ -336,6 +354,7 @@ ${notes || "None"}
         // Tags
         tags: tags.join(", "),
         tags_string: tags.join(", "),
+        "Tag String": tags.join(", "),
         
         // Notes/message
         message: ghlNotes,
@@ -345,24 +364,28 @@ ${notes || "None"}
       // Root level fields for compatibility
       message: ghlNotes,
       formName: formName,
+      "Form Name": formName,
       services_offered: businessType || "",
-      business_name: businessTypeOther || "",
-      "Business Name": businessTypeOther || "",
+      "Services Offered": businessType || "",
+      business_name: derivedBusinessName,
+      "Business Name": derivedBusinessName,
       team_size: teamSize || "",
       "Team Size": teamSize || "",
       call_volume_monthly: callVolume || "",
+      "Call Volume Monthly": callVolume || "",
       current_call_handling: currentSolution || "",
       "Current Call Handling": currentSolution || "",
       avg_job_value: avgJobValue || "",
       "Avg Job Value": avgJobValue || "",
-      ai_timeline: sanitizeString(requestData.aiTimeline, 50) || "",
-      "AI Timeline": sanitizeString(requestData.aiTimeline, 50) || "",
+      ai_timeline: aiTimeline || "",
+      "AI Timeline": aiTimeline || "",
       other_services_needed: otherServicesNeeded,
       "Other Services Needed": otherServicesNeeded,
-      lead_qualification: isGoodFit ? "YES" : "NO",
-      "Lead Qualification": isGoodFit ? "YES" : "NO",
-      lead_qualified: isGoodFit ? "YES" : "NO",
+      lead_qualification: isGoodFit === true ? "YES" : "NO",
+      "Lead Qualification": isGoodFit === true ? "YES" : "NO",
+      lead_qualified: isGoodFit === true ? "YES" : "NO",
       fit_reason: fitReason || "",
+      "Fit Reason": fitReason || "",
       missed_calls_monthly: missedCallsNumeric.toString(),
       "Missed Calls Monthly": missedCallsNumeric.toString(),
       missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
@@ -371,7 +394,9 @@ ${notes || "None"}
       "Potential Revenue Loss": `$${potentialLossNumeric.toLocaleString()}`,
       potential_monthly_loss: `$${potentialLossNumeric.toLocaleString()}`,
       lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+      "Lead Temperature": isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
       lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+      "Lead Intent": isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
       lead_score: calculateLeadScore(),
       "Lead Score": calculateLeadScore(),
       timestamp: new Date().toISOString(),
