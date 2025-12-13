@@ -432,8 +432,8 @@ ${notes || "None"}
         team_size: teamSize || "",
         tag_string: tags.join(", "),
         
-        // Page 2 fields
-        avg_job_value: avgJobValue || "",
+        // Page 2 fields - strip $ symbol for GHL compatibility
+        avg_job_value: (avgJobValue || "").replace(/^\$/, ""),
         call_volume_monthly: callVolume || "",
         other_services_needed: otherServicesNeeded,
         ai_timeline: aiTimeline || "",
