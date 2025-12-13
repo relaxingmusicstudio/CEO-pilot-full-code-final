@@ -305,7 +305,8 @@ const AdminAnalytics = () => {
 
             {/* Quick Actions */}
             <div className="px-4 py-2 border-t bg-secondary/20">
-              <div className="flex flex-wrap gap-1.5">
+              <p className="text-[10px] text-muted-foreground mb-1.5">Analytics</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -350,19 +351,6 @@ const AdminAnalytics = () => {
                   size="sm"
                   className="h-7 text-xs gap-1.5"
                   onClick={() => handlePresetQuery(
-                    "Look at conversations that converted. What language and approaches lead to successful closes?",
-                    "Winning Patterns"
-                  )}
-                  disabled={isStreaming}
-                >
-                  <Zap className="w-3 h-3" />
-                  Winners
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => handlePresetQuery(
                     "Give me an executive summary of this week with key wins, concerns, and action items.",
                     "Weekly Summary"
                   )}
@@ -370,6 +358,36 @@ const AdminAnalytics = () => {
                 >
                   <FileText className="w-3 h-3" />
                   Summary
+                </Button>
+              </div>
+              
+              <p className="text-[10px] text-muted-foreground mb-1.5">Lead Management</p>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => handlePresetQuery(
+                    "Get my priority leads. Show me the hottest leads I should call today.",
+                    "Priority Leads"
+                  )}
+                  disabled={isStreaming}
+                >
+                  <Zap className="w-3 h-3" />
+                  Hot Leads
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => handlePresetQuery(
+                    "Show me all the current chatbot prompts and suggest improvements based on transcript analysis.",
+                    "View Prompts"
+                  )}
+                  disabled={isStreaming}
+                >
+                  <FileText className="w-3 h-3" />
+                  Prompts
                 </Button>
               </div>
             </div>

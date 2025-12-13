@@ -83,6 +83,83 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_prompt_history: {
+        Row: {
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          new_value: string
+          old_value: string | null
+          prompt_id: string | null
+          prompt_key: string
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_value: string
+          old_value?: string | null
+          prompt_id?: string | null
+          prompt_key: string
+        }
+        Update: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_value?: string
+          old_value?: string | null
+          prompt_id?: string | null
+          prompt_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_prompt_history_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_prompts: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          prompt_key: string
+          prompt_value: string
+          updated_at: string | null
+          updated_by: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          prompt_key: string
+          prompt_value: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          prompt_key?: string
+          prompt_value?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           ai_analysis: Json | null
