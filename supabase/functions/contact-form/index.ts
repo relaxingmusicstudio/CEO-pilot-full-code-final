@@ -344,6 +344,7 @@ ${notes || "None"}
         postal_code: postalCode,
         country: country,
         // NEW: Business/lead fields
+        business_name: businessName || derivedBusinessName,
         business_overview: businessOverview,
         call_routing_hours: callRoutingHours,
         contact_type: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
