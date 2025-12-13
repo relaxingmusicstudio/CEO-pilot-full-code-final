@@ -13,6 +13,7 @@ import {
   saveSession,
   loadSession,
 } from '@/lib/visitorTracking';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface VisitorContextType {
   session: VisitorSession;
@@ -66,6 +67,8 @@ export const VisitorProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [session, setSession] = useState<VisitorSession>(defaultSession);
   const sessionStartTime = useRef<number>(Date.now());
   const timeInterval = useRef<NodeJS.Timeout | null>(null);
+  const hasSavedVisitor = useRef(false);
+  const { saveVisitor, trackEvent, getSessionId } = useAnalytics();
 
   // Initialize session on mount
   useEffect(() => {
@@ -116,6 +119,32 @@ export const VisitorProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSession(initialSession);
     saveSession(initialSession);
     
+    // Save visitor to database (only once per session)
+    if (!hasSavedVisitor.current) {
+      hasSavedVisitor.current = true;
+      saveVisitor({
+        visitorId,
+        device,
+        browser,
+        utmSource: utmParams.utmSource || undefined,
+        utmMedium: utmParams.utmMedium || undefined,
+        utmCampaign: utmParams.utmCampaign || undefined,
+        landingPage: window.location.href,
+        referrer: document.referrer || undefined,
+      });
+      
+      // Track page view event
+      trackEvent(visitorId, {
+        eventType: 'page_view',
+        eventData: { path: currentPath, title: document.title },
+        pageUrl: currentPath,
+      }, {
+        utmSource: utmParams.utmSource || undefined,
+        utmMedium: utmParams.utmMedium || undefined,
+        utmCampaign: utmParams.utmCampaign || undefined,
+      });
+    }
+    
     // Track time on site
     sessionStartTime.current = Date.now();
     timeInterval.current = setInterval(() => {
@@ -133,7 +162,7 @@ export const VisitorProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       if (timeInterval.current) clearInterval(timeInterval.current);
     };
-  }, []);
+  }, [saveVisitor, trackEvent]);
 
   // Track section views
   const trackSectionView = useCallback((sectionId: string) => {

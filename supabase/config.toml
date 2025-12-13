@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.analyze-lead]
 verify_jwt = false
+
+[functions.ceo-agent]
+verify_jwt = false
+
+[functions.save-analytics]
+verify_jwt = false

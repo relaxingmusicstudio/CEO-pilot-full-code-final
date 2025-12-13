@@ -14,16 +14,308 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ab_tests: {
+        Row: {
+          conversion_value: number | null
+          converted: boolean | null
+          created_at: string | null
+          id: string
+          test_name: string
+          variant: string
+          visitor_id: string | null
+        }
+        Insert: {
+          conversion_value?: number | null
+          converted?: boolean | null
+          created_at?: string | null
+          id?: string
+          test_name: string
+          variant: string
+          visitor_id?: string | null
+        }
+        Update: {
+          conversion_value?: number | null
+          converted?: boolean | null
+          created_at?: string | null
+          id?: string
+          test_name?: string
+          variant?: string
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          created_at: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          page_url: string | null
+          session_id: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page_url?: string | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page_url?: string | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          ai_analysis: Json | null
+          conversation_phase: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          lead_data: Json | null
+          message_count: number | null
+          messages: Json
+          outcome: string | null
+          session_id: string
+          updated_at: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          conversation_phase?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_data?: Json | null
+          message_count?: number | null
+          messages?: Json
+          outcome?: string | null
+          session_id: string
+          updated_at?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          conversation_phase?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_data?: Json | null
+          message_count?: number | null
+          messages?: Json
+          outcome?: string | null
+          session_id?: string
+          updated_at?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["visitor_id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          business_name: string | null
+          buying_signals: string[] | null
+          call_volume: string | null
+          conversation_id: string | null
+          conversion_probability: number | null
+          converted_at: string | null
+          created_at: string | null
+          email: string | null
+          ghl_contact_id: string | null
+          id: string
+          interests: string[] | null
+          lead_score: number | null
+          lead_temperature: string | null
+          name: string | null
+          notes: string | null
+          objections: string[] | null
+          phone: string | null
+          revenue_value: number | null
+          status: string | null
+          team_size: string | null
+          timeline: string | null
+          trade: string | null
+          updated_at: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          buying_signals?: string[] | null
+          call_volume?: string | null
+          conversation_id?: string | null
+          conversion_probability?: number | null
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          ghl_contact_id?: string | null
+          id?: string
+          interests?: string[] | null
+          lead_score?: number | null
+          lead_temperature?: string | null
+          name?: string | null
+          notes?: string | null
+          objections?: string[] | null
+          phone?: string | null
+          revenue_value?: number | null
+          status?: string | null
+          team_size?: string | null
+          timeline?: string | null
+          trade?: string | null
+          updated_at?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          buying_signals?: string[] | null
+          call_volume?: string | null
+          conversation_id?: string | null
+          conversion_probability?: number | null
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          ghl_contact_id?: string | null
+          id?: string
+          interests?: string[] | null
+          lead_score?: number | null
+          lead_temperature?: string | null
+          name?: string | null
+          notes?: string | null
+          objections?: string[] | null
+          phone?: string | null
+          revenue_value?: number | null
+          status?: string | null
+          team_size?: string | null
+          timeline?: string | null
+          trade?: string | null
+          updated_at?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["visitor_id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      visitors: {
+        Row: {
+          browser: string | null
+          created_at: string | null
+          device: string | null
+          first_seen_at: string | null
+          id: string
+          landing_page: string | null
+          last_seen_at: string | null
+          referrer: string | null
+          total_visits: number | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string | null
+          device?: string | null
+          first_seen_at?: string | null
+          id?: string
+          landing_page?: string | null
+          last_seen_at?: string | null
+          referrer?: string | null
+          total_visits?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string | null
+          device?: string | null
+          first_seen_at?: string | null
+          id?: string
+          landing_page?: string | null
+          last_seen_at?: string | null
+          referrer?: string | null
+          total_visits?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +442,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
