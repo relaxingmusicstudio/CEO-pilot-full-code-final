@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-lead-magnet]
 verify_jwt = false
+
+[functions.analyze-lead]
+verify_jwt = false

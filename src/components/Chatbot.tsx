@@ -406,6 +406,26 @@ Phase: ${leadData.conversationPhase}`;
     
     setIsSubmitting(true);
     try {
+      // First, analyze the lead with AI
+      console.log("Analyzing lead with AI...");
+      let aiAnalysis = null;
+      
+      try {
+        const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-lead', {
+          body: {
+            conversationHistory: conversationHistory,
+            leadData: leadData,
+          },
+        });
+        
+        if (!analysisError && analysisData) {
+          aiAnalysis = analysisData;
+          console.log("AI Analysis complete:", aiAnalysis);
+        }
+      } catch (analysisErr) {
+        console.error("AI analysis failed, continuing without:", analysisErr);
+      }
+
       const qualificationNotes = `
 === QUALIFIED LEAD (Chatbot) ===
 Name: ${leadData.name}
@@ -416,7 +436,25 @@ Monthly Call Volume: ${leadData.callVolume}
 Timeline: ${leadData.aiTimeline}
 Interests: ${leadData.interests.join(", ")}
 Potential Monthly Loss: $${leadData.potentialLoss}
-Potential Annual Loss: $${leadData.potentialLoss * 12}`;
+Potential Annual Loss: $${leadData.potentialLoss * 12}
+
+=== AI ANALYSIS ===
+Lead Score: ${aiAnalysis?.lead_score || 'N/A'}/100
+Temperature: ${aiAnalysis?.lead_temperature?.toUpperCase() || 'N/A'}
+Intent: ${aiAnalysis?.lead_intent || 'N/A'}
+Conversion Probability: ${aiAnalysis?.conversion_probability || 'N/A'}%
+Urgency: ${aiAnalysis?.urgency_level?.toUpperCase() || 'N/A'}
+
+BANT Breakdown:
+- Budget: ${aiAnalysis?.qualification_breakdown?.budget_score || 'N/A'}/25
+- Authority: ${aiAnalysis?.qualification_breakdown?.authority_score || 'N/A'}/20
+- Need: ${aiAnalysis?.qualification_breakdown?.need_score || 'N/A'}/25
+- Timeline: ${aiAnalysis?.qualification_breakdown?.timeline_score || 'N/A'}/30
+
+Buying Signals: ${aiAnalysis?.buying_signals?.join(', ') || 'None detected'}
+Objections: ${aiAnalysis?.objections_raised?.join(', ') || 'None'}
+Recommended Followup: ${aiAnalysis?.recommended_followup || 'Standard sequence'}
+Summary: ${aiAnalysis?.conversation_summary || 'N/A'}`;
 
       await supabase.functions.invoke('contact-form', {
         body: {
@@ -426,6 +464,7 @@ Potential Annual Loss: $${leadData.potentialLoss * 12}`;
           message: qualificationNotes,
           businessType: leadData.trade,
           businessTypeOther: leadData.businessName,
+          businessName: leadData.businessName,
           teamSize: leadData.teamSize,
           callVolume: leadData.callVolume,
           aiTimeline: leadData.aiTimeline,
@@ -434,11 +473,32 @@ Potential Annual Loss: $${leadData.potentialLoss * 12}`;
           isGoodFit: true,
           fitReason: "Chatbot_Qualified",
           notes: leadData.notes.join(" | "),
+          formName: "Chatbot - Alex (AI Scored)",
+          // AI Analysis fields
+          aiLeadScore: aiAnalysis?.lead_score,
+          aiLeadTemperature: aiAnalysis?.lead_temperature,
+          aiLeadIntent: aiAnalysis?.lead_intent,
+          aiConversionProbability: aiAnalysis?.conversion_probability,
+          aiUrgencyLevel: aiAnalysis?.urgency_level,
+          aiBuyingSignals: aiAnalysis?.buying_signals,
+          aiObjectionsRaised: aiAnalysis?.objections_raised,
+          aiRecommendedFollowup: aiAnalysis?.recommended_followup,
+          aiConversationSummary: aiAnalysis?.conversation_summary,
+          aiKeyInsights: aiAnalysis?.key_insights,
+          aiBudgetScore: aiAnalysis?.qualification_breakdown?.budget_score,
+          aiAuthorityScore: aiAnalysis?.qualification_breakdown?.authority_score,
+          aiNeedScore: aiAnalysis?.qualification_breakdown?.need_score,
+          aiTimelineScore: aiAnalysis?.qualification_breakdown?.timeline_score,
         },
       });
 
       setHasSubmitted(true);
       setLeadData(prev => ({ ...prev, isQualified: true }));
+      
+      toast({ 
+        title: "Success!", 
+        description: `Lead scored at ${aiAnalysis?.lead_score || 'N/A'}/100 - ${aiAnalysis?.lead_temperature || 'warm'} lead!`,
+      });
     } catch (error) {
       console.error("Error submitting lead:", error);
       toast({ title: "Oops!", description: "Something went wrong.", variant: "destructive" });
