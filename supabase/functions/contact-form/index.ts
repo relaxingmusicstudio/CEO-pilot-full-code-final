@@ -136,21 +136,21 @@ const handler = async (req: Request): Promise<Response> => {
     const rawFormName = sanitizeString(requestData.formName, 100);
     
     // Determine source type based on formName
-    const isChatbot = rawFormName?.toLowerCase().includes('chatbot') || rawFormName?.toLowerCase().includes('alex');
+    const isChatbot = rawFormName?.toLowerCase().includes('chatbot') || 
+                      rawFormName?.toLowerCase().includes('alex') ||
+                      rawFormName?.toLowerCase().includes('demo') ||
+                      rawFormName?.toLowerCase().includes('voice agent');
     const isPDF = rawFormName?.toLowerCase().includes('pdf') || rawFormName?.toLowerCase().includes('playbook') || rawFormName?.toLowerCase().includes('lead magnet');
     const isNewsletter = rawFormName?.toLowerCase().includes('newsletter');
     
     // Set source for GHL - using standard GHL-compatible source values
-    let source = "form";
+    let source = isChatbot ? "chat_widget" : isPDF ? "pdf_download" : isNewsletter ? "newsletter" : "contact_form";
     let sourceType = "CONTACT FORM";
     if (isChatbot) {
-      source = "chat_widget";
       sourceType = "CHATBOT";
     } else if (isPDF) {
-      source = "form";
       sourceType = "PDF DOWNLOAD";
     } else if (isNewsletter) {
-      source = "form";
       sourceType = "NEWSLETTER";
     }
     
