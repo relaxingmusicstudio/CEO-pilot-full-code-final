@@ -4,14 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   Plus,
@@ -27,6 +36,11 @@ import {
   TrendingUp,
   RefreshCw,
   Loader2,
+  Ticket,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -47,13 +61,42 @@ interface Client {
   notes: string | null;
 }
 
+interface SupportTicket {
+  id: string;
+  client_id: string;
+  subject: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+interface UsageData {
+  date: string;
+  api_calls: number;
+  conversations_handled: number;
+  appointments_booked: number;
+  leads_captured: number;
+  login_count: number;
+}
+
 const AdminClients = () => {
   const [clients, setClients] = useState<Client[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [usageData, setUsageData] = useState<UsageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("details");
+  const [isTicketOpen, setIsTicketOpen] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: "",
+    description: "",
+    priority: "medium",
+  });
 
   const fetchClients = async () => {
     setLoading(true);
@@ -72,9 +115,41 @@ const AdminClients = () => {
     }
   };
 
+  const fetchTickets = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("client_tickets")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setTickets(data);
+    }
+  };
+
+  const fetchUsage = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("client_usage")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("date", { ascending: false })
+      .limit(30);
+
+    if (!error && data) {
+      setUsageData(data);
+    }
+  };
+
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    if (selectedClient) {
+      fetchTickets(selectedClient.id);
+      fetchUsage(selectedClient.id);
+    }
+  }, [selectedClient]);
 
   const refreshHealthScores = async () => {
     setRefreshingHealth(true);
@@ -98,6 +173,48 @@ const AdminClients = () => {
     }
   };
 
+  const createTicket = async () => {
+    if (!selectedClient || !newTicket.subject) return;
+
+    try {
+      const { error } = await supabase.from("client_tickets").insert({
+        client_id: selectedClient.id,
+        subject: newTicket.subject,
+        description: newTicket.description,
+        priority: newTicket.priority,
+        status: "open",
+      });
+
+      if (error) throw error;
+
+      toast.success("Ticket created successfully");
+      setIsTicketOpen(false);
+      setNewTicket({ subject: "", description: "", priority: "medium" });
+      fetchTickets(selectedClient.id);
+    } catch (error: any) {
+      toast.error("Failed to create ticket: " + error.message);
+    }
+  };
+
+  const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      const updates: any = { status };
+      if (status === "resolved" || status === "closed") {
+        updates.resolved_at = new Date().toISOString();
+      }
+
+      await supabase
+        .from("client_tickets")
+        .update(updates)
+        .eq("id", ticketId);
+
+      toast.success(`Ticket ${status}`);
+      if (selectedClient) fetchTickets(selectedClient.id);
+    } catch (error) {
+      toast.error("Failed to update ticket");
+    }
+  };
+
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -118,6 +235,8 @@ const AdminClients = () => {
         )
       : 0;
 
+  const openTickets = tickets.filter((t) => t.status === "open" || t.status === "in_progress");
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -137,6 +256,47 @@ const AdminClients = () => {
     if (score >= 50) return "text-yellow-500";
     return "text-red-500";
   };
+
+  const getTicketStatusIcon = (status: string) => {
+    switch (status) {
+      case "open":
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case "in_progress":
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "resolved":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "closed":
+        return <XCircle className="h-4 w-4 text-muted-foreground" />;
+      default:
+        return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "high":
+        return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+      case "medium":
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      case "low":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const totalUsage = usageData.reduce(
+    (acc, day) => ({
+      api_calls: acc.api_calls + day.api_calls,
+      conversations: acc.conversations + day.conversations_handled,
+      appointments: acc.appointments + day.appointments_booked,
+      leads: acc.leads + day.leads_captured,
+      logins: acc.logins + day.login_count,
+    }),
+    { api_calls: 0, conversations: 0, appointments: 0, leads: 0, logins: 0 }
+  );
 
   return (
     <AdminLayout title="Clients" subtitle="Manage your current customers">
@@ -259,7 +419,10 @@ const AdminClients = () => {
                   {filteredClients.map((client) => (
                     <div
                       key={client.id}
-                      onClick={() => setSelectedClient(client)}
+                      onClick={() => {
+                        setSelectedClient(client);
+                        setActiveTab("details");
+                      }}
                       className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                         selectedClient?.id === client.id
                           ? "border-primary bg-primary/5"
@@ -319,103 +482,282 @@ const AdminClients = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Contact Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="text-sm font-medium">
-                        {selectedClient.email}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Phone className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phone</p>
-                      <p className="text-sm font-medium">
-                        {selectedClient.phone || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <DollarSign className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">MRR</p>
-                      <p className="text-sm font-medium">
-                        ${selectedClient.mrr}/mo
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Customer Since
-                      </p>
-                      <p className="text-sm font-medium">
-                        {new Date(selectedClient.start_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <CardContent>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="tickets">
+                      Tickets {openTickets.length > 0 && `(${openTickets.length})`}
+                    </TabsTrigger>
+                    <TabsTrigger value="usage">Usage</TabsTrigger>
+                  </TabsList>
 
-                {/* Health Score */}
-                <div className="p-4 rounded-lg border">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium">Health Score</p>
-                    <span
-                      className={`text-2xl font-bold ${getHealthColor(
-                        selectedClient.health_score
-                      )}`}
-                    >
-                      {selectedClient.health_score || 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        (selectedClient.health_score || 0) >= 80
-                          ? "bg-green-500"
-                          : (selectedClient.health_score || 0) >= 50
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }`}
-                      style={{ width: `${selectedClient.health_score || 0}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Based on engagement, usage, and support metrics
-                  </p>
-                </div>
+                  <TabsContent value="details" className="space-y-6">
+                    {/* Contact Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Mail className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Email</p>
+                          <p className="text-sm font-medium">
+                            {selectedClient.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Phone className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="text-sm font-medium">
+                            {selectedClient.phone || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">MRR</p>
+                          <p className="text-sm font-medium">
+                            ${selectedClient.mrr}/mo
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Customer Since
+                          </p>
+                          <p className="text-sm font-medium">
+                            {new Date(selectedClient.start_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Notes */}
-                {selectedClient.notes && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Notes</p>
-                    <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
-                      {selectedClient.notes}
+                    {/* Health Score */}
+                    <div className="p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">Health Score</p>
+                        <span
+                          className={`text-2xl font-bold ${getHealthColor(
+                            selectedClient.health_score
+                          )}`}
+                        >
+                          {selectedClient.health_score || 0}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            (selectedClient.health_score || 0) >= 80
+                              ? "bg-green-500"
+                              : (selectedClient.health_score || 0) >= 50
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                          }`}
+                          style={{ width: `${selectedClient.health_score || 0}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Based on engagement, usage, and support metrics
+                      </p>
+                    </div>
+
+                    {/* Notes */}
+                    {selectedClient.notes && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Notes</p>
+                        <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
+                          {selectedClient.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Quick Actions */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Send Message
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Invoices
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("usage")}
+                      >
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Usage Stats
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="tickets" className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        {tickets.length} total tickets
+                      </p>
+                      <Button size="sm" onClick={() => setIsTicketOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        New Ticket
+                      </Button>
+                    </div>
+
+                    <ScrollArea className="h-[400px]">
+                      {tickets.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Ticket className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No support tickets</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {tickets.map((ticket) => (
+                            <div
+                              key={ticket.id}
+                              className="p-4 rounded-lg border space-y-3"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  {getTicketStatusIcon(ticket.status)}
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {ticket.subject}
+                                    </p>
+                                    {ticket.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        {ticket.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={getPriorityColor(ticket.priority)}
+                                >
+                                  {ticket.priority}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">
+                                  Created{" "}
+                                  {new Date(ticket.created_at).toLocaleDateString()}
+                                </p>
+                                {ticket.status !== "closed" && (
+                                  <div className="flex gap-2">
+                                    {ticket.status === "open" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          updateTicketStatus(
+                                            ticket.id,
+                                            "in_progress"
+                                          )
+                                        }
+                                      >
+                                        Start
+                                      </Button>
+                                    )}
+                                    {ticket.status !== "resolved" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          updateTicketStatus(ticket.id, "resolved")
+                                        }
+                                      >
+                                        Resolve
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        updateTicketStatus(ticket.id, "closed")
+                                      }
+                                    >
+                                      Close
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="usage" className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="p-3 rounded-lg bg-muted/50 text-center">
+                        <p className="text-2xl font-bold">{totalUsage.api_calls}</p>
+                        <p className="text-xs text-muted-foreground">API Calls</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 text-center">
+                        <p className="text-2xl font-bold">
+                          {totalUsage.conversations}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Conversations
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 text-center">
+                        <p className="text-2xl font-bold">
+                          {totalUsage.appointments}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Appointments
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 text-center">
+                        <p className="text-2xl font-bold">{totalUsage.leads}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Leads Captured
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 text-center">
+                        <p className="text-2xl font-bold">{totalUsage.logins}</p>
+                        <p className="text-xs text-muted-foreground">Logins</p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      Last 30 days of usage data
                     </p>
-                  </div>
-                )}
 
-                {/* Quick Actions */}
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Send Message
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Invoices
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Usage Stats
-                  </Button>
-                </div>
+                    <ScrollArea className="h-[300px]">
+                      {usageData.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No usage data yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {usageData.map((day) => (
+                            <div
+                              key={day.date}
+                              className="flex items-center justify-between p-2 rounded border text-sm"
+                            >
+                              <span className="text-muted-foreground">
+                                {new Date(day.date).toLocaleDateString()}
+                              </span>
+                              <div className="flex gap-4 text-xs">
+                                <span>{day.api_calls} calls</span>
+                                <span>{day.conversations_handled} convos</span>
+                                <span>{day.appointments_booked} appts</span>
+                                <span>{day.login_count} logins</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </>
           ) : (
@@ -428,6 +770,65 @@ const AdminClients = () => {
           )}
         </Card>
       </div>
+
+      {/* Create Ticket Dialog */}
+      <Dialog open={isTicketOpen} onOpenChange={setIsTicketOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Support Ticket</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Subject</Label>
+              <Input
+                value={newTicket.subject}
+                onChange={(e) =>
+                  setNewTicket({ ...newTicket, subject: e.target.value })
+                }
+                placeholder="Brief description of the issue"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={newTicket.description}
+                onChange={(e) =>
+                  setNewTicket({ ...newTicket, description: e.target.value })
+                }
+                placeholder="Detailed information about the issue"
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select
+                value={newTicket.priority}
+                onValueChange={(v) =>
+                  setNewTicket({ ...newTicket, priority: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTicketOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createTicket} disabled={!newTicket.subject}>
+              Create Ticket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 };
