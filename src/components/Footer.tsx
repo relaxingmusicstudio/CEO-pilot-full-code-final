@@ -19,13 +19,20 @@ const Footer = () => {
             <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-accent transition-colors">Terms of Service</a>
             <a href="#" className="hover:text-accent transition-colors">Contact Us</a>
+            <Link 
+              to="/auth" 
+              className="hover:text-accent transition-colors flex items-center gap-1"
+            >
+              <Brain className="w-3 h-3" />
+              Admin Login
+            </Link>
             {isAdmin && (
               <Link 
-                to="/admin/analytics" 
+                to="/admin/ceo" 
                 className="hover:text-accent transition-colors flex items-center gap-1"
               >
                 <Brain className="w-3 h-3" />
-                CEO Agent
+                CEO Console
               </Link>
             )}
           </div>
