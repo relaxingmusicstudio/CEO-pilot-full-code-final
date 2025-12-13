@@ -5,6 +5,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { HelpCircle } from "lucide-react";
+import { useVisitor } from "@/contexts/VisitorContext";
 
 const faqs = [
   {
@@ -60,6 +61,18 @@ const faqs = [
 ];
 
 const FAQSection = () => {
+  const { trackCtaClick } = useVisitor();
+
+  const handleAccordionChange = (value: string) => {
+    if (value) {
+      const index = parseInt(value.replace('item-', ''));
+      const faq = faqs[index];
+      if (faq) {
+        trackCtaClick(`faq-${index + 1}-${faq.question.slice(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+      }
+    }
+  };
+
   return (
     <section className="py-20 bg-secondary/30" aria-labelledby="faq-heading">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -88,6 +101,7 @@ const FAQSection = () => {
           className="w-full space-y-4"
           itemScope
           itemType="https://schema.org/FAQPage"
+          onValueChange={handleAccordionChange}
         >
           {faqs.map((faq, index) => (
             <AccordionItem
@@ -121,6 +135,7 @@ const FAQSection = () => {
           <a
             href="#contact"
             className="inline-flex items-center gap-2 text-accent font-semibold hover:underline"
+            onClick={() => trackCtaClick("faq-contact-link")}
           >
             Contact our team
             <span aria-hidden="true">→</span>

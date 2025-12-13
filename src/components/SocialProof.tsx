@@ -1,6 +1,9 @@
 import { Star, Quote } from "lucide-react";
+import { useVisitor } from "@/contexts/VisitorContext";
 
 const SocialProof = () => {
+  const { trackCtaClick } = useVisitor();
+  
   const testimonial = {
     quote: "Recovered $72k in 90 days. The AI books emergency calls we used to miss at night and on weekends.",
     author: "Dave R.",
@@ -21,7 +24,10 @@ const SocialProof = () => {
       <div className="container">
         <div className="max-w-4xl mx-auto">
           {/* Testimonial */}
-          <div className="bg-card rounded-2xl card-shadow p-8 md:p-12 text-center mb-12">
+          <div 
+            className="bg-card rounded-2xl card-shadow p-8 md:p-12 text-center mb-12 cursor-pointer"
+            onClick={() => trackCtaClick("testimonial-view")}
+          >
             <Quote className="w-12 h-12 text-accent mx-auto mb-6 opacity-50" />
             
             <blockquote className="text-2xl md:text-3xl font-bold text-foreground mb-6 leading-relaxed">
@@ -47,6 +53,7 @@ const SocialProof = () => {
                 <div
                   key={index}
                   className="bg-card px-6 py-3 rounded-lg card-shadow text-foreground font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300 cursor-default"
+                  onClick={() => trackCtaClick(`integration-${integration.toLowerCase().replace(/\s+/g, '-')}`)}
                 >
                   {integration}
                 </div>
