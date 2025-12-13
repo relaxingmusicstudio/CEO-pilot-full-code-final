@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,13 +12,187 @@ serve(async (req) => {
   }
 
   try {
-    const { type, funnelData, metrics } = await req.json();
+    const { type, funnelData, metrics, visitorId, leadScore } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Handle AI-based funnel assignment
+    if (type === "assign_funnel") {
+      console.log(`Funnel AI: Assigning funnel for visitor ${visitorId}, score: ${leadScore}`);
+      
+      // First try score-based assignment
+      if (leadScore !== null && leadScore !== undefined) {
+        const { data: scoreFunnel } = await supabase
+          .from("funnels")
+          .select("*")
+          .eq("is_active", true)
+          .lte("target_score_min", leadScore)
+          .gte("target_score_max", leadScore)
+          .order("target_score_min", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (scoreFunnel) {
+          // Get first stage of funnel
+          const { data: firstStage } = await supabase
+            .from("funnel_stages")
+            .select("id")
+            .eq("funnel_id", scoreFunnel.id)
+            .order("stage_order", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          
+          // Enroll visitor
+          const { data: enrollment, error: enrollError } = await supabase
+            .from("funnel_enrollments")
+            .insert({
+              funnel_id: scoreFunnel.id,
+              visitor_id: visitorId,
+              current_stage_id: firstStage?.id,
+              ai_assigned: false,
+              assignment_reason: `Score-based: ${leadScore} in range ${scoreFunnel.target_score_min}-${scoreFunnel.target_score_max}`
+            })
+            .select()
+            .single();
+          
+          if (enrollError) throw enrollError;
+          
+          return new Response(JSON.stringify({ 
+            funnel: scoreFunnel, 
+            enrollment,
+            method: "score_based"
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Fall back to AI-based assignment
+      const { data: allFunnels } = await supabase
+        .from("funnels")
+        .select("*, funnel_stages(*)")
+        .eq("is_active", true);
+
+      const { data: visitorData } = await supabase
+        .from("visitors")
+        .select("*")
+        .eq("visitor_id", visitorId)
+        .maybeSingle();
+
+      const { data: leadData } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("visitor_id", visitorId)
+        .maybeSingle();
+
+      // Use AI to determine best funnel
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { 
+              role: "system", 
+              content: `You are an AI that assigns visitors to the optimal sales funnel. Analyze visitor behavior and data to pick the best funnel. Respond ONLY with valid JSON: {"funnel_id": "uuid", "reason": "brief explanation"}`
+            },
+            { 
+              role: "user", 
+              content: `Available funnels: ${JSON.stringify(allFunnels?.map(f => ({
+                id: f.id, 
+                name: f.name, 
+                goal: f.goal,
+                score_range: `${f.target_score_min}-${f.target_score_max}`
+              })))}
+
+Visitor data: ${JSON.stringify(visitorData || {})}
+Lead data: ${JSON.stringify(leadData || {})}
+
+Pick the best funnel for this visitor.`
+            }
+          ],
+        }),
+      });
+
+      let selectedFunnelId: string;
+      let aiReason: string;
+
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        const content = aiData.choices?.[0]?.message?.content || "";
+        try {
+          const parsed = JSON.parse(content);
+          selectedFunnelId = parsed.funnel_id;
+          aiReason = parsed.reason;
+        } catch {
+          // Default to first active funnel
+          selectedFunnelId = allFunnels?.[0]?.id;
+          aiReason = "AI response parsing failed, using default";
+        }
+      } else {
+        selectedFunnelId = allFunnels?.[0]?.id;
+        aiReason = "AI unavailable, using default funnel";
+      }
+
+      const selectedFunnel = allFunnels?.find(f => f.id === selectedFunnelId) || allFunnels?.[0];
+      
+      const { data: firstStage } = await supabase
+        .from("funnel_stages")
+        .select("id")
+        .eq("funnel_id", selectedFunnel.id)
+        .order("stage_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: enrollment } = await supabase
+        .from("funnel_enrollments")
+        .insert({
+          funnel_id: selectedFunnel.id,
+          visitor_id: visitorId,
+          lead_id: leadData?.id,
+          current_stage_id: firstStage?.id,
+          ai_assigned: true,
+          assignment_reason: aiReason
+        })
+        .select()
+        .single();
+
+      return new Response(JSON.stringify({ 
+        funnel: selectedFunnel, 
+        enrollment,
+        method: "ai_assigned",
+        reason: aiReason
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle A/B test variant tracking
+    if (type === "track_variant") {
+      const { variantId, action } = funnelData;
+      
+      if (action === "view") {
+        await supabase.rpc("increment_variant_views", { variant_id: variantId });
+      } else if (action === "convert") {
+        await supabase.rpc("increment_variant_conversions", { variant_id: variantId });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Original analysis functionality
     let systemPrompt = "";
     let userPrompt = "";
 
@@ -46,7 +221,7 @@ Identify the top 3-5 opportunities to improve conversions.`;
         break;
 
       case "generate_ab_test":
-        systemPrompt = `You are a CRO expert specializing in A/B testing for service businesses. Generate specific A/B test variants that are proven to improve conversions. Be creative but data-driven.`;
+        systemPrompt = `You are a CRO expert specializing in A/B testing for service businesses. Generate specific A/B test variants that are proven to improve conversions. Be creative but data-driven. Return JSON format: {"variants": [{"name": "Variant A", "value": "text", "expected_lift": "5-10%"}]}`;
         userPrompt = `Generate A/B test variants for this funnel element:
 
 Element: ${funnelData?.element || "CTA Button"}

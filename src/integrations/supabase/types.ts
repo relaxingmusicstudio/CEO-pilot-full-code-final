@@ -14,6 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_test_experiments: {
+        Row: {
+          created_at: string
+          element_type: string
+          end_date: string | null
+          funnel_id: string | null
+          id: string
+          name: string
+          original_value: string | null
+          start_date: string | null
+          status: string | null
+          updated_at: string
+          winner_variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          element_type: string
+          end_date?: string | null
+          funnel_id?: string | null
+          id?: string
+          name: string
+          original_value?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+          winner_variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          element_type?: string
+          end_date?: string | null
+          funnel_id?: string | null
+          id?: string
+          name?: string
+          original_value?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+          winner_variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_test_experiments_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ab_test_variants: {
+        Row: {
+          conversion_rate: number | null
+          conversions: number | null
+          created_at: string
+          experiment_id: string
+          id: string
+          name: string
+          traffic_percentage: number | null
+          value: string
+          views: number | null
+        }
+        Insert: {
+          conversion_rate?: number | null
+          conversions?: number | null
+          created_at?: string
+          experiment_id: string
+          id?: string
+          name: string
+          traffic_percentage?: number | null
+          value: string
+          views?: number | null
+        }
+        Update: {
+          conversion_rate?: number | null
+          conversions?: number | null
+          created_at?: string
+          experiment_id?: string
+          id?: string
+          name?: string
+          traffic_percentage?: number | null
+          value?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_test_variants_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "ab_test_experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ab_tests: {
         Row: {
           conversion_value: number | null
@@ -597,6 +691,202 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      funnel_enrollments: {
+        Row: {
+          ai_assigned: boolean | null
+          assignment_reason: string | null
+          completed_at: string | null
+          converted: boolean | null
+          current_stage_id: string | null
+          enrolled_at: string
+          funnel_id: string
+          id: string
+          lead_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          ai_assigned?: boolean | null
+          assignment_reason?: string | null
+          completed_at?: string | null
+          converted?: boolean | null
+          current_stage_id?: string | null
+          enrolled_at?: string
+          funnel_id: string
+          id?: string
+          lead_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          ai_assigned?: boolean | null
+          assignment_reason?: string | null
+          completed_at?: string | null
+          converted?: boolean | null
+          current_stage_id?: string | null
+          enrolled_at?: string
+          funnel_id?: string
+          id?: string
+          lead_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_enrollments_current_stage_id_fkey"
+            columns: ["current_stage_id"]
+            isOneToOne: false
+            referencedRelation: "funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_enrollments_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_stage_conversions: {
+        Row: {
+          converted: boolean | null
+          entered_at: string
+          exited_at: string | null
+          funnel_id: string
+          id: string
+          stage_id: string
+          time_spent_seconds: number | null
+          variant_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          converted?: boolean | null
+          entered_at?: string
+          exited_at?: string | null
+          funnel_id: string
+          id?: string
+          stage_id: string
+          time_spent_seconds?: number | null
+          variant_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          converted?: boolean | null
+          entered_at?: string
+          exited_at?: string | null
+          funnel_id?: string
+          id?: string
+          stage_id?: string
+          time_spent_seconds?: number | null
+          variant_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_stage_conversions_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_stage_conversions_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_stage_conversions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "ab_test_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_stages: {
+        Row: {
+          created_at: string
+          funnel_id: string
+          id: string
+          name: string
+          stage_order: number
+          stage_type: string | null
+          target_action: string | null
+        }
+        Insert: {
+          created_at?: string
+          funnel_id: string
+          id?: string
+          name: string
+          stage_order: number
+          stage_type?: string | null
+          target_action?: string | null
+        }
+        Update: {
+          created_at?: string
+          funnel_id?: string
+          id?: string
+          name?: string
+          stage_order?: number
+          stage_type?: string | null
+          target_action?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_stages_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnels: {
+        Row: {
+          created_at: string
+          description: string | null
+          goal: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          target_score_max: number | null
+          target_score_min: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          goal?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          target_score_max?: number | null
+          target_score_min?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          goal?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          target_score_max?: number | null
+          target_score_min?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       keywords: {
         Row: {
