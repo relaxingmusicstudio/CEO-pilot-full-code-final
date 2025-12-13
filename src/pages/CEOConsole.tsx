@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   DollarSign, 
@@ -14,7 +15,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Activity,
-  Mic
+  Mic,
+  Heart,
+  Bell
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CEOChatPanel from "@/components/CEOChatPanel";
@@ -22,6 +25,15 @@ import ChannelPerformanceTable from "@/components/ChannelPerformanceTable";
 import ABTestsWidget from "@/components/ABTestsWidget";
 import AdminLayout from "@/components/AdminLayout";
 import CEOVoiceAssistant from "@/components/CEOVoiceAssistant";
+import RevenueForecastChart from "@/components/ceo/RevenueForecastChart";
+import ClientHealthWidget from "@/components/ceo/ClientHealthWidget";
+import ChurnPredictionWidget from "@/components/ceo/ChurnPredictionWidget";
+import MRRDashboard from "@/components/ceo/MRRDashboard";
+import GoalTracker from "@/components/ceo/GoalTracker";
+import AnomalyAlerts from "@/components/ceo/AnomalyAlerts";
+import ConversationIntelligence from "@/components/ceo/ConversationIntelligence";
+import MultiTouchAttribution from "@/components/ceo/MultiTouchAttribution";
+import LTVCACCalculator from "@/components/ceo/LTVCACCalculator";
 
 interface Metrics {
   totalRevenue: number;
@@ -81,6 +93,12 @@ const CEOConsole = () => {
   const [abTests, setABTests] = useState<ABTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [rawData, setRawData] = useState<{
+    visitors: any[];
+    leads: any[];
+    clients: any[];
+    conversations: any[];
+  }>({ visitors: [], leads: [], clients: [], conversations: [] });
   const navigate = useNavigate();
 
   const fetchData = async () => {
@@ -89,17 +107,23 @@ const CEOConsole = () => {
     today.setHours(0, 0, 0, 0);
 
     try {
-      const [visitorsRes, leadsRes, experimentsRes, variantsRes] = await Promise.all([
+      const [visitorsRes, leadsRes, experimentsRes, variantsRes, clientsRes, conversationsRes] = await Promise.all([
         supabase.from("visitors").select("*"),
         supabase.from("leads").select("*"),
         supabase.from("ab_test_experiments").select("*").in("status", ["active", "completed"]),
         supabase.from("ab_test_variants").select("*"),
+        supabase.from("clients").select("*"),
+        supabase.from("conversations").select("*"),
       ]);
 
       const visitors = visitorsRes.data || [];
       const leads = leadsRes.data || [];
       const experiments = experimentsRes.data || [];
       const variants = variantsRes.data || [];
+      const clients = clientsRes.data || [];
+      const conversations = conversationsRes.data || [];
+
+      setRawData({ visitors, leads, clients, conversations });
 
       const todayLeads = leads.filter(l => new Date(l.created_at || "") >= today);
       const todayVisitors = visitors.filter(v => new Date(v.created_at || "") >= today);
@@ -195,6 +219,70 @@ const CEOConsole = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Derived data for widgets
+  const clientsForWidgets = useMemo(() => {
+    return rawData.clients.map(c => ({
+      id: c.id,
+      name: c.name || c.business_name || "Unknown",
+      healthScore: c.health_score || 50,
+      mrr: c.mrr || 0,
+      status: c.status || "active",
+      startDate: c.start_date || c.created_at,
+      plan: c.plan || "standard",
+      lastContact: c.last_contact,
+    }));
+  }, [rawData.clients]);
+
+  const revenueHistory = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    rawData.leads.forEach(l => {
+      const date = new Date(l.created_at || "").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      grouped[date] = (grouped[date] || 0) + (l.revenue_value || 0);
+    });
+    return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue })).slice(-14);
+  }, [rawData.leads]);
+
+  const anomalyData = useMemo(() => {
+    const grouped: Record<string, { visitors: number; leads: number; revenue: number; conversions: number }> = {};
+    
+    rawData.visitors.forEach(v => {
+      const date = new Date(v.created_at || "").toISOString().split("T")[0];
+      if (!grouped[date]) grouped[date] = { visitors: 0, leads: 0, revenue: 0, conversions: 0 };
+      grouped[date].visitors++;
+    });
+    
+    rawData.leads.forEach(l => {
+      const date = new Date(l.created_at || "").toISOString().split("T")[0];
+      if (!grouped[date]) grouped[date] = { visitors: 0, leads: 0, revenue: 0, conversions: 0 };
+      grouped[date].leads++;
+      grouped[date].revenue += l.revenue_value || 0;
+      if (l.status === "converted" || l.status === "won") grouped[date].conversions++;
+    });
+
+    const sorted = Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0]));
+    return {
+      visitors: sorted.map(([date, d]) => ({ date, count: d.visitors })),
+      leads: sorted.map(([date, d]) => ({ date, count: d.leads })),
+      revenue: sorted.map(([date, d]) => ({ date, amount: d.revenue })),
+      conversions: sorted.map(([date, d]) => ({ date, count: d.conversions })),
+    };
+  }, [rawData.visitors, rawData.leads]);
+
+  const conversationsForIntel = useMemo(() => {
+    return rawData.conversations.map(c => ({
+      id: c.id,
+      messages: Array.isArray(c.messages) ? c.messages : [],
+      outcome: c.outcome,
+      conversationPhase: c.conversation_phase,
+    }));
+  }, [rawData.conversations]);
+
+  const goals = useMemo(() => [
+    { id: "1", name: "Monthly Revenue", target: 50000, current: metrics.totalRevenue, unit: "$", category: "revenue" as const, deadline: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString() },
+    { id: "2", name: "New Leads", target: 100, current: metrics.totalLeads, unit: "leads", category: "leads" as const },
+    { id: "3", name: "Active Clients", target: 50, current: clientsForWidgets.filter(c => c.status === "active").length, unit: "clients", category: "clients" as const },
+  ], [metrics, clientsForWidgets]);
 
   const MetricCard = ({ 
     title, 
@@ -347,82 +435,161 @@ const CEOConsole = () => {
         </CardContent>
       </Card>
 
-      {/* Row 3: Split View - Channel Performance + AI Chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left: Channel Performance (60%) */}
-        <div className="lg:col-span-3 space-y-4">
-          <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Channel Performance
-                <Badge variant="secondary" className="text-xs ml-auto">
-                  {channelData.length} sources
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ChannelPerformanceTable data={channelData} isLoading={loading} />
-            </CardContent>
-          </Card>
+      {/* Tabs for different dashboard views */}
+      <Tabs defaultValue="overview" className="mb-4">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="clients">Clients</TabsTrigger>
+          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+        </TabsList>
 
-          <ABTestsWidget 
-            tests={abTests} 
-            onRefresh={fetchData}
-            isLoading={loading}
-          />
-        </div>
+        <TabsContent value="overview" className="space-y-4">
+          {/* Row 3: Split View - Channel Performance + AI Chat */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {/* Left: Channel Performance (60%) */}
+            <div className="lg:col-span-3 space-y-4">
+              <Card>
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Channel Performance
+                    <Badge variant="secondary" className="text-xs ml-auto">
+                      {channelData.length} sources
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ChannelPerformanceTable data={channelData} isLoading={loading} />
+                </CardContent>
+              </Card>
 
-        {/* Right: AI Chat + Quick Actions (40%) */}
-        <div className="lg:col-span-2 space-y-4">
-          <CEOChatPanel className="h-[420px]" />
-          
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="justify-start"
-                onClick={() => navigate("/admin/agent/funnels")}
-              >
-                <Target className="h-4 w-4 mr-2" />
-                Funnels
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="justify-start"
-                onClick={() => navigate("/admin/contacts")}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Leads
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="justify-start"
-                onClick={() => navigate("/admin/agent/content")}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Content
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="justify-start"
-                onClick={() => navigate("/admin/agent/ads")}
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                Ads
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              <ABTestsWidget 
+                tests={abTests} 
+                onRefresh={fetchData}
+                isLoading={loading}
+              />
+            </div>
+
+            {/* Right: AI Chat + Quick Actions (40%) */}
+            <div className="lg:col-span-2 space-y-4">
+              <CEOChatPanel className="h-[420px]" />
+              
+              {/* Quick Actions */}
+              <Card>
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => navigate("/admin/agent/funnels")}
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    Funnels
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => navigate("/admin/contacts")}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Leads
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => navigate("/admin/agent/content")}
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Content
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => navigate("/admin/agent/ads")}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Ads
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Alerts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <AnomalyAlerts data={anomalyData} />
+            <GoalTracker goals={goals} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <RevenueForecastChart historicalData={revenueHistory} />
+            <MRRDashboard clients={clientsForWidgets} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <LTVCACCalculator 
+              clients={clientsForWidgets}
+              leads={rawData.leads.map(l => ({
+                id: l.id,
+                createdAt: l.created_at,
+                status: l.status,
+              }))}
+              visitors={rawData.visitors.map(v => ({
+                id: v.id,
+                utmSource: v.utm_source,
+                createdAt: v.created_at,
+              }))}
+            />
+            <MultiTouchAttribution 
+              leads={rawData.leads.map(l => ({
+                id: l.id,
+                visitorId: l.visitor_id,
+                status: l.status,
+                revenueValue: l.revenue_value,
+              }))}
+              visitors={rawData.visitors.map(v => ({
+                visitorId: v.visitor_id,
+                utmSource: v.utm_source,
+                referrer: v.referrer,
+              }))}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ClientHealthWidget clients={clientsForWidgets} />
+            <ChurnPredictionWidget clients={clientsForWidgets} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="intelligence" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ConversationIntelligence conversations={conversationsForIntel} />
+            <MultiTouchAttribution 
+              leads={rawData.leads.map(l => ({
+                id: l.id,
+                visitorId: l.visitor_id,
+                status: l.status,
+                revenueValue: l.revenue_value,
+              }))}
+              visitors={rawData.visitors.map(v => ({
+                visitorId: v.visitor_id,
+                utmSource: v.utm_source,
+                referrer: v.referrer,
+              }))}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
       </AdminLayout>
     </>
   );
