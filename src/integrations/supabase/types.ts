@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      channels: {
+        Row: {
+          channel_type: string
+          created_at: string | null
+          credentials: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          channel_type: string
+          created_at?: string | null
+          credentials?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string | null
+          credentials?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       chatbot_prompt_history: {
         Row: {
           change_reason: string | null
@@ -160,6 +193,59 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts_unified: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          instagram_id: string | null
+          lead_id: string | null
+          messenger_id: string | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          tags: string[] | null
+          updated_at: string | null
+          whatsapp_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          instagram_id?: string | null
+          lead_id?: string | null
+          messenger_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          whatsapp_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          instagram_id?: string | null
+          lead_id?: string | null
+          messenger_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          whatsapp_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_unified_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           ai_analysis: Json | null
@@ -210,6 +296,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visitors"
             referencedColumns: ["visitor_id"]
+          },
+        ]
+      }
+      conversations_unified: {
+        Row: {
+          assigned_to: string | null
+          channel_type: string
+          contact_id: string | null
+          created_at: string | null
+          external_id: string | null
+          id: string
+          last_message_at: string | null
+          status: string | null
+          unread_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel_type: string
+          contact_id?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          channel_type?: string
+          contact_id?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_unified_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -308,6 +441,146 @@ export type Database = {
             referencedColumns: ["visitor_id"]
           },
         ]
+      }
+      messages_unified: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          delivered_at: string | null
+          direction: string
+          id: string
+          is_mock: boolean | null
+          media_url: string | null
+          metadata: Json | null
+          read_at: string | null
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          delivered_at?: string | null
+          direction: string
+          id?: string
+          is_mock?: boolean | null
+          media_url?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          delivered_at?: string | null
+          direction?: string
+          id?: string
+          is_mock?: boolean | null
+          media_url?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_unified_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations_unified"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequence_enrollments: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string | null
+          current_step: number | null
+          id: string
+          next_step_at: string | null
+          sequence_id: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          next_step_at?: string | null
+          sequence_id: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          next_step_at?: string | null
+          sequence_id?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequences: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          enrolled_count: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          steps: Json | null
+          trigger_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          enrolled_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          steps?: Json | null
+          trigger_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          enrolled_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          steps?: Json | null
+          trigger_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
