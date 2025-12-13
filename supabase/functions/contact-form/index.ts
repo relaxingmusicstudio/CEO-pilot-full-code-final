@@ -366,6 +366,133 @@ ${notes || "None"}
       return Math.min(score, 100);
     };
     
+    // ============================================
+    // SIMULATED AI SCORING FUNCTION
+    // ============================================
+    const generateSimulatedAIScoring = () => {
+      // Calculate base score from form data
+      let baseScore = 40; // Start with baseline
+      
+      // Timeline scoring
+      const timelineScores: Record<string, number> = {
+        "ASAP - Losing calls now": 25,
+        "Within 30 days": 18,
+        "1-3 months": 10,
+        "Just exploring": 5,
+      };
+      baseScore += timelineScores[aiTimeline] || 8;
+      
+      // Team size scoring
+      const teamScores: Record<string, number> = {
+        "Solo": 5,
+        "2-5": 10,
+        "6-10": 15,
+        "10+ trucks": 20,
+      };
+      baseScore += teamScores[teamSize] || 8;
+      
+      // Call volume scoring
+      const volumeScores: Record<string, number> = {
+        "Under 50 calls": 5,
+        "50-100 calls": 10,
+        "100-200 calls": 15,
+        "200+ calls": 20,
+      };
+      baseScore += volumeScores[callVolume] || 8;
+      
+      // Engagement bonus
+      const engagementNum = parseInt(engagementScore) || 0;
+      if (engagementNum >= 60) baseScore += 10;
+      else if (engagementNum >= 40) baseScore += 5;
+      
+      // Cap at 100
+      const finalScore = Math.min(baseScore, 100);
+      
+      // Determine temperature
+      let temperature = "cold";
+      if (aiTimeline === "ASAP - Losing calls now" || finalScore >= 75) temperature = "hot";
+      else if (aiTimeline === "Within 30 days" || finalScore >= 55) temperature = "warm";
+      
+      // Determine urgency
+      let urgency = "low";
+      if (aiTimeline === "ASAP - Losing calls now") urgency = "immediate";
+      else if (aiTimeline === "Within 30 days") urgency = "high";
+      else if (aiTimeline === "1-3 months") urgency = "medium";
+      
+      // Determine intent
+      let intent = "researching";
+      if (aiTimeline === "ASAP - Losing calls now" || behavioralIntent?.includes("High Intent")) intent = "ready_to_buy";
+      else if (aiTimeline === "Within 30 days" || aiTimeline === "1-3 months") intent = "evaluating";
+      
+      // Calculate conversion probability
+      const conversionProb = Math.min(Math.round(finalScore * 0.85), 95);
+      
+      // Generate buying signals from form data
+      const signals: string[] = [];
+      if (teamSize === "10+ trucks" || teamSize === "6-10") signals.push(`Large team (${teamSize})`);
+      if (callVolume === "200+ calls" || callVolume === "100-200 calls") signals.push(`High call volume (${callVolume})`);
+      if (aiTimeline === "ASAP - Losing calls now") signals.push("ASAP timeline - urgent need");
+      else if (aiTimeline === "Within 30 days") signals.push("30-day timeline - active buyer");
+      if (engagementNum >= 50) signals.push(`High engagement score (${engagementNum})`);
+      if (isReturningVisitor === "YES") signals.push("Returning visitor");
+      if (behavioralIntent?.includes("High Intent")) signals.push("High intent behavior");
+      
+      // Generate key insights
+      const insights: string[] = [];
+      insights.push(`${businessType || "Service"} business with ${teamSize || "unknown"} team`);
+      if (currentSolution) insights.push(`Currently: ${currentSolution}`);
+      if (callVolume) insights.push(`Call volume: ${callVolume}`);
+      if (otherServicesNeeded) insights.push(`Interested in: ${otherServicesNeeded}`);
+      if (aiTimeline) insights.push(`Timeline: ${aiTimeline}`);
+      
+      // Calculate BANT scores
+      const budgetScore = teamSize === "10+ trucks" ? 90 : teamSize === "6-10" ? 75 : teamSize === "2-5" ? 55 : 40;
+      const needScore = currentSolution === "Miss most calls" ? 90 : currentSolution === "Voicemail" ? 75 : 50;
+      const timelineScore = aiTimeline === "ASAP - Losing calls now" ? 95 : aiTimeline === "Within 30 days" ? 75 : aiTimeline === "1-3 months" ? 50 : 25;
+      
+      // Calculate estimated missed calls based on volume and handling
+      let estimatedMissedCalls = 0;
+      if (callVolume === "200+ calls") estimatedMissedCalls = currentSolution === "Miss most calls" ? 60 : 30;
+      else if (callVolume === "100-200 calls") estimatedMissedCalls = currentSolution === "Miss most calls" ? 40 : 20;
+      else if (callVolume === "50-100 calls") estimatedMissedCalls = currentSolution === "Miss most calls" ? 20 : 10;
+      else estimatedMissedCalls = currentSolution === "Miss most calls" ? 14 : 7;
+      
+      // Recommended followup
+      let followup = "Standard follow-up in 3-5 days";
+      if (temperature === "hot") followup = "Call immediately - high intent lead";
+      else if (temperature === "warm") followup = "Schedule demo within 48 hours";
+      
+      // Conversation summary
+      const summary = `Contact form submission from ${businessType || "service"} business. Team size: ${teamSize || "n/a"}, Call volume: ${callVolume || "n/a"}. Timeline: ${aiTimeline || "n/a"}.`;
+      
+      return {
+        score: finalScore,
+        temperature,
+        intent: `${intent} - form submission`,
+        conversionProb: `${conversionProb}%`,
+        urgency,
+        buyingSignals: signals.length > 0 ? signals.join(", ") : "n/a",
+        objections: "n/a",
+        followup,
+        summary,
+        keyInsights: insights.length > 0 ? insights.join(" | ") : "n/a",
+        budgetScore,
+        authorityScore: "n/a",
+        needScore,
+        timelineScore,
+        estimatedMissedCalls,
+      };
+    };
+    
+    // Generate AI scoring data
+    const simulatedAI = generateSimulatedAIScoring();
+    
+    // Helper function: return value or "n/a" if empty
+    const valueOrNA = (val: string | undefined | null): string => {
+      if (val === undefined || val === null || val === "") return "n/a";
+      return val;
+    };
+    
     // Calculate missed call revenue (avgJobValue * missedCalls)
     // Parse avgJobValue properly - extract first number from ranges like "$500-1,000"
     const parseAvgJobValue = (value: string): number => {
@@ -384,11 +511,12 @@ ${notes || "None"}
       return num || 351;
     };
     const avgJobNumeric = parseAvgJobValue(avgJobValue || "");
-    const missedCallsNumeric = missedCalls ? parseInt(missedCalls.replace(/[^0-9]/g, '')) || 0 : 0;
+    // Use simulated missed calls if not provided
+    const missedCallsNumeric = missedCalls ? parseInt(missedCalls.replace(/[^0-9]/g, '')) || 0 : simulatedAI.estimatedMissedCalls;
     const missedCallRevenue = avgJobNumeric * missedCallsNumeric;
     
-    // Parse potential loss as numeric
-    const potentialLossNumeric = potentialLoss ? parseInt(potentialLoss.replace(/[^0-9]/g, '')) || 0 : 0;
+    // Parse potential loss as numeric - use calculated value if not provided
+    const potentialLossNumeric = potentialLoss ? parseInt(potentialLoss.replace(/[^0-9]/g, '')) || 0 : missedCallRevenue;
     
     // Get interests/services - handle both array (interests) and string (otherServicesNeeded)
     const interests = requestData.interests || [];
@@ -418,121 +546,123 @@ ${notes || "None"}
       
       // FLAT custom fields at root level - GHL inbound webhooks read these directly
       // Use both snake_case and camelCase versions for maximum compatibility
-      services_offered: businessType || "",
-      servicesOffered: businessType || "",
-      team_size: teamSize || "",
-      teamSize: teamSize || "",
+      services_offered: valueOrNA(businessType),
+      servicesOffered: valueOrNA(businessType),
+      team_size: valueOrNA(teamSize),
+      teamSize: valueOrNA(teamSize),
       tag_string: tags.join(", "),
       tagString: tags.join(", "),
-      avg_job_value: (avgJobValue || "").replace(/^\$/, ""),
-      avgJobValue: (avgJobValue || "").replace(/^\$/, ""),
-      call_volume_monthly: callVolume || "",
-      callVolumeMonthly: callVolume || "",
+      avg_job_value: valueOrNA((avgJobValue || "").replace(/^\$/, "")),
+      avgJobValue: valueOrNA((avgJobValue || "").replace(/^\$/, "")),
+      call_volume_monthly: valueOrNA(callVolume),
+      callVolumeMonthly: valueOrNA(callVolume),
       // OTHER SERVICES - multiple formats for GHL compatibility
-      other_services_needed: otherServicesNeeded,
-      otherServicesNeeded: otherServicesNeeded,
-      other_services: otherServicesNeeded,
-      otherServices: otherServicesNeeded,
-      additional_services: otherServicesNeeded,
-      additionalServices: otherServicesNeeded,
-      ai_timeline: aiTimeline || "",
-      aiTimeline: aiTimeline || "",
-      lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
-      leadTemperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+      other_services_needed: valueOrNA(otherServicesNeeded),
+      otherServicesNeeded: valueOrNA(otherServicesNeeded),
+      other_services: valueOrNA(otherServicesNeeded),
+      otherServices: valueOrNA(otherServicesNeeded),
+      additional_services: valueOrNA(otherServicesNeeded),
+      additionalServices: valueOrNA(otherServicesNeeded),
+      ai_timeline: valueOrNA(aiTimeline),
+      aiTimeline: valueOrNA(aiTimeline),
+      lead_temperature: simulatedAI.temperature.toUpperCase(),
+      leadTemperature: simulatedAI.temperature.toUpperCase(),
       lead_qualification: isGoodFit === true ? "YES" : "NO",
       leadQualification: isGoodFit === true ? "YES" : "NO",
-      fit_reason: fitReason || "",
-      fitReason: fitReason || "",
-      lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-      leadIntent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-      lead_score: calculateLeadScore().toString(),
-      leadScore: calculateLeadScore().toString(),
+      fit_reason: valueOrNA(fitReason),
+      fitReason: valueOrNA(fitReason),
+      lead_intent: simulatedAI.intent,
+      leadIntent: simulatedAI.intent,
+      lead_score: simulatedAI.score.toString(),
+      leadScore: simulatedAI.score.toString(),
       missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
       missedCallRevenue: `$${missedCallRevenue.toLocaleString()}`,
       potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
       potentialRevenueLoss: `$${potentialLossNumeric.toLocaleString()}`,
       missed_calls_monthly: missedCallsNumeric.toString(),
       missedCallsMonthly: missedCallsNumeric.toString(),
-      current_call_handling: currentSolution || "",
-      currentCallHandling: currentSolution || "",
+      current_call_handling: valueOrNA(currentSolution),
+      currentCallHandling: valueOrNA(currentSolution),
       form_name: formName,
       formName: formName,
-      // Address fields
-      street_address: streetAddress,
-      streetAddress: streetAddress,
-      city: city,
-      state: state,
-      postal_code: postalCode,
-      postalCode: postalCode,
-      country: country,
+      // Address fields - use n/a for empty
+      street_address: valueOrNA(streetAddress),
+      streetAddress: valueOrNA(streetAddress),
+      city: valueOrNA(city),
+      state: valueOrNA(state),
+      postal_code: valueOrNA(postalCode),
+      postalCode: valueOrNA(postalCode),
+      country: valueOrNA(country),
       // Business/lead fields
-      business_overview: businessOverview,
-      businessOverview: businessOverview,
-      call_routing_hours: callRoutingHours,
-      callRoutingHours: callRoutingHours,
+      business_overview: valueOrNA(businessOverview),
+      businessOverview: valueOrNA(businessOverview),
+      call_routing_hours: valueOrNA(callRoutingHours),
+      callRoutingHours: valueOrNA(callRoutingHours),
       contact_type: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
       contactType: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
-      // Payment/Stripe fields
-      amount_paid: amountPaid,
-      amountPaid: amountPaid,
-      download_date: downloadDate,
-      downloadDate: downloadDate,
-      plan: plan,
-      stripe_session_id: stripeSessionId,
-      stripeSessionId: stripeSessionId,
-      payment_date: paymentDate,
-      paymentDate: paymentDate,
-      // AI Analysis fields
-      ai_lead_score: aiLeadScore?.toString() || "",
-      ai_lead_temperature: aiLeadTemperature || "",
-      ai_lead_intent: aiLeadIntent || "",
-      ai_conversion_probability: aiConversionProbability?.toString() || "",
-      ai_urgency_level: aiUrgencyLevel || "",
-      ai_buying_signals: aiBuyingSignals.join(", "),
-      ai_objections_raised: aiObjectionsRaised.join(", "),
-      ai_recommended_followup: aiRecommendedFollowup || "",
-      ai_conversation_summary: aiConversationSummary || "",
-      ai_key_insights: aiKeyInsights.join(" | "),
-      ai_bant_budget: aiBudgetScore?.toString() || "",
-      ai_bant_authority: aiAuthorityScore?.toString() || "",
-      ai_bant_need: aiNeedScore?.toString() || "",
-      ai_bant_timeline: aiTimelineScore?.toString() || "",
+      // Payment/Stripe fields - use n/a for empty
+      amount_paid: valueOrNA(amountPaid),
+      amountPaid: valueOrNA(amountPaid),
+      download_date: valueOrNA(downloadDate),
+      downloadDate: valueOrNA(downloadDate),
+      plan: valueOrNA(plan),
+      stripe_session_id: valueOrNA(stripeSessionId),
+      stripeSessionId: valueOrNA(stripeSessionId),
+      payment_date: valueOrNA(paymentDate),
+      paymentDate: valueOrNA(paymentDate),
+      // AI Analysis fields - USE SIMULATED DATA
+      ai_lead_score: simulatedAI.score.toString(),
+      ai_lead_temperature: simulatedAI.temperature,
+      ai_lead_intent: simulatedAI.intent,
+      ai_conversion_probability: simulatedAI.conversionProb,
+      ai_urgency_level: simulatedAI.urgency,
+      ai_buying_signals: simulatedAI.buyingSignals,
+      ai_objections_raised: simulatedAI.objections,
+      ai_recommended_followup: simulatedAI.followup,
+      ai_conversation_summary: simulatedAI.summary,
+      ai_key_insights: simulatedAI.keyInsights,
+      ai_bant_budget: simulatedAI.budgetScore.toString(),
+      ai_bant_authority: simulatedAI.authorityScore,
+      ai_bant_need: simulatedAI.needScore.toString(),
+      ai_bant_timeline: simulatedAI.timelineScore.toString(),
       // Visitor Intelligence fields
-      visitor_id: visitorId || "",
-      visitorId: visitorId || "",
+      visitor_id: valueOrNA(visitorId),
+      visitorId: valueOrNA(visitorId),
       is_returning_visitor: isReturningVisitor || "NO",
       isReturningVisitor: isReturningVisitor || "NO",
+      repeat_visitor_status: isReturningVisitor || "NO",
+      repeatVisitorStatus: isReturningVisitor || "NO",
       visit_count: visitCount || "1",
       visitCount: visitCount || "1",
-      first_visit_date: firstVisitDate || "",
-      firstVisitDate: firstVisitDate || "",
-      last_visit_date: lastVisitDate || "",
-      lastVisitDate: lastVisitDate || "",
-      utm_source: utmSource || "",
-      utmSource: utmSource || "",
-      utm_medium: utmMedium || "",
-      utmMedium: utmMedium || "",
-      utm_campaign: utmCampaign || "",
-      utmCampaign: utmCampaign || "",
-      utm_content: utmContent || "",
-      utmContent: utmContent || "",
-      utm_term: utmTerm || "",
-      utmTerm: utmTerm || "",
+      first_visit_date: valueOrNA(firstVisitDate),
+      firstVisitDate: valueOrNA(firstVisitDate),
+      last_visit_date: valueOrNA(lastVisitDate),
+      lastVisitDate: valueOrNA(lastVisitDate),
+      utm_source: valueOrNA(utmSource),
+      utmSource: valueOrNA(utmSource),
+      utm_medium: valueOrNA(utmMedium),
+      utmMedium: valueOrNA(utmMedium),
+      utm_campaign: valueOrNA(utmCampaign),
+      utmCampaign: valueOrNA(utmCampaign),
+      utm_content: valueOrNA(utmContent),
+      utmContent: valueOrNA(utmContent),
+      utm_term: valueOrNA(utmTerm),
+      utmTerm: valueOrNA(utmTerm),
       referrer_source: referrerSource || "Direct",
       referrerSource: referrerSource || "Direct",
-      landing_page: landingPage || "",
-      landingPage: landingPage || "",
-      entry_page: entryPage || "",
-      entryPage: entryPage || "",
-      device_type: deviceType || "",
-      deviceType: deviceType || "",
-      browser: browser || "",
-      pages_viewed: pagesViewed || "",
-      pagesViewed: pagesViewed || "",
-      sections_viewed: sectionsViewed || "",
-      sectionsViewed: sectionsViewed || "",
-      cta_clicks: ctaClicks || "",
-      ctaClicks: ctaClicks || "",
+      landing_page: valueOrNA(landingPage),
+      landingPage: valueOrNA(landingPage),
+      entry_page: valueOrNA(entryPage),
+      entryPage: valueOrNA(entryPage),
+      device_type: valueOrNA(deviceType),
+      deviceType: valueOrNA(deviceType),
+      browser: valueOrNA(browser),
+      pages_viewed: valueOrNA(pagesViewed),
+      pagesViewed: valueOrNA(pagesViewed),
+      sections_viewed: valueOrNA(sectionsViewed),
+      sectionsViewed: valueOrNA(sectionsViewed),
+      cta_clicks: valueOrNA(ctaClicks),
+      ctaClicks: valueOrNA(ctaClicks),
       calculator_used: calculatorUsed || "NO",
       calculatorUsed: calculatorUsed || "NO",
       demo_watched: demoWatched || "NO",
@@ -549,10 +679,15 @@ ${notes || "None"}
       chatbotEngaged: chatbotEngaged || "NO",
       engagement_score: engagementScore || "0",
       engagementScore: engagementScore || "0",
-      interest_signals: interestSignals || "",
-      interestSignals: interestSignals || "",
+      interest_signals: valueOrNA(interestSignals),
+      interestSignals: valueOrNA(interestSignals),
       behavioral_intent: behavioralIntent || "Unknown",
       behavioralIntent: behavioralIntent || "Unknown",
+      // NEW: Additional fields with n/a fallback
+      lead_magnet: isPDF ? "PDF Playbook" : "n/a",
+      leadMagnet: isPDF ? "PDF Playbook" : "n/a",
+      traffic_attribution: utmSource || utmMedium || referrerSource || "Direct",
+      trafficAttribution: utmSource || utmMedium || referrerSource || "Direct",
       
       // Notes
       notes: ghlNotes,
