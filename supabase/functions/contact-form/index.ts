@@ -417,6 +417,16 @@ ${notes || "None"}
       
       // Custom fields object
       customField: {
+        // CRITICAL: Core contact fields inside customField for GHL mapping
+        first_name: firstName,
+        last_name: lastName,
+        full_name: name,
+        email: email,
+        phone: phone || "",
+        website: website || "",
+        company_name: derivedBusinessName,
+        business_name: businessName || derivedBusinessName,
+        
         // Page 1 fields
         services_offered: businessType || "",
         team_size: teamSize || "",
@@ -445,8 +455,7 @@ ${notes || "None"}
         state: state,
         postal_code: postalCode,
         country: country,
-        // NEW: Business/lead fields
-        business_name: businessName || derivedBusinessName,
+        // NEW: Business/lead fields (business_name already defined above)
         business_overview: businessOverview,
         call_routing_hours: callRoutingHours,
         contact_type: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
