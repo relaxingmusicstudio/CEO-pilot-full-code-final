@@ -134,3 +134,15 @@ verify_jwt = false
 
 [functions.qbr-generator]
 verify_jwt = false
+
+[functions.outbound-dialer]
+verify_jwt = false
+
+[functions.sms-blast]
+verify_jwt = false
+
+[functions.cold-outreach-send]
+verify_jwt = false
+
+[functions.warm-nurture-trigger]
+verify_jwt = false

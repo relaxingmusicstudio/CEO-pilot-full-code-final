@@ -288,6 +288,100 @@ export type Database = {
         }
         Relationships: []
       }
+      call_logs: {
+        Row: {
+          ai_handled: boolean | null
+          answered_at: string | null
+          contact_id: string | null
+          cost: number | null
+          created_at: string
+          direction: string
+          disposition: string | null
+          disposition_notes: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          external_call_id: string | null
+          from_number: string | null
+          id: string
+          lead_id: string | null
+          phone_number_id: string | null
+          recording_url: string | null
+          started_at: string | null
+          status: string | null
+          to_number: string | null
+          transcription: string | null
+          vapi_call_id: string | null
+        }
+        Insert: {
+          ai_handled?: boolean | null
+          answered_at?: string | null
+          contact_id?: string | null
+          cost?: number | null
+          created_at?: string
+          direction: string
+          disposition?: string | null
+          disposition_notes?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          external_call_id?: string | null
+          from_number?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_number_id?: string | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          to_number?: string | null
+          transcription?: string | null
+          vapi_call_id?: string | null
+        }
+        Update: {
+          ai_handled?: boolean | null
+          answered_at?: string | null
+          contact_id?: string | null
+          cost?: number | null
+          created_at?: string
+          direction?: string
+          disposition?: string | null
+          disposition_notes?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          external_call_id?: string | null
+          from_number?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_number_id?: string | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          to_number?: string | null
+          transcription?: string | null
+          vapi_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_logs_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           channel_type: string
@@ -813,6 +907,275 @@ export type Database = {
           },
         ]
       }
+      cold_outreach_campaigns: {
+        Row: {
+          campaign_type: string | null
+          completed_at: string | null
+          contacts_reached: number | null
+          created_at: string
+          daily_limit: number | null
+          description: string | null
+          id: string
+          meetings_booked: number | null
+          name: string
+          replies_received: number | null
+          send_days: string[] | null
+          send_window_end: string | null
+          send_window_start: string | null
+          settings: Json | null
+          started_at: string | null
+          status: string | null
+          timezone: string | null
+          total_contacts: number | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_type?: string | null
+          completed_at?: string | null
+          contacts_reached?: number | null
+          created_at?: string
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          meetings_booked?: number | null
+          name: string
+          replies_received?: number | null
+          send_days?: string[] | null
+          send_window_end?: string | null
+          send_window_start?: string | null
+          settings?: Json | null
+          started_at?: string | null
+          status?: string | null
+          timezone?: string | null
+          total_contacts?: number | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_type?: string | null
+          completed_at?: string | null
+          contacts_reached?: number | null
+          created_at?: string
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          meetings_booked?: number | null
+          name?: string
+          replies_received?: number | null
+          send_days?: string[] | null
+          send_window_end?: string | null
+          send_window_start?: string | null
+          settings?: Json | null
+          started_at?: string | null
+          status?: string | null
+          timezone?: string | null
+          total_contacts?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cold_outreach_contacts: {
+        Row: {
+          campaign_id: string | null
+          company: string | null
+          converted_at: string | null
+          created_at: string
+          current_step: number | null
+          custom_fields: Json | null
+          do_not_contact: boolean | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_contacted_at: string | null
+          last_name: string | null
+          linkedin_url: string | null
+          phone: string | null
+          replied_at: string | null
+          status: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          company?: string | null
+          converted_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          custom_fields?: Json | null
+          do_not_contact?: boolean | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          last_name?: string | null
+          linkedin_url?: string | null
+          phone?: string | null
+          replied_at?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          company?: string | null
+          converted_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          custom_fields?: Json | null
+          do_not_contact?: boolean | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          last_name?: string | null
+          linkedin_url?: string | null
+          phone?: string | null
+          replied_at?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cold_outreach_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "cold_outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cold_outreach_sends: {
+        Row: {
+          campaign_id: string | null
+          channel: string
+          clicked_at: string | null
+          contact_id: string | null
+          created_at: string
+          error_message: string | null
+          external_id: string | null
+          id: string
+          opened_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          sequence_id: string | null
+          status: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          channel: string
+          clicked_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          channel?: string
+          clicked_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cold_outreach_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "cold_outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cold_outreach_sends_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "cold_outreach_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cold_outreach_sends_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "cold_outreach_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cold_outreach_sequences: {
+        Row: {
+          body: string
+          campaign_id: string | null
+          channel: string | null
+          click_count: number | null
+          created_at: string
+          delay_days: number | null
+          delay_hours: number | null
+          id: string
+          is_active: boolean | null
+          open_count: number | null
+          reply_count: number | null
+          sent_count: number | null
+          step_number: number
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          campaign_id?: string | null
+          channel?: string | null
+          click_count?: number | null
+          created_at?: string
+          delay_days?: number | null
+          delay_hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          open_count?: number | null
+          reply_count?: number | null
+          sent_count?: number | null
+          step_number: number
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          campaign_id?: string | null
+          channel?: string | null
+          click_count?: number | null
+          created_at?: string
+          delay_days?: number | null
+          delay_hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          open_count?: number | null
+          reply_count?: number | null
+          sent_count?: number | null
+          step_number?: number
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cold_outreach_sequences_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "cold_outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts_unified: {
         Row: {
           created_at: string | null
@@ -1258,6 +1621,72 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialer_queue: {
+        Row: {
+          attempts: number | null
+          campaign_id: string | null
+          contact_id: string | null
+          created_at: string
+          id: string
+          last_attempt_at: string | null
+          lead_id: string | null
+          max_attempts: number | null
+          notes: string | null
+          phone_number: string
+          priority: number | null
+          scheduled_at: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          max_attempts?: number | null
+          notes?: string | null
+          phone_number: string
+          priority?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          max_attempts?: number | null
+          notes?: string | null
+          phone_number?: string
+          priority?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialer_queue_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialer_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -1767,6 +2196,114 @@ export type Database = {
           },
         ]
       }
+      nurture_enrollments: {
+        Row: {
+          campaign_id: string | null
+          completed_at: string | null
+          contact_id: string | null
+          converted_at: string | null
+          current_step: number | null
+          enrolled_at: string
+          id: string
+          lead_id: string | null
+          next_touchpoint_at: string | null
+          status: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          current_step?: number | null
+          enrolled_at?: string
+          id?: string
+          lead_id?: string | null
+          next_touchpoint_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          converted_at?: string | null
+          current_step?: number | null
+          enrolled_at?: string
+          id?: string
+          lead_id?: string | null
+          next_touchpoint_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_enrollments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "warm_nurture_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nurture_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nurture_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nurture_touchpoints: {
+        Row: {
+          campaign_id: string | null
+          conditions: Json | null
+          content: Json | null
+          created_at: string
+          delay_minutes: number | null
+          executed_count: number | null
+          id: string
+          is_active: boolean | null
+          step_number: number
+          touchpoint_type: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          conditions?: Json | null
+          content?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          executed_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          step_number: number
+          touchpoint_type: string
+        }
+        Update: {
+          campaign_id?: string | null
+          conditions?: Json | null
+          content?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          executed_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          step_number?: number
+          touchpoint_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_touchpoints_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "warm_nurture_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_tasks: {
         Row: {
           category: string | null
@@ -1822,6 +2359,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      phone_numbers: {
+        Row: {
+          assigned_to: string | null
+          capabilities: Json | null
+          created_at: string
+          friendly_name: string | null
+          id: string
+          monthly_cost: number | null
+          phone_number: string
+          provider: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          friendly_name?: string | null
+          id?: string
+          monthly_cost?: number | null
+          phone_number: string
+          provider?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          friendly_name?: string | null
+          id?: string
+          monthly_cost?: number | null
+          phone_number?: string
+          provider?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       product_configurations: {
         Row: {
@@ -2050,6 +2626,146 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_campaign_recipients: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_message_id: string | null
+          id: string
+          phone_number: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_message_id?: string | null
+          id?: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_message_id?: string | null
+          id?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sms_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_unified"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_campaigns: {
+        Row: {
+          campaign_type: string | null
+          created_at: string
+          delivered_count: number | null
+          failed_count: number | null
+          id: string
+          message: string
+          name: string
+          opt_out_count: number | null
+          phone_number_id: string | null
+          reply_count: number | null
+          scheduled_at: string | null
+          sent_count: number | null
+          status: string | null
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_type?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          message: string
+          name: string
+          opt_out_count?: number | null
+          phone_number_id?: string | null
+          reply_count?: number | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          status?: string | null
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_type?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          message?: string
+          name?: string
+          opt_out_count?: number | null
+          phone_number_id?: string | null
+          reply_count?: number | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          status?: string | null
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_campaigns_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_opt_outs: {
+        Row: {
+          id: string
+          opted_out_at: string
+          phone_number: string
+          reason: string | null
+          source: string | null
+        }
+        Insert: {
+          id?: string
+          opted_out_at?: string
+          phone_number: string
+          reason?: string | null
+          source?: string | null
+        }
+        Update: {
+          id?: string
+          opted_out_at?: string
+          phone_number?: string
+          reason?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -2116,6 +2832,75 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           visitor_id?: string
+        }
+        Relationships: []
+      }
+      voicemail_drops: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          times_used: number | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          times_used?: number | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          times_used?: number | null
+        }
+        Relationships: []
+      }
+      warm_nurture_campaigns: {
+        Row: {
+          converted_count: number | null
+          created_at: string
+          description: string | null
+          enrolled_count: number | null
+          id: string
+          name: string
+          status: string | null
+          trigger_conditions: Json | null
+          trigger_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          converted_count?: number | null
+          created_at?: string
+          description?: string | null
+          enrolled_count?: number | null
+          id?: string
+          name: string
+          status?: string | null
+          trigger_conditions?: Json | null
+          trigger_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          converted_count?: number | null
+          created_at?: string
+          description?: string | null
+          enrolled_count?: number | null
+          id?: string
+          name?: string
+          status?: string | null
+          trigger_conditions?: Json | null
+          trigger_type?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
