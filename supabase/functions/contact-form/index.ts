@@ -142,12 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
     
-    if (!message || message.length < 1) {
-      return new Response(
-        JSON.stringify({ error: "Message is required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
+    // Message is optional - don't require it
     
     // Validate optional phone
     const phone = sanitizeString(requestData.phone, 20);
