@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft,
   Search,
   Plus,
   Building2,
@@ -22,13 +20,13 @@ import {
   Mail,
   Calendar,
   DollarSign,
-  Clock,
   CheckCircle,
   AlertCircle,
-  MoreVertical,
   MessageSquare,
   FileText,
   TrendingUp,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,103 +35,73 @@ import AdminLayout from "@/components/AdminLayout";
 interface Client {
   id: string;
   name: string;
-  business_name: string;
+  business_name: string | null;
   email: string;
-  phone: string;
-  status: "active" | "paused" | "churned";
+  phone: string | null;
+  status: string;
   plan: string;
   mrr: number;
   start_date: string;
-  last_contact: string;
-  health_score: number;
-  notes: string;
+  last_contact: string | null;
+  health_score: number | null;
+  notes: string | null;
 }
 
-// Mock data for demonstration - in production this would come from database
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    business_name: "Smith HVAC Services",
-    email: "john@smithhvac.com",
-    phone: "(555) 123-4567",
-    status: "active",
-    plan: "Growth",
-    mrr: 999,
-    start_date: "2024-01-15",
-    last_contact: "2024-12-10",
-    health_score: 92,
-    notes: "Happy customer, interested in Scale plan upgrade",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    business_name: "Johnson Heating & Cooling",
-    email: "sarah@johnsonhc.com",
-    phone: "(555) 234-5678",
-    status: "active",
-    plan: "Scale",
-    mrr: 1999,
-    start_date: "2023-08-20",
-    last_contact: "2024-12-08",
-    health_score: 88,
-    notes: "Power user, great testimonial candidate",
-  },
-  {
-    id: "3",
-    name: "Mike Williams",
-    business_name: "Williams Air Solutions",
-    email: "mike@williamsair.com",
-    phone: "(555) 345-6789",
-    status: "paused",
-    plan: "Starter",
-    mrr: 499,
-    start_date: "2024-06-01",
-    last_contact: "2024-11-15",
-    health_score: 45,
-    notes: "Slow season, paused temporarily",
-  },
-  {
-    id: "4",
-    name: "Lisa Brown",
-    business_name: "Brown Climate Control",
-    email: "lisa@browncc.com",
-    phone: "(555) 456-7890",
-    status: "active",
-    plan: "Growth",
-    mrr: 999,
-    start_date: "2024-03-10",
-    last_contact: "2024-12-12",
-    health_score: 95,
-    notes: "Referred 2 new clients this month",
-  },
-  {
-    id: "5",
-    name: "David Lee",
-    business_name: "Lee HVAC Pros",
-    email: "david@leehvac.com",
-    phone: "(555) 567-8901",
-    status: "churned",
-    plan: "Starter",
-    mrr: 0,
-    start_date: "2024-02-01",
-    last_contact: "2024-09-20",
-    health_score: 0,
-    notes: "Went out of business",
-  },
-];
-
 const AdminClients = () => {
-  const navigate = useNavigate();
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const refreshHealthScores = async () => {
+    setRefreshingHealth(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "client-health-score",
+        { body: { calculate_all: true } }
+      );
+
+      if (error) throw error;
+
+      toast.success(
+        `Updated health scores for ${data.results?.length || 0} clients`
+      );
+      fetchClients();
+    } catch (error: any) {
+      console.error("Error refreshing health scores:", error);
+      toast.error("Failed to refresh health scores");
+    } finally {
+      setRefreshingHealth(false);
+    }
+  };
+
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.business_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || client.status === statusFilter;
@@ -145,7 +113,7 @@ const AdminClients = () => {
   const avgHealthScore =
     activeClients.length > 0
       ? Math.round(
-          activeClients.reduce((sum, c) => sum + c.health_score, 0) /
+          activeClients.reduce((sum, c) => sum + (c.health_score || 0), 0) /
             activeClients.length
         )
       : 0;
@@ -163,7 +131,8 @@ const AdminClients = () => {
     }
   };
 
-  const getHealthColor = (score: number) => {
+  const getHealthColor = (score: number | null) => {
+    if (!score) return "text-muted-foreground";
     if (score >= 80) return "text-green-500";
     if (score >= 50) return "text-yellow-500";
     return "text-red-500";
@@ -214,7 +183,12 @@ const AdminClients = () => {
               <div>
                 <p className="text-sm text-muted-foreground">At Risk</p>
                 <p className="text-2xl font-bold">
-                  {clients.filter((c) => c.health_score < 50 && c.status === "active").length}
+                  {
+                    clients.filter(
+                      (c) =>
+                        (c.health_score || 0) < 50 && c.status === "active"
+                    ).length
+                  }
                 </p>
               </div>
               <AlertCircle className="h-8 w-8 text-yellow-500" />
@@ -223,29 +197,30 @@ const AdminClients = () => {
         </Card>
       </div>
 
+      {/* Actions Bar */}
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refreshHealthScores}
+          disabled={refreshingHealth}
+        >
+          {refreshingHealth ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Refresh Health Scores
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Client List */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Client List</CardTitle>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Client</DialogTitle>
-                  </DialogHeader>
-                  <p className="text-sm text-muted-foreground">
-                    Clients are typically converted from leads when they sign up
-                    for a paid plan.
-                  </p>
-                </DialogContent>
-              </Dialog>
+              <Badge variant="secondary">{clients.length}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -269,40 +244,52 @@ const AdminClients = () => {
             </Tabs>
 
             <ScrollArea className="h-[500px]">
-              <div className="space-y-2">
-                {filteredClients.map((client) => (
-                  <div
-                    key={client.id}
-                    onClick={() => setSelectedClient(client)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedClient?.id === client.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <div>
-                        <p className="font-medium text-sm">{client.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {client.business_name}
-                        </p>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredClients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No clients found</p>
+                  <p className="text-xs">Convert leads to see them here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredClients.map((client) => (
+                    <div
+                      key={client.id}
+                      onClick={() => setSelectedClient(client)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedClient?.id === client.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <div>
+                          <p className="font-medium text-sm">{client.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {client.business_name || client.email}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={getStatusColor(client.status)}
+                        >
+                          {client.status}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(client.status)}
-                      >
-                        {client.status}
-                      </Badge>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{client.plan} Plan</span>
+                        <span className={getHealthColor(client.health_score)}>
+                          {client.health_score || 0}% health
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{client.plan} Plan</span>
-                      <span className={getHealthColor(client.health_score)}>
-                        {client.health_score}% health
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
           </CardContent>
         </Card>
@@ -315,7 +302,7 @@ const AdminClients = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-xl">
-                      {selectedClient.business_name}
+                      {selectedClient.business_name || selectedClient.name}
                     </CardTitle>
                     <p className="text-muted-foreground">
                       {selectedClient.name}
@@ -349,7 +336,7 @@ const AdminClients = () => {
                     <div>
                       <p className="text-xs text-muted-foreground">Phone</p>
                       <p className="text-sm font-medium">
-                        {selectedClient.phone}
+                        {selectedClient.phone || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -384,30 +371,35 @@ const AdminClients = () => {
                         selectedClient.health_score
                       )}`}
                     >
-                      {selectedClient.health_score}%
+                      {selectedClient.health_score || 0}%
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        selectedClient.health_score >= 80
+                        (selectedClient.health_score || 0) >= 80
                           ? "bg-green-500"
-                          : selectedClient.health_score >= 50
+                          : (selectedClient.health_score || 0) >= 50
                           ? "bg-yellow-500"
                           : "bg-red-500"
                       }`}
-                      style={{ width: `${selectedClient.health_score}%` }}
+                      style={{ width: `${selectedClient.health_score || 0}%` }}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Based on engagement, usage, and support metrics
+                  </p>
                 </div>
 
                 {/* Notes */}
-                <div>
-                  <p className="text-sm font-medium mb-2">Notes</p>
-                  <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
-                    {selectedClient.notes}
-                  </p>
-                </div>
+                {selectedClient.notes && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Notes</p>
+                    <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
+                      {selectedClient.notes}
+                    </p>
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div className="flex flex-wrap gap-2">

@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.rate-content]
 verify_jwt = false
+
+[functions.client-health-score]
+verify_jwt = false

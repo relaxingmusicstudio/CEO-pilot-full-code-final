@@ -30,6 +30,7 @@ const navItems = [
   { path: "/admin/agent/funnels", label: "Funnels", icon: GitBranch },
   { path: "/admin/agent/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/admin/agent/inbox", label: "Inbox", icon: MessageSquare },
+  { path: "/admin/leads", label: "Leads", icon: Users },
   { path: "/admin/clients", label: "Clients", icon: Users },
   { path: "/admin/agent/content", label: "Content", icon: FileText },
   { path: "/admin/agent/youtube", label: "YouTube", icon: Youtube },

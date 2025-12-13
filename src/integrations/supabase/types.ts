@@ -398,6 +398,165 @@ export type Database = {
         }
         Relationships: []
       }
+      client_tickets: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          id: string
+          priority: string | null
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_usage: {
+        Row: {
+          api_calls: number | null
+          appointments_booked: number | null
+          client_id: string
+          conversations_handled: number | null
+          created_at: string
+          date: string
+          id: string
+          leads_captured: number | null
+          login_count: number | null
+        }
+        Insert: {
+          api_calls?: number | null
+          appointments_booked?: number | null
+          client_id: string
+          conversations_handled?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          leads_captured?: number | null
+          login_count?: number | null
+        }
+        Update: {
+          api_calls?: number | null
+          appointments_booked?: number | null
+          client_id?: string
+          conversations_handled?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          leads_captured?: number | null
+          login_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          business_name: string | null
+          churned_at: string | null
+          created_at: string
+          email: string
+          health_score: number | null
+          id: string
+          last_contact: string | null
+          lead_id: string | null
+          metadata: Json | null
+          mrr: number
+          name: string
+          notes: string | null
+          phone: string | null
+          plan: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          churned_at?: string | null
+          created_at?: string
+          email: string
+          health_score?: number | null
+          id?: string
+          last_contact?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          mrr?: number
+          name: string
+          notes?: string | null
+          phone?: string | null
+          plan?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          churned_at?: string | null
+          created_at?: string
+          email?: string
+          health_score?: number | null
+          id?: string
+          last_contact?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          mrr?: number
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          plan?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts_unified: {
         Row: {
           created_at: string | null

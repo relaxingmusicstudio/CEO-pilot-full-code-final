@@ -14,6 +14,7 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminInbox from "./pages/AdminInbox";
 import AdminContacts from "./pages/AdminContacts";
 import AdminClients from "./pages/AdminClients";
+import AdminLeads from "./pages/AdminLeads";
 import AdminSequences from "./pages/AdminSequences";
 import CEOConsole from "./pages/CEOConsole";
 import AdminSettings from "./pages/AdminSettings";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/admin/inbox" element={<ProtectedRoute requireAdmin><AdminInbox /></ProtectedRoute>} />
               <Route path="/admin/contacts" element={<ProtectedRoute requireAdmin><AdminContacts /></ProtectedRoute>} />
               <Route path="/admin/clients" element={<ProtectedRoute requireAdmin><AdminClients /></ProtectedRoute>} />
+              <Route path="/admin/leads" element={<ProtectedRoute requireAdmin><AdminLeads /></ProtectedRoute>} />
               <Route path="/admin/sequences" element={<ProtectedRoute requireAdmin><AdminSequences /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
               <Route path="/admin/content" element={<ProtectedRoute requireAdmin><AdminContent /></ProtectedRoute>} />
