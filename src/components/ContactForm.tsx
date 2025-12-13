@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, DollarSign, Headphones } from "lucide-react";
+import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, DollarSign, Headphones, Globe } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitor } from "@/contexts/VisitorContext";
@@ -22,6 +22,7 @@ const contactSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
   phone: z.string().trim().min(1, "Phone is required").max(20, "Phone must be less than 20 characters"),
   businessName: z.string().trim().min(1, "Business name is required").max(100, "Business name must be less than 100 characters"),
+  website: z.string().trim().max(255, "Website must be less than 255 characters").optional(),
   businessType: z.string().min(1, "Business type is required"),
   teamSize: z.string().min(1, "Team size is required"),
   callVolume: z.string().min(1, "Call volume is required"),
@@ -89,6 +90,7 @@ const ContactForm = () => {
     email: "",
     phone: "",
     businessName: "",
+    website: "",
     businessType: "",
     teamSize: "",
     callVolume: "",
@@ -145,6 +147,7 @@ const ContactForm = () => {
           email: result.data.email,
           phone: result.data.phone,
           businessName: result.data.businessName,
+          website: result.data.website || "",
           message: result.data.message || "",
           businessType: result.data.businessType,
           teamSize: result.data.teamSize,
@@ -202,6 +205,7 @@ const ContactForm = () => {
         email: "",
         phone: "",
         businessName: "",
+        website: "",
         businessType: "",
         teamSize: "",
         callVolume: "",
@@ -352,6 +356,27 @@ const ContactForm = () => {
                     <p className="text-sm text-destructive">{errors.businessName}</p>
                   )}
                 </div>
+              </div>
+
+              {/* Website Row */}
+              <div className="space-y-2">
+                <label htmlFor="website" className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  Website (Optional)
+                </label>
+                <Input
+                  id="website"
+                  name="website"
+                  type="url"
+                  placeholder="https://yourbusiness.com"
+                  value={formData.website}
+                  onChange={handleChange}
+                  className={errors.website ? "border-destructive" : ""}
+                  disabled={isSubmitting}
+                />
+                {errors.website && (
+                  <p className="text-sm text-destructive">{errors.website}</p>
+                )}
               </div>
 
               {/* Business Info Row */}
