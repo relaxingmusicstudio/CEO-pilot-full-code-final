@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Mail, User, CheckCircle, BookOpen, Target, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useVisitor } from "@/contexts/VisitorContext";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
 const PlaybookSection = () => {
@@ -10,6 +11,7 @@ const PlaybookSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
+  const { trackCtaClick } = useVisitor();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +61,8 @@ const PlaybookSection = () => {
   };
 
   const handleDownload = () => {
+    trackCtaClick("playbook-download");
+    
     const link = document.createElement('a');
     link.href = '/Local-Service-Playbook.pdf';
     link.download = 'Local-Service-Playbook.pdf';
@@ -166,6 +170,7 @@ const PlaybookSection = () => {
                     type="submit" 
                     className="w-full sm:w-auto"
                     disabled={isSubmitting}
+                    onClick={() => trackCtaClick("playbook-form-submit")}
                   >
                     <Download className="w-4 h-4" />
                     {isSubmitting ? "SENDING..." : "GET FREE PLAYBOOK"}
