@@ -118,9 +118,28 @@ const ContactForm = () => {
     );
   };
 
+  // Format phone number as XXX-XXX-XXXX
+  const formatPhoneNumber = (value: string) => {
+    const phoneNumber = value.replace(/\D/g, '');
+    if (phoneNumber.length <= 3) {
+      return phoneNumber;
+    } else if (phoneNumber.length <= 6) {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
+    } else {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    if (name === 'phone') {
+      const formattedPhone = formatPhoneNumber(value);
+      setFormData((prev) => ({ ...prev, phone: formattedPhone }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+    
     if (errors[name as keyof ContactFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -264,7 +283,16 @@ const ContactForm = () => {
           </div>
 
           {/* Form Card */}
-          <div className="bg-card rounded-2xl p-8 md:p-10 shadow-lg border border-border">
+          <div className="bg-card rounded-2xl p-8 md:p-10 shadow-lg border border-border relative">
+            {/* Loading Overlay */}
+            {isSubmitting && (
+              <div className="absolute inset-0 bg-background/70 rounded-2xl flex items-center justify-center z-10 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
+                  <span className="text-base font-medium text-foreground">Submitting your request...</span>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name Row */}
               <div className="grid md:grid-cols-2 gap-6">
@@ -344,7 +372,7 @@ const ContactForm = () => {
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="(555) 123-4567"
+                    placeholder="555-123-4567"
                     value={formData.phone}
                     onChange={handleChange}
                     className={errors.phone ? "border-destructive" : ""}
