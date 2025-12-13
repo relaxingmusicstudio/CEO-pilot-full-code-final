@@ -28,6 +28,8 @@ function sanitizeString(str: string | undefined, maxLength: number = 500): strin
 
 interface ContactFormRequest {
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   message: string;
   phone?: string;
@@ -235,16 +237,20 @@ const handler = async (req: Request): Promise<Response> => {
     const interestSignals = sanitizeString(requestData.interestSignals, 500);
     const behavioralIntent = sanitizeString(requestData.behavioralIntent, 100);
 
-    // Split name into firstName and lastName for GHL
+    // Use directly provided firstName/lastName OR split from name
+    const rawFirstName = sanitizeString(requestData.firstName, 50);
+    const rawLastName = sanitizeString(requestData.lastName, 50);
     const nameParts = name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const firstName = rawFirstName || nameParts[0] || '';
+    const lastName = rawLastName || nameParts.slice(1).join(' ') || '';
     
     // Derive business name from multiple sources
     const derivedBusinessName = businessName || businessTypeOther || `${firstName}'s ${businessType || 'Business'}`;
     
     console.log("Validated form data:", { 
-      name, 
+      name,
+      firstName,
+      lastName,
       emailLength: email.length, 
       phone: phone ? "provided" : "not provided", 
       businessName: derivedBusinessName,
