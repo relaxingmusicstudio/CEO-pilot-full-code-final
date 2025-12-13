@@ -84,9 +84,8 @@ const aiTimelines = [
 const otherServicesOptions = [
   "Websites That Convert",
   "SEO",
-  "Local Map SEO",
+  "Local SEO",
   "Paid Ads",
-  "Sales Funnel",
 ];
 
 const ContactForm = () => {
