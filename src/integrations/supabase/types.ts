@@ -398,6 +398,59 @@ export type Database = {
         }
         Relationships: []
       }
+      client_interventions: {
+        Row: {
+          assigned_to: string | null
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          intervention_type: string
+          notes: string | null
+          outcome: string | null
+          scheduled_at: string | null
+          status: string
+          trigger_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          intervention_type: string
+          notes?: string | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          status?: string
+          trigger_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          intervention_type?: string
+          notes?: string | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          status?: string
+          trigger_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_interventions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_tickets: {
         Row: {
           client_id: string
@@ -1333,6 +1386,42 @@ export type Database = {
             referencedColumns: ["visitor_id"]
           },
         ]
+      }
+      marketing_spend: {
+        Row: {
+          campaign: string | null
+          conversions: number | null
+          created_at: string
+          id: string
+          leads_generated: number | null
+          revenue_attributed: number | null
+          source: string
+          spend_amount: number
+          spend_date: string
+        }
+        Insert: {
+          campaign?: string | null
+          conversions?: number | null
+          created_at?: string
+          id?: string
+          leads_generated?: number | null
+          revenue_attributed?: number | null
+          source: string
+          spend_amount?: number
+          spend_date?: string
+        }
+        Update: {
+          campaign?: string | null
+          conversions?: number | null
+          created_at?: string
+          id?: string
+          leads_generated?: number | null
+          revenue_attributed?: number | null
+          source?: string
+          spend_amount?: number
+          spend_date?: string
+        }
+        Relationships: []
       }
       messages_unified: {
         Row: {

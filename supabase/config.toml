@@ -101,3 +101,12 @@ verify_jwt = false
 
 [functions.send-notification]
 verify_jwt = false
+
+[functions.lead-to-client]
+verify_jwt = false
+
+[functions.client-lifecycle]
+verify_jwt = false
+
+[functions.churn-intervention]
+verify_jwt = false

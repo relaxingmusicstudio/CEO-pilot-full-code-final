@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Users, TrendingUp, Calculator } from "lucide-react";
+import { Calculator, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Client {
   id: string;
@@ -22,6 +24,19 @@ interface Visitor {
   createdAt: string;
 }
 
+interface RealMetrics {
+  ltv: number;
+  cac: number;
+  ltvCacRatio: string;
+  paybackMonths: string;
+  avgMRR: number;
+  churnRate: string;
+  avgLifespanMonths: string;
+  totalMarketingSpend: number;
+  newClients90Days: number;
+  activeClients: number;
+}
+
 interface LTVCACCalculatorProps {
   clients: Client[];
   leads: Lead[];
@@ -37,6 +52,28 @@ const LTVCACCalculator = ({
   marketingSpend = 0,
   className = "" 
 }: LTVCACCalculatorProps) => {
+  const [realMetrics, setRealMetrics] = useState<RealMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchRealMetrics = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("churn-intervention", {
+        body: { action: "ltv_cac_metrics" }
+      });
+      if (!error && data) {
+        setRealMetrics(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch LTV/CAC metrics:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRealMetrics();
+  }, []);
   const metrics = useMemo(() => {
     const activeClients = clients.filter(c => c.status === "active");
     const churnedClients = clients.filter(c => c.status === "churned");
@@ -106,6 +143,10 @@ const LTVCACCalculator = ({
 
   const ratioStatus = getRatioStatus(parseFloat(metrics.ltvCacRatio));
 
+  // Use real metrics if available, otherwise fall back to calculated
+  const displayMetrics = realMetrics || metrics;
+  const displayRatioStatus = getRatioStatus(parseFloat(realMetrics?.ltvCacRatio || metrics.ltvCacRatio));
+
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
@@ -113,10 +154,22 @@ const LTVCACCalculator = ({
           <div className="flex items-center gap-2">
             <Calculator className="h-4 w-4 text-primary" />
             LTV & CAC Analysis
+            {realMetrics && <Badge variant="outline" className="text-xs">Live</Badge>}
           </div>
-          <Badge className={`text-xs text-white ${ratioStatus.color}`}>
-            {ratioStatus.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={fetchRealMetrics}
+              disabled={isLoading}
+              className="h-6 w-6 p-0"
+            >
+              <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+            <Badge className={`text-xs text-white ${displayRatioStatus.color}`}>
+              {displayRatioStatus.label}
+            </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -124,13 +177,13 @@ const LTVCACCalculator = ({
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-lg text-center">
             <p className="text-xs text-muted-foreground mb-1">Lifetime Value</p>
-            <p className="text-2xl font-bold text-green-600">${metrics.ltv.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">{metrics.avgLifespan}mo lifespan</p>
+            <p className="text-2xl font-bold text-green-600">${displayMetrics.ltv.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">{realMetrics?.avgLifespanMonths || metrics.avgLifespan}mo lifespan</p>
           </div>
           <div className="p-3 bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-lg text-center">
             <p className="text-xs text-muted-foreground mb-1">Acquisition Cost</p>
-            <p className="text-2xl font-bold text-orange-600">${metrics.cac.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">{metrics.paybackMonths}mo payback</p>
+            <p className="text-2xl font-bold text-orange-600">${displayMetrics.cac.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">{displayMetrics.paybackMonths}mo payback</p>
           </div>
         </div>
 
@@ -138,12 +191,12 @@ const LTVCACCalculator = ({
         <div className="p-3 bg-primary/5 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">LTV:CAC Ratio</span>
-            <span className="text-2xl font-bold text-primary">{metrics.ltvCacRatio}x</span>
+            <span className="text-2xl font-bold text-primary">{displayMetrics.ltvCacRatio}x</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2">
             <div 
-              className={`h-2 rounded-full transition-all ${ratioStatus.color}`}
-              style={{ width: `${Math.min(parseFloat(metrics.ltvCacRatio) / 5 * 100, 100)}%` }}
+              className={`h-2 rounded-full transition-all ${displayRatioStatus.color}`}
+              style={{ width: `${Math.min(parseFloat(String(displayMetrics.ltvCacRatio)) / 5 * 100, 100)}%` }}
             />
           </div>
           <div className="flex justify-between text-xs text-muted-foreground mt-1">
@@ -156,11 +209,11 @@ const LTVCACCalculator = ({
         {/* Secondary Metrics */}
         <div className="grid grid-cols-2 gap-2 text-center text-xs">
           <div className="p-2 bg-muted/50 rounded-lg">
-            <p className="font-medium">${metrics.avgMRR}/mo</p>
+            <p className="font-medium">${displayMetrics.avgMRR}/mo</p>
             <p className="text-muted-foreground">Avg Revenue</p>
           </div>
           <div className="p-2 bg-muted/50 rounded-lg">
-            <p className="font-medium">{metrics.churnRate}%</p>
+            <p className="font-medium">{displayMetrics.churnRate}%</p>
             <p className="text-muted-foreground">Churn Rate</p>
           </div>
           <div className="p-2 bg-muted/50 rounded-lg">
@@ -172,6 +225,15 @@ const LTVCACCalculator = ({
             <p className="text-muted-foreground">Lead → Customer</p>
           </div>
         </div>
+
+        {/* Marketing Spend Info (if real data) */}
+        {realMetrics && realMetrics.totalMarketingSpend > 0 && (
+          <div className="p-2 bg-blue-500/10 rounded-lg text-center text-xs">
+            <p className="text-muted-foreground">
+              ${realMetrics.totalMarketingSpend.toLocaleString()} spend → {realMetrics.newClients90Days} clients (90d)
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
