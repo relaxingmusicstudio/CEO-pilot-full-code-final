@@ -628,6 +628,125 @@ export type Database = {
         }
         Relationships: []
       }
+      content_patterns: {
+        Row: {
+          confidence_score: number | null
+          content_type: string
+          created_at: string | null
+          engagement_score: number | null
+          example_prompt: string | null
+          id: string
+          metadata: Json | null
+          pattern_category: string
+          pattern_description: string
+          pattern_type: string
+          times_successful: number | null
+          times_used: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          content_type: string
+          created_at?: string | null
+          engagement_score?: number | null
+          example_prompt?: string | null
+          id?: string
+          metadata?: Json | null
+          pattern_category: string
+          pattern_description: string
+          pattern_type?: string
+          times_successful?: number | null
+          times_used?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          content_type?: string
+          created_at?: string | null
+          engagement_score?: number | null
+          example_prompt?: string | null
+          id?: string
+          metadata?: Json | null
+          pattern_category?: string
+          pattern_description?: string
+          pattern_type?: string
+          times_successful?: number | null
+          times_used?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      content_performance: {
+        Row: {
+          ai_analysis: Json | null
+          classification: string | null
+          clicks: number | null
+          comments: number | null
+          completion_rate: number | null
+          content_id: string | null
+          content_type: string
+          conversions: number | null
+          created_at: string | null
+          enhanced_prompt: string | null
+          extracted_patterns: Json | null
+          id: string
+          original_prompt: string | null
+          platform: string | null
+          shares: number | null
+          user_rating: number | null
+          views: number | null
+          watch_time_avg: number | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          classification?: string | null
+          clicks?: number | null
+          comments?: number | null
+          completion_rate?: number | null
+          content_id?: string | null
+          content_type: string
+          conversions?: number | null
+          created_at?: string | null
+          enhanced_prompt?: string | null
+          extracted_patterns?: Json | null
+          id?: string
+          original_prompt?: string | null
+          platform?: string | null
+          shares?: number | null
+          user_rating?: number | null
+          views?: number | null
+          watch_time_avg?: number | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          classification?: string | null
+          clicks?: number | null
+          comments?: number | null
+          completion_rate?: number | null
+          content_id?: string | null
+          content_type?: string
+          conversions?: number | null
+          created_at?: string | null
+          enhanced_prompt?: string | null
+          extracted_patterns?: Json | null
+          id?: string
+          original_prompt?: string | null
+          platform?: string | null
+          shares?: number | null
+          user_rating?: number | null
+          views?: number | null
+          watch_time_avg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_performance_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           ai_analysis: Json | null
@@ -1108,6 +1227,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scraped_inspiration: {
+        Row: {
+          content_type: string
+          description: string | null
+          engagement_metrics: Json | null
+          extracted_patterns: Json | null
+          id: string
+          is_processed: boolean | null
+          niche: string | null
+          scraped_at: string | null
+          source_platform: string | null
+          source_url: string | null
+          title: string | null
+          viral_score: number | null
+        }
+        Insert: {
+          content_type: string
+          description?: string | null
+          engagement_metrics?: Json | null
+          extracted_patterns?: Json | null
+          id?: string
+          is_processed?: boolean | null
+          niche?: string | null
+          scraped_at?: string | null
+          source_platform?: string | null
+          source_url?: string | null
+          title?: string | null
+          viral_score?: number | null
+        }
+        Update: {
+          content_type?: string
+          description?: string | null
+          engagement_metrics?: Json | null
+          extracted_patterns?: Json | null
+          id?: string
+          is_processed?: boolean | null
+          niche?: string | null
+          scraped_at?: string | null
+          source_platform?: string | null
+          source_url?: string | null
+          title?: string | null
+          viral_score?: number | null
+        }
+        Relationships: []
       }
       sequence_enrollments: {
         Row: {

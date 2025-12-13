@@ -21,7 +21,13 @@ import {
   Users,
   Calendar,
   Music,
-  Wand2
+  Wand2,
+  Brain,
+  ThumbsUp,
+  ThumbsDown,
+  Lightbulb,
+  Target,
+  AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -234,6 +240,7 @@ export default function AdminAutomation() {
             <TabsTrigger value="functions">Functions</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="audio">Audio & Effects</TabsTrigger>
+            <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           </TabsList>
 
           <TabsContent value="functions" className="space-y-6">
@@ -340,6 +347,10 @@ export default function AdminAutomation() {
 
           <TabsContent value="audio">
             <AudioEffectsPanel />
+          </TabsContent>
+
+          <TabsContent value="intelligence">
+            <IntelligencePanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -614,6 +625,392 @@ function AudioEffectsPanel() {
               which is configured with LOVABLE_API_KEY. You can generate and edit images for overlays without any additional API keys!
             </p>
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface ContentPattern {
+  id: string;
+  content_type: string;
+  pattern_type: string;
+  pattern_category: string;
+  pattern_description: string;
+  confidence_score: number;
+  times_used: number;
+  times_successful: number;
+}
+
+interface ContentPerformance {
+  id: string;
+  content_type: string;
+  platform: string | null;
+  user_rating: number | null;
+  classification: string;
+  created_at: string;
+  original_prompt: string | null;
+}
+
+function IntelligencePanel() {
+  const [patterns, setPatterns] = useState<ContentPattern[]>([]);
+  const [performances, setPerformances] = useState<ContentPerformance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLearning, setIsLearning] = useState(false);
+  const [learningReport, setLearningReport] = useState<string | null>(null);
+  
+  // Quick rating state
+  const [ratingContentType, setRatingContentType] = useState('text');
+  const [ratingPrompt, setRatingPrompt] = useState('');
+  const [isRating, setIsRating] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    
+    const [patternsRes, performancesRes] = await Promise.all([
+      supabase.from('content_patterns').select('*').order('confidence_score', { ascending: false }).limit(50),
+      supabase.from('content_performance').select('*').order('created_at', { ascending: false }).limit(20)
+    ]);
+
+    if (patternsRes.data) setPatterns(patternsRes.data);
+    if (performancesRes.data) setPerformances(performancesRes.data);
+    
+    setIsLoading(false);
+  };
+
+  const runLearning = async () => {
+    setIsLearning(true);
+    toast.info('Running content learning analysis...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('content-learning', {});
+      
+      if (error) throw error;
+      
+      setLearningReport(data.report);
+      toast.success(`Learning complete! Updated ${data.patterns_updated} patterns.`);
+      fetchData();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Learning failed: ${msg}`);
+    } finally {
+      setIsLearning(false);
+    }
+  };
+
+  const rateContent = async (rating: number) => {
+    if (!ratingPrompt.trim()) {
+      toast.error('Please enter a prompt to rate');
+      return;
+    }
+    
+    setIsRating(true);
+    try {
+      const { error } = await supabase.functions.invoke('rate-content', {
+        body: {
+          rating,
+          content_type: ratingContentType,
+          original_prompt: ratingPrompt,
+          platform: 'manual'
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.success(`Rated as ${rating >= 4 ? 'winner' : rating <= 2 ? 'loser' : 'neutral'}!`);
+      setRatingPrompt('');
+      fetchData();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to rate: ${msg}`);
+    } finally {
+      setIsRating(false);
+    }
+  };
+
+  const winnerPatterns = patterns.filter(p => p.pattern_type === 'winner');
+  const loserPatterns = patterns.filter(p => p.pattern_type === 'loser');
+  const winners = performances.filter(p => p.classification === 'winner');
+  const losers = performances.filter(p => p.classification === 'loser');
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Overview */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/20">
+                <ThumbsUp className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{winners.length}</p>
+                <p className="text-sm text-muted-foreground">Winners</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-red-500/20">
+                <ThumbsDown className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{losers.length}</p>
+                <p className="text-sm text-muted-foreground">Losers</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <Lightbulb className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{winnerPatterns.length}</p>
+                <p className="text-sm text-muted-foreground">Winner Patterns</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500/20">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{loserPatterns.length}</p>
+                <p className="text-sm text-muted-foreground">Patterns to Avoid</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Quick Rating */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Quick Content Rating
+            </CardTitle>
+            <CardDescription>
+              Rate content to help the AI learn what works
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              {['text', 'image', 'video', 'audio'].map(type => (
+                <Button
+                  key={type}
+                  variant={ratingContentType === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setRatingContentType(type)}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Button>
+              ))}
+            </div>
+            
+            <textarea
+              className="w-full p-3 rounded-lg border bg-background text-sm"
+              rows={3}
+              value={ratingPrompt}
+              onChange={(e) => setRatingPrompt(e.target.value)}
+              placeholder="Paste the prompt or content description you want to rate..."
+            />
+            
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => rateContent(5)} 
+                disabled={isRating}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Winner (5)
+              </Button>
+              <Button 
+                onClick={() => rateContent(3)} 
+                disabled={isRating}
+                variant="outline"
+                className="flex-1"
+              >
+                Neutral (3)
+              </Button>
+              <Button 
+                onClick={() => rateContent(1)} 
+                disabled={isRating}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                <ThumbsDown className="h-4 w-4 mr-2" />
+                Loser (1)
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Run Learning */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              AI Learning
+            </CardTitle>
+            <CardDescription>
+              Analyze patterns and generate strategy report
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={runLearning} disabled={isLearning} className="w-full">
+              {isLearning ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Run Learning Analysis
+                </>
+              )}
+            </Button>
+            
+            {learningReport && (
+              <ScrollArea className="h-48 rounded-lg border p-3">
+                <pre className="text-sm whitespace-pre-wrap">{learningReport}</pre>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Patterns Display */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Winner Patterns */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-500">
+              <ThumbsUp className="h-5 w-5" />
+              Winner Patterns
+            </CardTitle>
+            <CardDescription>Patterns that lead to successful content</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
+              {isLoading ? (
+                <p className="text-muted-foreground text-center py-8">Loading...</p>
+              ) : winnerPatterns.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No winner patterns yet. Rate some content to start learning!</p>
+              ) : (
+                <div className="space-y-2">
+                  {winnerPatterns.slice(0, 10).map(pattern => (
+                    <div key={pattern.id} className="p-3 rounded-lg border bg-green-500/5 border-green-500/20">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <Badge variant="outline" className="mb-1 text-xs">{pattern.pattern_category}</Badge>
+                          <p className="text-sm">{pattern.pattern_description}</p>
+                        </div>
+                        <Badge className="bg-green-500/20 text-green-400">
+                          {Math.round(pattern.confidence_score * 100)}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Used {pattern.times_used}x | Won {pattern.times_successful}x
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Loser Patterns */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-500">
+              <ThumbsDown className="h-5 w-5" />
+              Patterns to Avoid
+            </CardTitle>
+            <CardDescription>Patterns that lead to poor performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
+              {isLoading ? (
+                <p className="text-muted-foreground text-center py-8">Loading...</p>
+              ) : loserPatterns.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No loser patterns yet. Rate some content to start learning!</p>
+              ) : (
+                <div className="space-y-2">
+                  {loserPatterns.slice(0, 10).map(pattern => (
+                    <div key={pattern.id} className="p-3 rounded-lg border bg-red-500/5 border-red-500/20">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <Badge variant="outline" className="mb-1 text-xs">{pattern.pattern_category}</Badge>
+                          <p className="text-sm">{pattern.pattern_description}</p>
+                        </div>
+                        <Badge className="bg-red-500/20 text-red-400">
+                          Avoid
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Used {pattern.times_used}x | Failed {pattern.times_used - pattern.times_successful}x
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Ratings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Content Performance</CardTitle>
+          <CardDescription>Latest rated content and their classifications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-48">
+            {isLoading ? (
+              <p className="text-muted-foreground text-center py-8">Loading...</p>
+            ) : performances.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No content rated yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {performances.map(perf => (
+                  <div key={perf.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{perf.content_type}</Badge>
+                        {perf.platform && <Badge variant="secondary">{perf.platform}</Badge>}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 truncate max-w-md">
+                        {perf.original_prompt || 'No prompt recorded'}
+                      </p>
+                    </div>
+                    <Badge className={
+                      perf.classification === 'winner' ? 'bg-green-500/20 text-green-400' :
+                      perf.classification === 'loser' ? 'bg-red-500/20 text-red-400' :
+                      'bg-muted text-muted-foreground'
+                    }>
+                      {perf.classification}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>

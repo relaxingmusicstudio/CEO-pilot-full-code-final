@@ -80,3 +80,15 @@ verify_jwt = false
 
 [functions.elevenlabs-sfx]
 verify_jwt = false
+
+[functions.prompt-enhancer]
+verify_jwt = false
+
+[functions.content-analyzer]
+verify_jwt = false
+
+[functions.content-learning]
+verify_jwt = false
+
+[functions.rate-content]
+verify_jwt = false
