@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Download, Mail, Gift, User, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useVisitor } from "@/contexts/VisitorContext";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
 const ExitIntentPopup = () => {
@@ -13,12 +14,14 @@ const ExitIntentPopup = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [hasShown, setHasShown] = useState(false);
   const { toast } = useToast();
+  const { trackCtaClick } = useVisitor();
 
   useEffect(() => {
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 0 && !hasShown) {
         setIsVisible(true);
         setHasShown(true);
+        trackCtaClick("exit-intent-triggered");
       }
     };
 
@@ -28,6 +31,7 @@ const ExitIntentPopup = () => {
       if (currentScrollY < lastScrollY - 100 && currentScrollY < 200 && !hasShown) {
         setIsVisible(true);
         setHasShown(true);
+        trackCtaClick("exit-intent-triggered");
       }
       lastScrollY = currentScrollY;
     };
@@ -91,6 +95,7 @@ const ExitIntentPopup = () => {
 
   const handleDownload = () => {
     setIsDownloading(true);
+    trackCtaClick("exit-popup-download");
 
     try {
       const link = document.createElement('a');
@@ -205,6 +210,7 @@ const ExitIntentPopup = () => {
                 type="submit" 
                 className="w-full"
                 disabled={isSubmitting}
+                onClick={() => trackCtaClick("exit-popup-form-submit")}
               >
                 {isSubmitting ? "SUBMITTING..." : "UNLOCK FREE GUIDE"}
               </Button>
