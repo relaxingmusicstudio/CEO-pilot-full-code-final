@@ -14,6 +14,7 @@ import {
   Home,
   LogOut,
   ChevronLeft,
+  GitBranch,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -25,13 +26,13 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: "/admin/ceo", label: "CEO Console", icon: Brain },
-  { path: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/admin/inbox", label: "Inbox", icon: MessageSquare },
-  { path: "/admin/contacts", label: "Contacts", icon: Users },
-  { path: "/admin/sequences", label: "Sequences", icon: Zap },
-  { path: "/admin/content", label: "Content", icon: FileText },
-  { path: "/admin/social", label: "Social", icon: Share2 },
-  { path: "/admin/ads", label: "Ads", icon: Megaphone },
+  { path: "/admin/agent/funnels", label: "Funnels", icon: GitBranch, priority: true },
+  { path: "/admin/agent/analytics", label: "Analytics", icon: BarChart3 },
+  { path: "/admin/agent/inbox", label: "Inbox", icon: MessageSquare },
+  { path: "/admin/agent/content", label: "Content", icon: FileText },
+  { path: "/admin/agent/social", label: "Social", icon: Share2 },
+  { path: "/admin/agent/ads", label: "Ads", icon: Megaphone },
+  { path: "/admin/agent/sequences", label: "Sequences", icon: Zap },
   { path: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

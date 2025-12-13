@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.test-integration]
 verify_jwt = false
+
+[functions.funnel-ai]
+verify_jwt = false

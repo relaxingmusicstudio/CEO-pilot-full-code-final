@@ -25,6 +25,7 @@ import AdminAgentSocial from "./pages/AdminAgentSocial";
 import AdminAgentAds from "./pages/AdminAgentAds";
 import AdminAgentSequences from "./pages/AdminAgentSequences";
 import AdminAgentInbox from "./pages/AdminAgentInbox";
+import AdminAgentFunnels from "./pages/AdminAgentFunnels";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/admin/social" element={<ProtectedRoute requireAdmin><AdminSocial /></ProtectedRoute>} />
               <Route path="/admin/ads" element={<ProtectedRoute requireAdmin><AdminAds /></ProtectedRoute>} />
               {/* Agent Pages */}
+              <Route path="/admin/agent/funnels" element={<ProtectedRoute requireAdmin><AdminAgentFunnels /></ProtectedRoute>} />
               <Route path="/admin/agent/analytics" element={<ProtectedRoute requireAdmin><AdminAgentAnalytics /></ProtectedRoute>} />
               <Route path="/admin/agent/content" element={<ProtectedRoute requireAdmin><AdminAgentContent /></ProtectedRoute>} />
               <Route path="/admin/agent/social" element={<ProtectedRoute requireAdmin><AdminAgentSocial /></ProtectedRoute>} />
