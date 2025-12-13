@@ -390,9 +390,10 @@ ${notes || "None"}
     // Parse potential loss as numeric
     const potentialLossNumeric = potentialLoss ? parseInt(potentialLoss.replace(/[^0-9]/g, '')) || 0 : 0;
     
-    // Get interests/services
+    // Get interests/services - handle both array (interests) and string (otherServicesNeeded)
     const interests = requestData.interests || [];
-    const otherServicesNeeded = interests.join(", ");
+    const rawOtherServices = sanitizeString((requestData as any).otherServicesNeeded, 200);
+    const otherServicesNeeded = rawOtherServices || interests.join(", ");
     
     const webhookPayload = {
       // GHL Standard Contact Fields - snake_case is GHL's native format
