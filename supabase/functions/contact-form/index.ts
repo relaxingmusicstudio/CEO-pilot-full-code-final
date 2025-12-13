@@ -249,156 +249,44 @@ ${notes || "None"}
     const otherServicesNeeded = interests.join(", ");
     
     const webhookPayload = {
-      // Standard GHL contact fields
-      firstName: firstName,
-      lastName: lastName,
+      // GHL Standard Contact Fields (exact keys from screenshot)
       first_name: firstName,
       last_name: lastName,
-      name: name,
-      fullName: name,
-      full_name: name,
       email: email,
-      Email: email,
       phone: phone || "",
-      Phone: phone || "",
-      source: source,
-      tags: tags,
-      Tags: tags.join(", "),
-      tags_string: tags.join(", "),
-      
-      // GHL Standard Fields
-      companyName: derivedBusinessName,
       company_name: derivedBusinessName,
       website: website,
+      source: source,
+      tags: tags,
       
-      // Custom fields - using exact GHL field names from screenshot
+      // Custom fields - using EXACT keys from GHL screenshot (contact.xxx format)
       customField: {
-        // Form identification
-        formName: formName,
-        form_name: formName,
-        "Form Name": formName,
-        
-        // Business info - use derivedBusinessName
-        business_name: derivedBusinessName,
-        businessName: derivedBusinessName,
-        "Business Name": derivedBusinessName,
+        // Page 1 fields
         services_offered: businessType || "",
-        "Services Offered": businessType || "",
-        
-        // Team & volume
         team_size: teamSize || "",
-        "Team Size": teamSize || "",
-        call_volume_monthly: callVolume || "",
-        "Call Volume Monthly": callVolume || "",
+        tag_string: tags.join(", "),
         
-        // Current solution
-        current_call_handling: currentSolution || "",
-        "Current Call Handling": currentSolution || "",
-        
-        // Job value
+        // Page 2 fields
         avg_job_value: avgJobValue || "",
-        "Avg Job Value": avgJobValue || "",
-        
-        // AI Timeline
-        ai_timeline: aiTimeline || "",
-        "AI Timeline": aiTimeline || "",
-        aiTimeline: aiTimeline || "",
-        
-        // Other services/interests
+        call_volume_monthly: callVolume || "",
         other_services_needed: otherServicesNeeded,
-        "Other Services Needed": otherServicesNeeded,
-        interests: otherServicesNeeded,
-        
-        // Lead qualification - use YES/NO for GHL compatibility
-        lead_qualification: isGoodFit === true ? "YES" : "NO",
-        "Lead Qualification": isGoodFit === true ? "YES" : "NO",
-        lead_qualified: isGoodFit === true ? "YES" : "NO",
-        
-        // Fit reason - explicit mapping
-        fit_reason: fitReason || "",
-        "Fit Reason": fitReason || "",
-        fitReason: fitReason || "",
-        
-        // Missed calls data
-        missed_calls_monthly: missedCallsNumeric.toString(),
-        "Missed Calls Monthly": missedCallsNumeric.toString(),
-        
-        // Revenue calculations - both formatted and numeric
-        missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
-        "Missed Call Revenue": `$${missedCallRevenue.toLocaleString()}`,
-        missed_call_revenue_numeric: missedCallRevenue,
-        potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
-        "Potential Revenue Loss": `$${potentialLossNumeric.toLocaleString()}`,
-        potential_revenue_loss_numeric: potentialLossNumeric,
-        potential_monthly_loss: `$${potentialLossNumeric.toLocaleString()}`,
-        
-        // Lead scoring
+        ai_timeline: aiTimeline || "",
         lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
-        "Lead Temperature": isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+        lead_qualification: isGoodFit === true ? "YES" : "NO",
+        fit_reason: fitReason || "",
         lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-        "Lead Intent": isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-        lead_score: calculateLeadScore(),
-        "Lead Score": calculateLeadScore(),
+        lead_score: calculateLeadScore().toString(),
         
-        // Contact source
-        contact_source: source,
-        
-        // Website
-        website: website,
-        
-        // Names (for closebot)
-        first_name: firstName,
-        last_name: lastName,
-        full_name: name,
-        
-        // Tags
-        tags: tags.join(", "),
-        tags_string: tags.join(", "),
-        "Tag String": tags.join(", "),
-        
-        // Notes/message
-        message: ghlNotes,
-        notes: notes || "",
+        // Page 3 fields
+        missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
+        potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
+        missed_calls_monthly: missedCallsNumeric.toString(),
+        current_call_handling: currentSolution || "",
+        form_name: formName,
       },
       
-      // Root level fields for compatibility
-      message: ghlNotes,
-      formName: formName,
-      "Form Name": formName,
-      services_offered: businessType || "",
-      "Services Offered": businessType || "",
-      business_name: derivedBusinessName,
-      "Business Name": derivedBusinessName,
-      team_size: teamSize || "",
-      "Team Size": teamSize || "",
-      call_volume_monthly: callVolume || "",
-      "Call Volume Monthly": callVolume || "",
-      current_call_handling: currentSolution || "",
-      "Current Call Handling": currentSolution || "",
-      avg_job_value: avgJobValue || "",
-      "Avg Job Value": avgJobValue || "",
-      ai_timeline: aiTimeline || "",
-      "AI Timeline": aiTimeline || "",
-      other_services_needed: otherServicesNeeded,
-      "Other Services Needed": otherServicesNeeded,
-      lead_qualification: isGoodFit === true ? "YES" : "NO",
-      "Lead Qualification": isGoodFit === true ? "YES" : "NO",
-      lead_qualified: isGoodFit === true ? "YES" : "NO",
-      fit_reason: fitReason || "",
-      "Fit Reason": fitReason || "",
-      missed_calls_monthly: missedCallsNumeric.toString(),
-      "Missed Calls Monthly": missedCallsNumeric.toString(),
-      missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
-      "Missed Call Revenue": `$${missedCallRevenue.toLocaleString()}`,
-      potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
-      "Potential Revenue Loss": `$${potentialLossNumeric.toLocaleString()}`,
-      potential_monthly_loss: `$${potentialLossNumeric.toLocaleString()}`,
-      lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
-      "Lead Temperature": isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
-      lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-      "Lead Intent": isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
-      lead_score: calculateLeadScore(),
-      "Lead Score": calculateLeadScore(),
+      // Notes in root for GHL
+      notes: ghlNotes,
       timestamp: new Date().toISOString(),
     };
     
