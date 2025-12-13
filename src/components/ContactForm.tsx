@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, DollarSign, Headphones, Globe } from "lucide-react";
+import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clock, DollarSign, Headphones, Globe, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitor } from "@/contexts/VisitorContext";
@@ -80,10 +81,19 @@ const aiTimelines = [
   "Just exploring",
 ];
 
+const otherServicesOptions = [
+  "Websites That Convert",
+  "SEO",
+  "Local Map SEO",
+  "Paid Ads",
+  "Sales Funnel",
+];
+
 const ContactForm = () => {
   const { toast } = useToast();
   const { getGHLData, trackSectionView } = useVisitor();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [formData, setFormData] = useState<ContactFormData>({
     firstName: "",
     lastName: "",
@@ -100,6 +110,14 @@ const ContactForm = () => {
     message: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({});
+
+  const handleServiceToggle = (service: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(service)
+        ? prev.filter((s) => s !== service)
+        : [...prev, service]
+    );
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -155,6 +173,7 @@ const ContactForm = () => {
           currentSolution: result.data.currentCallHandling,
           avgJobValue: result.data.avgJobValue,
           aiTimeline: result.data.aiTimeline,
+          otherServicesNeeded: selectedServices.join(", "),
           formName: "Contact Form",
           // Visitor Intelligence fields
           visitorId: visitorData.visitor_id,
@@ -214,6 +233,7 @@ const ContactForm = () => {
         aiTimeline: "",
         message: "",
       });
+      setSelectedServices([]);
     } catch (error) {
       console.error("Error sending to webhook:", error);
       toast({
@@ -547,6 +567,35 @@ const ContactForm = () => {
                   {errors.aiTimeline && (
                     <p className="text-sm text-destructive">{errors.aiTimeline}</p>
                   )}
+                </div>
+              </div>
+
+              {/* Other Services Needed (Optional Multi-Select) */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-muted-foreground" />
+                  Other Services Needed (Optional)
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {otherServicesOptions.map((service) => (
+                    <div
+                      key={service}
+                      className="flex items-center space-x-2"
+                    >
+                      <Checkbox
+                        id={`service-${service}`}
+                        checked={selectedServices.includes(service)}
+                        onCheckedChange={() => handleServiceToggle(service)}
+                        disabled={isSubmitting}
+                      />
+                      <label
+                        htmlFor={`service-${service}`}
+                        className="text-sm text-muted-foreground cursor-pointer"
+                      >
+                        {service}
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
 
