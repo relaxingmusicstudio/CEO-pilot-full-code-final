@@ -1,4 +1,10 @@
+import { Link } from "react-router-dom";
+import { Brain } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
 const Footer = () => {
+  const { isAdmin } = useAuth();
+
   return (
     <footer className="bg-primary py-12 pb-28">
       <div className="container">
@@ -13,6 +19,15 @@ const Footer = () => {
             <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-accent transition-colors">Terms of Service</a>
             <a href="#" className="hover:text-accent transition-colors">Contact Us</a>
+            {isAdmin && (
+              <Link 
+                to="/admin/analytics" 
+                className="hover:text-accent transition-colors flex items-center gap-1"
+              >
+                <Brain className="w-3 h-3" />
+                CEO Agent
+              </Link>
+            )}
           </div>
           <div className="mt-8 text-primary-foreground/40 text-sm">
             © 2024 ApexLocal360. All rights reserved.
