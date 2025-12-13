@@ -398,6 +398,53 @@ export type Database = {
         }
         Relationships: []
       }
+      client_deliverables: {
+        Row: {
+          client_id: string
+          configuration: Json | null
+          created_at: string
+          deliverable_type: string
+          description: string | null
+          id: string
+          name: string
+          provisioned_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          configuration?: Json | null
+          created_at?: string
+          deliverable_type: string
+          description?: string | null
+          id?: string
+          name: string
+          provisioned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          configuration?: Json | null
+          created_at?: string
+          deliverable_type?: string
+          description?: string | null
+          id?: string
+          name?: string
+          provisioned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_deliverables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_interventions: {
         Row: {
           assigned_to: string | null
@@ -451,6 +498,62 @@ export type Database = {
           },
         ]
       }
+      client_onboarding: {
+        Row: {
+          assigned_csm: string | null
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          current_step: number | null
+          go_live_date: string | null
+          id: string
+          notes: string | null
+          progress_percentage: number | null
+          started_at: string | null
+          status: string
+          total_steps: number | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_csm?: string | null
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          go_live_date?: string | null
+          id?: string
+          notes?: string | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          total_steps?: number | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_csm?: string | null
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          go_live_date?: string | null
+          id?: string
+          notes?: string | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          total_steps?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_onboarding_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_tickets: {
         Row: {
           client_id: string
@@ -495,6 +598,59 @@ export type Database = {
           },
         ]
       }
+      client_training_sessions: {
+        Row: {
+          attendees: Json | null
+          client_id: string
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          notes: string | null
+          recording_url: string | null
+          scheduled_at: string | null
+          session_type: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attendees?: Json | null
+          client_id: string
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          recording_url?: string | null
+          scheduled_at?: string | null
+          session_type: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attendees?: Json | null
+          client_id?: string
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          recording_url?: string | null
+          scheduled_at?: string | null
+          session_type?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_training_sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_usage: {
         Row: {
           api_calls: number | null
@@ -532,6 +688,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "client_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_value_reports: {
+        Row: {
+          client_id: string
+          created_at: string
+          generated_at: string | null
+          id: string
+          metrics: Json | null
+          pdf_url: string | null
+          period_end: string
+          period_start: string
+          report_type: string
+          sent_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          metrics?: Json | null
+          pdf_url?: string | null
+          period_end: string
+          period_start: string
+          report_type?: string
+          sent_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          metrics?: Json | null
+          pdf_url?: string | null
+          period_end?: string
+          period_start?: string
+          report_type?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_value_reports_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
@@ -1059,6 +1262,50 @@ export type Database = {
           },
         ]
       }
+      expansion_revenue: {
+        Row: {
+          change_amount: number | null
+          client_id: string
+          created_at: string
+          effective_date: string | null
+          id: string
+          new_mrr: number | null
+          old_mrr: number | null
+          reason: string | null
+          revenue_type: string
+        }
+        Insert: {
+          change_amount?: number | null
+          client_id: string
+          created_at?: string
+          effective_date?: string | null
+          id?: string
+          new_mrr?: number | null
+          old_mrr?: number | null
+          reason?: string | null
+          revenue_type: string
+        }
+        Update: {
+          change_amount?: number | null
+          client_id?: string
+          created_at?: string
+          effective_date?: string | null
+          id?: string
+          new_mrr?: number | null
+          old_mrr?: number | null
+          reason?: string | null
+          revenue_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expansion_revenue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_enrollments: {
         Row: {
           ai_assigned: boolean | null
@@ -1472,6 +1719,201 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations_unified"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nps_surveys: {
+        Row: {
+          client_id: string
+          created_at: string
+          feedback: string | null
+          id: string
+          milestone: string | null
+          responded_at: string | null
+          score: number | null
+          sent_at: string | null
+          survey_type: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          milestone?: string | null
+          responded_at?: string | null
+          score?: number | null
+          sent_at?: string | null
+          survey_type?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          milestone?: string | null
+          responded_at?: string | null
+          score?: number | null
+          sent_at?: string | null
+          survey_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_surveys_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_tasks: {
+        Row: {
+          category: string | null
+          client_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          metadata: Json | null
+          priority: number | null
+          status: string
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          client_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: number | null
+          status?: string
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          client_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: number | null
+          status?: string
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_configurations: {
+        Row: {
+          client_id: string
+          config_key: string
+          config_value: Json
+          created_at: string
+          id: string
+          is_active: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          config_key: string
+          config_value?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          config_key?: string
+          config_value?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_configurations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_program: {
+        Row: {
+          converted_at: string | null
+          created_at: string
+          id: string
+          referral_code: string | null
+          referred_client_id: string | null
+          referred_email: string
+          referrer_client_id: string
+          reward_amount: number | null
+          reward_paid_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string | null
+          referred_client_id?: string | null
+          referred_email: string
+          referrer_client_id: string
+          reward_amount?: number | null
+          reward_paid_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string | null
+          referred_client_id?: string | null
+          referred_email?: string
+          referrer_client_id?: string
+          reward_amount?: number | null
+          reward_paid_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_program_referred_client_id_fkey"
+            columns: ["referred_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_program_referrer_client_id_fkey"
+            columns: ["referrer_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
