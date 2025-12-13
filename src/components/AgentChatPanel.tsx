@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { Bot, Send, Loader2, Sparkles } from "lucide-react";
+import { Bot, Send, Loader2, Sparkles, Wrench } from "lucide-react";
+import LovablePromptOutput from "./LovablePromptOutput";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,13 +23,13 @@ interface AgentChatPanelProps {
 }
 
 const DEFAULT_QUICK_ACTIONS: Record<string, string[]> = {
-  funnel: ["Analyze conversion rates", "Suggest A/B tests", "Find biggest leaks", "Optimize CTA copy"],
-  content: ["Generate blog ideas", "Create video script", "Repurpose top content", "SEO recommendations"],
-  ads: ["Analyze campaign ROI", "Suggest targeting", "Optimize ad copy", "Budget allocation"],
-  sequences: ["Create nurture flow", "Improve open rates", "Re-engagement ideas", "SMS campaign"],
-  inbox: ["Prioritize responses", "Handle objections", "Draft reply templates", "Lead qualification"],
-  social: ["Comment strategy", "Find influencers", "UGC campaign ideas", "Engagement analysis"],
-  youtube: ["Trending topics", "Optimize thumbnails", "Script outline", "Competitor analysis"],
+  funnel: ["Analyze conversion rates", "Suggest A/B tests", "🔧 Build exit popup", "🔧 Create lead form"],
+  content: ["Generate blog ideas", "Create video script", "🔧 Build blog template", "🔧 Create calendar widget"],
+  ads: ["Analyze campaign ROI", "Suggest targeting", "🔧 Build ROI dashboard", "🔧 Create tracking function"],
+  sequences: ["Create nurture flow", "Improve open rates", "🔧 Build email cron job", "🔧 Create SMS automation"],
+  inbox: ["Prioritize responses", "Handle objections", "🔧 Build auto-responder", "🔧 Create qualification card"],
+  social: ["Comment strategy", "Find influencers", "🔧 Build mention tracker", "🔧 Create UGC gallery"],
+  youtube: ["Trending topics", "Competitor analysis", "🔧 Build video scraper", "🔧 Create thumbnail gallery"],
   ceo: ["Weekly summary", "Top opportunities", "Revenue forecast", "Priority actions"],
 };
 
@@ -202,22 +202,58 @@ const AgentChatPanel = ({
         {/* Messages */}
         <ScrollArea className="flex-1 p-3" ref={scrollRef}>
           <div className="space-y-3">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+            {messages.map((msg, idx) => {
+              // Check if message contains a Lovable prompt
+              const lovablePromptMatch = msg.content.match(/```lovable\n([\s\S]*?)```/);
+              const hasLovablePrompt = msg.role === "assistant" && lovablePromptMatch;
+              
+              if (hasLovablePrompt) {
+                const promptContent = lovablePromptMatch[1].trim();
+                const textBefore = msg.content.split("```lovable")[0].trim();
+                const textAfter = msg.content.split("```")[2]?.trim() || "";
+                
+                return (
+                  <div key={idx} className="space-y-2">
+                    {textBefore && (
+                      <div className="flex justify-start">
+                        <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
+                          <p className="whitespace-pre-wrap">{textBefore}</p>
+                        </div>
+                      </div>
+                    )}
+                    <LovablePromptOutput 
+                      prompt={promptContent}
+                      title="Implementation Prompt"
+                      description="Copy and paste this into Lovable to build it"
+                    />
+                    {textAfter && (
+                      <div className="flex justify-start">
+                        <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
+                          <p className="whitespace-pre-wrap">{textAfter}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              
+              return (
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
+                  key={idx}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex justify-start">
                 <div className="bg-muted rounded-lg px-3 py-2">
