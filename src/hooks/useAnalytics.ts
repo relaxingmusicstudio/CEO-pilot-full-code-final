@@ -7,12 +7,52 @@ interface AnalyticsEvent {
   pageUrl?: string;
 }
 
+// Infer traffic source from referrer URL
+const inferSourceFromReferrer = (referrer?: string): string | undefined => {
+  if (!referrer) return undefined;
+  const url = referrer.toLowerCase();
+  
+  if (url.includes('google.com')) return 'google';
+  if (url.includes('facebook.com') || url.includes('fb.com')) return 'facebook';
+  if (url.includes('instagram.com')) return 'instagram';
+  if (url.includes('youtube.com')) return 'youtube';
+  if (url.includes('tiktok.com')) return 'tiktok';
+  if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
+  if (url.includes('linkedin.com')) return 'linkedin';
+  if (url.includes('bing.com')) return 'bing';
+  if (url.includes('yahoo.com')) return 'yahoo';
+  if (url.includes('yelp.com')) return 'yelp';
+  if (url.includes('nextdoor.com')) return 'nextdoor';
+  
+  // Return domain as source for other referrers
+  try {
+    const domain = new URL(referrer).hostname.replace('www.', '');
+    return domain.split('.')[0];
+  } catch {
+    return undefined;
+  }
+};
+
+// Infer medium from referrer
+const inferMediumFromReferrer = (referrer?: string): string | undefined => {
+  if (!referrer) return 'direct';
+  const url = referrer.toLowerCase();
+  
+  if (url.includes('google.com') || url.includes('bing.com') || url.includes('yahoo.com')) return 'organic';
+  if (url.includes('facebook.com') || url.includes('instagram.com') || url.includes('twitter.com') || 
+      url.includes('linkedin.com') || url.includes('tiktok.com')) return 'social';
+  if (url.includes('youtube.com')) return 'video';
+  if (url.includes('yelp.com') || url.includes('nextdoor.com')) return 'referral';
+  
+  return 'referral';
+};
+
 export const useAnalytics = () => {
   const sessionIdRef = useRef<string>(
     `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
   );
 
-  // Save or update visitor in database
+  // Save or update visitor in database with enhanced UTM tracking
   const saveVisitor = useCallback(async (visitorData: {
     visitorId: string;
     device?: string;
@@ -20,14 +60,29 @@ export const useAnalytics = () => {
     utmSource?: string;
     utmMedium?: string;
     utmCampaign?: string;
+    utmContent?: string;
+    utmTerm?: string;
     landingPage?: string;
     referrer?: string;
+    gclid?: string;
+    fbclid?: string;
   }) => {
     try {
+      // Parse additional tracking params from URL
+      const params = new URLSearchParams(window.location.search);
+      const enhancedData = {
+        ...visitorData,
+        utmSource: visitorData.utmSource || params.get('utm_source') || inferSourceFromReferrer(visitorData.referrer),
+        utmMedium: visitorData.utmMedium || params.get('utm_medium') || inferMediumFromReferrer(visitorData.referrer),
+        utmCampaign: visitorData.utmCampaign || params.get('utm_campaign'),
+        gclid: params.get('gclid') || undefined,
+        fbclid: params.get('fbclid') || undefined,
+      };
+      
       await supabase.functions.invoke("save-analytics", {
         body: {
           action: "upsert_visitor",
-          data: visitorData,
+          data: enhancedData,
         },
       });
     } catch (error) {
