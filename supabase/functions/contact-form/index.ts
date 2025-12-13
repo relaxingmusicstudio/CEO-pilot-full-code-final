@@ -49,22 +49,37 @@ interface ContactFormRequest {
   interests?: string[];
   formName?: string;
   website?: string;
-  // NEW: Address fields
+  // Address fields
   streetAddress?: string;
   city?: string;
   state?: string;
   postalCode?: string;
   country?: string;
-  // NEW: Business/lead fields
+  // Business/lead fields
   businessOverview?: string;
   callRoutingHours?: string;
   contactType?: string;
-  // NEW: Payment/Stripe fields
+  // Payment/Stripe fields
   amountPaid?: string;
   downloadDate?: string;
   plan?: string;
   stripeSessionId?: string;
   paymentDate?: string;
+  // AI Analysis fields
+  aiLeadScore?: number;
+  aiLeadTemperature?: string;
+  aiLeadIntent?: string;
+  aiConversionProbability?: number;
+  aiUrgencyLevel?: string;
+  aiBuyingSignals?: string[];
+  aiObjectionsRaised?: string[];
+  aiRecommendedFollowup?: string;
+  aiConversationSummary?: string;
+  aiKeyInsights?: string[];
+  aiBudgetScore?: number;
+  aiAuthorityScore?: number;
+  aiNeedScore?: number;
+  aiTimelineScore?: number;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -138,12 +153,28 @@ const handler = async (req: Request): Promise<Response> => {
     const businessOverview = sanitizeString(requestData.businessOverview, 500);
     const callRoutingHours = sanitizeString(requestData.callRoutingHours, 200);
     
-    // NEW: Payment/Stripe fields
+    // Payment/Stripe fields
     const amountPaid = sanitizeString(requestData.amountPaid, 20);
     const downloadDate = sanitizeString(requestData.downloadDate, 50);
     const plan = sanitizeString(requestData.plan, 50);
     const stripeSessionId = sanitizeString(requestData.stripeSessionId, 100);
     const paymentDate = sanitizeString(requestData.paymentDate, 50);
+    
+    // AI Analysis fields
+    const aiLeadScore = requestData.aiLeadScore;
+    const aiLeadTemperature = sanitizeString(requestData.aiLeadTemperature, 20);
+    const aiLeadIntent = sanitizeString(requestData.aiLeadIntent, 50);
+    const aiConversionProbability = requestData.aiConversionProbability;
+    const aiUrgencyLevel = sanitizeString(requestData.aiUrgencyLevel, 20);
+    const aiBuyingSignals = requestData.aiBuyingSignals || [];
+    const aiObjectionsRaised = requestData.aiObjectionsRaised || [];
+    const aiRecommendedFollowup = sanitizeString(requestData.aiRecommendedFollowup, 500);
+    const aiConversationSummary = sanitizeString(requestData.aiConversationSummary, 500);
+    const aiKeyInsights = requestData.aiKeyInsights || [];
+    const aiBudgetScore = requestData.aiBudgetScore;
+    const aiAuthorityScore = requestData.aiAuthorityScore;
+    const aiNeedScore = requestData.aiNeedScore;
+    const aiTimelineScore = requestData.aiTimelineScore;
 
     // Split name into firstName and lastName for GHL
     const nameParts = name.split(' ');
@@ -348,12 +379,27 @@ ${notes || "None"}
         business_overview: businessOverview,
         call_routing_hours: callRoutingHours,
         contact_type: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
-        // NEW: Payment/Stripe fields
+        // Payment/Stripe fields
         amount_paid: amountPaid,
         download_date: downloadDate,
         plan: plan,
         stripe_session_id: stripeSessionId,
         payment_date: paymentDate,
+        // AI Analysis fields
+        ai_lead_score: aiLeadScore?.toString() || "",
+        ai_lead_temperature: aiLeadTemperature || "",
+        ai_lead_intent: aiLeadIntent || "",
+        ai_conversion_probability: aiConversionProbability?.toString() || "",
+        ai_urgency_level: aiUrgencyLevel || "",
+        ai_buying_signals: aiBuyingSignals.join(", "),
+        ai_objections_raised: aiObjectionsRaised.join(", "),
+        ai_recommended_followup: aiRecommendedFollowup || "",
+        ai_conversation_summary: aiConversationSummary || "",
+        ai_key_insights: aiKeyInsights.join(" | "),
+        ai_bant_budget: aiBudgetScore?.toString() || "",
+        ai_bant_authority: aiAuthorityScore?.toString() || "",
+        ai_bant_need: aiNeedScore?.toString() || "",
+        ai_bant_timeline: aiTimelineScore?.toString() || "",
       },
       
       // Root level duplicates for GHL webhook compatibility
@@ -384,9 +430,24 @@ ${notes || "None"}
       business_overview: businessOverview,
       call_routing_hours: callRoutingHours,
       contact_type: requestData.contactType || (isChatbot ? "Lead" : isPDF ? "Subscriber" : "Prospect"),
-      // NEW: Payment/Stripe fields (root level)
+      // Payment/Stripe fields (root level)
       amount_paid: amountPaid,
       download_date: downloadDate,
+      // AI Analysis fields (root level)
+      ai_lead_score: aiLeadScore?.toString() || "",
+      ai_lead_temperature: aiLeadTemperature || "",
+      ai_lead_intent: aiLeadIntent || "",
+      ai_conversion_probability: aiConversionProbability?.toString() || "",
+      ai_urgency_level: aiUrgencyLevel || "",
+      ai_buying_signals: aiBuyingSignals.join(", "),
+      ai_objections_raised: aiObjectionsRaised.join(", "),
+      ai_recommended_followup: aiRecommendedFollowup || "",
+      ai_conversation_summary: aiConversationSummary || "",
+      ai_key_insights: aiKeyInsights.join(" | "),
+      ai_bant_budget: aiBudgetScore?.toString() || "",
+      ai_bant_authority: aiAuthorityScore?.toString() || "",
+      ai_bant_need: aiNeedScore?.toString() || "",
+      ai_bant_timeline: aiTimelineScore?.toString() || "",
       plan: plan,
       stripe_session_id: stripeSessionId,
       payment_date: paymentDate,
