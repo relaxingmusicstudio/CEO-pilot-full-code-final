@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2, CheckCircle, Clock, Search, Bot, Phone } from "lucide-react";
 import LiveVideoCall from "@/components/LiveVideoCall";
+import { useVisitor } from "@/contexts/VisitorContext";
 
 const transcriptData = [
   { time: 0, speaker: "Customer", text: "Hello? My AC just stopped working and it's 95 degrees in here!", emotion: "urgent" },
@@ -17,10 +18,12 @@ const transcriptData = [
 ];
 
 const VoiceDemo = () => {
+  const { trackDemoPlay, trackDemoProgress, trackCtaClick } = useVisitor();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
+  const [hasTrackedPlay, setHasTrackedPlay] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalDuration = 60; // seconds
@@ -49,6 +52,13 @@ const VoiceDemo = () => {
     };
   }, [isPlaying]);
 
+  // Track demo progress every 10 seconds
+  useEffect(() => {
+    if (currentTime > 0 && Math.floor(currentTime) % 10 === 0) {
+      trackDemoProgress(Math.floor(currentTime));
+    }
+  }, [Math.floor(currentTime), trackDemoProgress]);
+
   useEffect(() => {
     const index = transcriptData.findIndex(
       (item, i) => 
@@ -58,10 +68,22 @@ const VoiceDemo = () => {
     setActiveIndex(index);
   }, [currentTime]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    if (!isPlaying && !hasTrackedPlay) {
+      trackDemoPlay();
+      setHasTrackedPlay(true);
+    }
+    setIsPlaying(!isPlaying);
+  };
 
   const scrollToPricing = () => {
+    trackCtaClick("demo-activate-dispatcher");
     document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleTryDemo = () => {
+    trackCtaClick("demo-try-voice");
+    setIsVideoCallOpen(true);
   };
 
   const stats = [
@@ -217,7 +239,7 @@ const VoiceDemo = () => {
             <Button
               variant="hero"
               size="xl"
-              onClick={() => setIsVideoCallOpen(true)}
+              onClick={handleTryDemo}
               className="group"
             >
               <Phone className="w-5 h-5 mr-2 group-hover:animate-pulse" />

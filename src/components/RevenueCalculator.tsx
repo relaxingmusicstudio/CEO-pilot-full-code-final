@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Calculator, TrendingDown, TrendingUp, Phone } from "lucide-react";
+import { useVisitor } from "@/contexts/VisitorContext";
 
 const RevenueCalculator = () => {
+  const { trackCalculatorUse, trackCtaClick } = useVisitor();
   const [monthlyCalls, setMonthlyCalls] = useState([80]);
   const [avgJobValue, setAvgJobValue] = useState(351);
   const [conversionRate, setConversionRate] = useState(30);
@@ -15,7 +17,20 @@ const RevenueCalculator = () => {
   const lostRevenue = potentialJobs * avgJobValue;
   const recoveredRevenue = Math.round(lostRevenue * 0.78); // 78% recovery with AI
 
+  const handleCalculate = () => {
+    setShowResults(true);
+    trackCalculatorUse({
+      monthlyCalls: monthlyCalls[0],
+      avgJobValue,
+      conversionRate,
+      missedCalls,
+      lostRevenue,
+      recoveredRevenue,
+    });
+  };
+
   const scrollToPricing = () => {
+    trackCtaClick("calculator-show-plans");
     document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -93,7 +108,7 @@ const RevenueCalculator = () => {
               <Button
                 variant="accent"
                 size="lg"
-                onClick={() => setShowResults(true)}
+                onClick={handleCalculate}
                 className="group"
               >
                 <Calculator className="w-5 h-5 group-hover:rotate-12 transition-transform" />
