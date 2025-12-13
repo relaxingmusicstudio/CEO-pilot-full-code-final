@@ -249,17 +249,21 @@ ${notes || "None"}
     const otherServicesNeeded = interests.join(", ");
     
     const webhookPayload = {
-      // GHL Standard Contact Fields (exact keys from screenshot)
+      // GHL Standard Contact Fields - both formats for compatibility
+      firstName: firstName,
+      lastName: lastName,
       first_name: firstName,
       last_name: lastName,
+      name: name,
       email: email,
       phone: phone || "",
+      companyName: derivedBusinessName,
       company_name: derivedBusinessName,
       website: website,
       source: source,
       tags: tags,
       
-      // Custom fields - using EXACT keys from GHL screenshot (contact.xxx format)
+      // Custom fields object
       customField: {
         // Page 1 fields
         services_offered: businessType || "",
@@ -285,7 +289,26 @@ ${notes || "None"}
         form_name: formName,
       },
       
-      // Notes in root for GHL
+      // Root level duplicates for GHL webhook compatibility
+      services_offered: businessType || "",
+      team_size: teamSize || "",
+      tag_string: tags.join(", "),
+      avg_job_value: avgJobValue || "",
+      call_volume_monthly: callVolume || "",
+      other_services_needed: otherServicesNeeded,
+      ai_timeline: aiTimeline || "",
+      lead_temperature: isChatbot ? "HOT" : isPDF ? "WARM" : isNewsletter ? "NURTURE" : "WARM",
+      lead_qualification: isGoodFit === true ? "YES" : "NO",
+      fit_reason: fitReason || "",
+      lead_intent: isChatbot ? "High - Engaged in conversation" : isPDF ? "Medium - Downloaded resource" : isNewsletter ? "Low - Newsletter signup" : "Medium - Form submission",
+      lead_score: calculateLeadScore().toString(),
+      missed_call_revenue: `$${missedCallRevenue.toLocaleString()}`,
+      potential_revenue_loss: `$${potentialLossNumeric.toLocaleString()}`,
+      missed_calls_monthly: missedCallsNumeric.toString(),
+      current_call_handling: currentSolution || "",
+      form_name: formName,
+      
+      // Notes
       notes: ghlNotes,
       timestamp: new Date().toISOString(),
     };
