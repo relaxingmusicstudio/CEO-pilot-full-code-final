@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Check, X, Star, Wrench, Rocket, Phone } from "lucide-react";
+import { useVisitor } from "@/contexts/VisitorContext";
 
 const PricingPlans = () => {
+  const { trackCtaClick } = useVisitor();
   const plans = [
     {
       name: "STARTER",
@@ -120,7 +122,13 @@ const PricingPlans = () => {
                 </ul>
 
                 {/* CTA Button */}
-                <a href={plan.stripeLink} target="_blank" rel="noopener noreferrer" className="w-full">
+                <a 
+                  href={plan.stripeLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-full"
+                  onClick={() => trackCtaClick(`pricing-${plan.name.toLowerCase()}`)}
+                >
                   <Button
                     variant={plan.popular ? "hero" : "accent"}
                     size="xl"
@@ -145,7 +153,10 @@ const PricingPlans = () => {
               <Button 
                 variant="outline" 
                 size="lg"
-                onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })}
+                onClick={() => {
+                  trackCtaClick("pricing-custom-quote");
+                  document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+                }}
               >
                 📞 NEED A CUSTOM QUOTE FOR 5+ TRUCKS?
               </Button>
