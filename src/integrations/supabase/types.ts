@@ -699,6 +699,99 @@ export type Database = {
         }
         Relationships: []
       }
+      business_knowledge: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          id: string
+          is_ai_accessible: boolean | null
+          keywords: string[] | null
+          priority: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_ai_accessible?: boolean | null
+          keywords?: string[] | null
+          priority?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_ai_accessible?: boolean | null
+          keywords?: string[] | null
+          priority?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      business_profile: {
+        Row: {
+          address: string | null
+          ai_preferences: Json | null
+          avg_job_value: number | null
+          business_hours: Json | null
+          business_name: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          monthly_call_volume: number | null
+          notification_settings: Json | null
+          phone: string | null
+          service_area: string | null
+          services: string[] | null
+          timezone: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          ai_preferences?: Json | null
+          avg_job_value?: number | null
+          business_hours?: Json | null
+          business_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          monthly_call_volume?: number | null
+          notification_settings?: Json | null
+          phone?: string | null
+          service_area?: string | null
+          services?: string[] | null
+          timezone?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          ai_preferences?: Json | null
+          avg_job_value?: number | null
+          business_hours?: Json | null
+          business_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          monthly_call_volume?: number | null
+          notification_settings?: Json | null
+          phone?: string | null
+          service_area?: string | null
+          services?: string[] | null
+          timezone?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       buying_committee: {
         Row: {
           account_id: string | null

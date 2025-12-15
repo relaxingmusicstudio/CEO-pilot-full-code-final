@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.client-billing]
 verify_jwt = false
+
+[functions.knowledge-base]
+verify_jwt = false

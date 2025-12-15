@@ -317,7 +317,21 @@ serve(async (req) => {
     const daysAgo = parseInt(timeRange) || 7;
     const startDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
     
-    // Fetch all data including prompts
+    // Fetch all data including prompts and business knowledge
+    let businessKnowledgeContext = '';
+    try {
+      const knowledgeResponse = await fetch(`${SUPABASE_URL}/functions/v1/knowledge-base`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ action: 'get_for_ai' }),
+      });
+      if (knowledgeResponse.ok) {
+        const knowledgeData = await knowledgeResponse.json();
+        businessKnowledgeContext = knowledgeData.context || '';
+        console.log(`CEO Agent: Loaded ${knowledgeData.knowledgeCount} knowledge entries`);
+      }
+    } catch (e) { console.error('Knowledge fetch error (non-fatal):', e); }
+
     const [visitorsResult, conversationsResult, leadsResult, eventsResult, promptsResult] = await Promise.all([
       supabase.from("visitors").select("*").gte("created_at", startDate.toISOString()).order("created_at", { ascending: false }).limit(500),
       supabase.from("conversations").select("*").gte("created_at", startDate.toISOString()).order("created_at", { ascending: false }).limit(100),
@@ -378,12 +392,12 @@ serve(async (req) => {
       });
     }
     
-    // Build context with memory
+    // Build context with memory and business knowledge
     const dataContext = buildDataContext({
       daysAgo, totalVisitors, totalConversations, totalLeads, conversionRate,
       avgEngagement, trafficSources, hotLeads, warmLeads, coldLeads,
       outcomeBreakdown, leads, transcriptAnalysis, conversations, prompts
-    }) + memoryContext + patternContext;
+    }) + businessKnowledgeContext + memoryContext + patternContext;
 
     console.log("CEO Agent query:", query);
     

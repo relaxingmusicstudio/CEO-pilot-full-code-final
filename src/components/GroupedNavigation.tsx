@@ -36,6 +36,7 @@ import {
   Calendar,
   Cog,
   CreditCard,
+  HelpCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -120,6 +121,8 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { path: "/admin/settings", label: "Configuration", icon: Cog },
+      { path: "/admin/user-settings", label: "User Settings", icon: Settings },
+      { path: "/admin/help", label: "Help Center", icon: HelpCircle },
     ],
   },
 ];
