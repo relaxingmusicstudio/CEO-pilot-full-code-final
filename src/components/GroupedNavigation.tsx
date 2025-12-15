@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -24,7 +24,6 @@ import {
   Youtube,
   GitBranch,
   ChevronDown,
-  Home,
   DollarSign,
   Bot,
   Inbox,
@@ -128,6 +127,19 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
   const [openGroups, setOpenGroups] = useState<string[]>(
     navGroups.filter(g => g.defaultOpen).map(g => g.id)
   );
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => 
@@ -135,6 +147,15 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
     );
+  };
+
+  const toggleDropdown = (groupId: string) => {
+    setOpenDropdown(prev => prev === groupId ? null : groupId);
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setOpenDropdown(null);
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -168,7 +189,7 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
                   variant="ghost"
                   size="sm"
                   className={`w-full justify-start ${isActive(item.path) ? 'bg-primary text-primary-foreground' : ''}`}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => handleNavigation(item.path)}
                 >
                   <item.icon className="h-4 w-4 mr-2" />
                   {item.label}
@@ -186,14 +207,15 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
     );
   }
 
-  // Horizontal variant
+  // Horizontal variant with click-based dropdowns
   return (
-    <nav className={`flex items-center gap-1 overflow-x-auto ${className}`}>
+    <nav ref={dropdownRef} className={`flex items-center gap-1 overflow-x-auto ${className}`}>
       {navGroups.map((group) => (
-        <div key={group.id} className="relative group">
+        <div key={group.id} className="relative">
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => toggleDropdown(group.id)}
             className={`
               flex items-center gap-2 whitespace-nowrap px-3 py-2 rounded-lg transition-all
               ${isGroupActive(group) 
@@ -204,26 +226,28 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
           >
             <group.icon className="h-4 w-4" />
             <span className="hidden md:inline">{group.label}</span>
-            <ChevronDown className="h-3 w-3" />
+            <ChevronDown className={`h-3 w-3 transition-transform ${openDropdown === group.id ? 'rotate-180' : ''}`} />
           </Button>
           
-          {/* Dropdown */}
-          <div className="absolute top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-48">
-            <div className="p-1">
-              {group.items.map((item) => (
-                <Button
-                  key={item.path}
-                  variant="ghost"
-                  size="sm"
-                  className={`w-full justify-start ${isActive(item.path) ? 'bg-accent' : ''}`}
-                  onClick={() => navigate(item.path)}
-                >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {item.label}
-                </Button>
-              ))}
+          {/* Dropdown - click triggered */}
+          {openDropdown === group.id && (
+            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-[100] min-w-48">
+              <div className="p-1">
+                {group.items.map((item) => (
+                  <Button
+                    key={item.path}
+                    variant="ghost"
+                    size="sm"
+                    className={`w-full justify-start ${isActive(item.path) ? 'bg-accent' : ''}`}
+                    onClick={() => handleNavigation(item.path)}
+                  >
+                    <item.icon className="h-4 w-4 mr-2" />
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ))}
     </nav>
