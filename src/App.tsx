@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import EnhancedTrackingConsent from "@/components/EnhancedTrackingConsent";
 import Index from "./pages/Index";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
@@ -76,6 +77,7 @@ const App = () => (
             <PWAInstallPrompt />
             <BrowserRouter>
               <CookieConsentBanner />
+              <EnhancedTrackingConsent />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/blog" element={<Blog />} />

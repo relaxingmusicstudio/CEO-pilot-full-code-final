@@ -281,3 +281,6 @@ verify_jwt = false
 
 [functions.finance-agent]
 verify_jwt = false
+
+[functions.vision-analyzer]
+verify_jwt = false
