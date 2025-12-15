@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,16 +44,19 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
 
+  const audit = createAuditContext(supabase, 'compliance-engine', 'compliance_check');
+
+  try {
     const body: ComplianceCheckRequest = await req.json();
     const { agent_name, action_type, resource_url, data_source, target_phone, target_email, spend_amount, metadata } = body;
 
     console.log(`[Compliance Engine] Checking: ${agent_name} -> ${action_type}`);
+    await audit.logStart(`Compliance check for ${agent_name}/${action_type}`, body);
 
     // Check for active lockdowns first
     const { data: activeLockdowns } = await supabase
@@ -69,6 +73,8 @@ Deno.serve(async (req) => {
         (l: { agent_type: string }) => l.agent_type === agent_name || l.agent_type === 'all'
       ) as { reason: string } | undefined;
       
+      await audit.logSuccess(`Blocked by lockdown: ${lockdown?.reason}`, 'agent', agent_name, { lockdown: true });
+
       return new Response(JSON.stringify({
         approved: false,
         enforcement: "block",
@@ -390,6 +396,11 @@ Deno.serve(async (req) => {
     };
 
     console.log(`[Compliance Engine] Result:`, result);
+    await audit.logSuccess(`Compliance check: ${complianceStatus}`, 'agent', agent_name, { 
+      approved, 
+      risk_score: riskScore,
+      rules_checked: rulesChecked.length 
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -397,6 +408,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("[Compliance Engine] Error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
+    await audit.logError('Compliance check failed', error instanceof Error ? error : new Error(message));
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

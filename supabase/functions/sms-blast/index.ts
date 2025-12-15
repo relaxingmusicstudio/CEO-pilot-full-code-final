@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,12 +15,14 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 
+  const audit = createAuditContext(supabase, 'sms-blast', 'sms_outbound');
+
+  try {
     const { action, campaign_id, message, recipients, phone_number, skip_bypass_footer } = await req.json();
 
     // Check if Twilio is configured
@@ -28,6 +31,8 @@ serve(async (req) => {
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
     const twilioConfigured = twilioAccountSid && twilioAuthToken && twilioPhoneNumber;
+
+    await audit.logStart(`SMS blast action: ${action}`, { action, campaign_id });
 
     // Check system mode before sending campaign
     if (action === 'send_campaign') {
@@ -41,6 +46,7 @@ serve(async (req) => {
         const currentMode = modeConfig?.config_value || 'growth';
         
         if (currentMode === 'vacation' || currentMode === 'emergency') {
+          await audit.logError(`Blocked by ${currentMode} mode`, new Error(`System in ${currentMode} mode`), { campaign_id });
           return new Response(JSON.stringify({ 
             success: false, 
             error: `SMS blast blocked: System is in ${currentMode} mode`,
@@ -82,6 +88,8 @@ serve(async (req) => {
         await supabase.from('sms_campaign_recipients').insert(recipientRows);
       }
 
+      await audit.logSuccess('Campaign created', 'campaign', campaign.id, { recipients: recipients?.length || 0 });
+
       return new Response(JSON.stringify({ success: true, campaign }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -95,6 +103,7 @@ serve(async (req) => {
         .single();
 
       if (!campaign) {
+        await audit.logError('Campaign not found', new Error('Campaign not found'), { campaign_id });
         throw new Error('Campaign not found');
       }
 
@@ -231,6 +240,13 @@ serve(async (req) => {
         metadata: { campaign_id, bypass_footer_added: !skip_bypass_footer }
       });
 
+      await audit.logSuccess('Campaign sent', 'campaign', campaign_id, {
+        sent: sentCount,
+        failed: failedCount,
+        opted_out: optOutCount,
+        mock: !twilioConfigured
+      });
+
       return new Response(JSON.stringify({
         success: true,
         mock: !twilioConfigured,
@@ -248,6 +264,8 @@ serve(async (req) => {
       
       if (!twilioConfigured) {
         console.log('[MOCK] Single SMS to:', phone_number, '- Message:', messageWithFooter);
+        
+        await audit.logSuccess('Single SMS sent (mock)', 'sms', undefined, { phone: phone_number?.slice(-4), mock: true });
         
         return new Response(JSON.stringify({
           success: true,
@@ -279,8 +297,11 @@ serve(async (req) => {
       const data = await response.json();
 
       if (!response.ok) {
+        await audit.logError('SMS send failed', new Error(data.message), { phone: phone_number?.slice(-4) });
         throw new Error(data.message || 'Failed to send SMS');
       }
+
+      await audit.logSuccess('Single SMS sent', 'sms', data.sid, { phone: phone_number?.slice(-4) });
 
       return new Response(JSON.stringify({
         success: true,
@@ -292,6 +313,7 @@ serve(async (req) => {
       });
 
     } else if (action === 'check_config') {
+      await audit.logSuccess('Config check', 'config', undefined, { twilio_configured: twilioConfigured });
       return new Response(JSON.stringify({
         twilio_configured: twilioConfigured,
         phone_number: twilioPhoneNumber ? twilioPhoneNumber.slice(-4) : null,
@@ -300,6 +322,7 @@ serve(async (req) => {
       });
     }
 
+    await audit.logError('Invalid action', new Error(`Unknown action: ${action}`), { action });
     return new Response(JSON.stringify({ error: 'Invalid action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -307,6 +330,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('SMS blast error:', error);
+    await audit.logError('SMS blast failed', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

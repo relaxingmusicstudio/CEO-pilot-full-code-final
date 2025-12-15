@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,20 +12,28 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const audit = createAuditContext(supabase, 'multi-agent-coordinator', 'coordination');
+
   try {
     const { action, ...params } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
+    await audit.logStart(`Multi-agent coordination: ${action}`, { action });
+
     switch (action) {
       case 'predict_tools':
-        return await predictTools(params, LOVABLE_API_KEY);
+        return await predictTools(params, LOVABLE_API_KEY, audit);
       case 'multi_critic_review':
-        return await multiCriticReview(params, LOVABLE_API_KEY);
+        return await multiCriticReview(params, LOVABLE_API_KEY, audit);
       case 'manager_decompose':
-        return await managerDecompose(params, LOVABLE_API_KEY);
+        return await managerDecompose(params, LOVABLE_API_KEY, audit);
       case 'parallel_race':
-        return await parallelRace(params, LOVABLE_API_KEY);
+        return await parallelRace(params, LOVABLE_API_KEY, audit);
       default:
+        await audit.logError('Invalid action', new Error(`Unknown action: ${action}`), { action });
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -31,6 +41,7 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Multi-agent coordinator error:', error);
+    await audit.logError('Coordinator failed', error instanceof Error ? error : new Error(String(error)));
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -39,10 +50,11 @@ serve(async (req) => {
 });
 
 // Predictive Agent: Predict which tools/APIs will be needed
-async function predictTools(params: any, apiKey: string | undefined) {
+async function predictTools(params: any, apiKey: string | undefined, audit: any) {
   const { query, context, available_tools } = params;
 
   if (!apiKey) {
+    await audit.logSuccess('Tool prediction (mock)', 'predict_tools', undefined, { mock: true });
     return new Response(
       JSON.stringify({ predicted_tools: available_tools?.slice(0, 3) || [] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -81,11 +93,13 @@ Analyze the query and output JSON:
   
   try {
     const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
+    await audit.logSuccess('Tool prediction completed', 'predict_tools', undefined, { tools: parsed.predicted_tools });
     return new Response(
       JSON.stringify(parsed),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch {
+    await audit.logSuccess('Tool prediction fallback', 'predict_tools', undefined, { fallback: true });
     return new Response(
       JSON.stringify({ predicted_tools: [] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -94,10 +108,11 @@ Analyze the query and output JSON:
 }
 
 // Multi-Critic Review: Run 4 specialist critics in parallel
-async function multiCriticReview(params: any, apiKey: string | undefined) {
+async function multiCriticReview(params: any, apiKey: string | undefined, audit: any) {
   const { content, content_type } = params;
 
   if (!apiKey) {
+    await audit.logSuccess('Multi-critic review (mock)', 'multi_critic_review', undefined, { mock: true });
     return new Response(
       JSON.stringify({ 
         reviews: {
@@ -162,22 +177,30 @@ Output JSON: { "score": 1-10, "issues": [], "suggestions": [] }`
   });
 
   const overallScore = totalScore / critics.length;
+  const approved = overallScore >= 7;
+
+  await audit.logSuccess('Multi-critic review completed', 'multi_critic_review', undefined, { 
+    overall_score: overallScore, 
+    approved,
+    content_type 
+  });
 
   return new Response(
     JSON.stringify({
       reviews,
       overall_score: Math.round(overallScore * 10) / 10,
-      approved: overallScore >= 7
+      approved
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
 
 // Manager Agent: Decompose complex tasks into sub-tasks
-async function managerDecompose(params: any, apiKey: string | undefined) {
+async function managerDecompose(params: any, apiKey: string | undefined, audit: any) {
   const { task, available_workers } = params;
 
   if (!apiKey) {
+    await audit.logSuccess('Task decomposition (mock)', 'manager_decompose', undefined, { mock: true });
     return new Response(
       JSON.stringify({ 
         subtasks: [
@@ -221,11 +244,15 @@ Output JSON:
   
   try {
     const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
+    await audit.logSuccess('Task decomposition completed', 'manager_decompose', undefined, { 
+      subtask_count: parsed.subtasks?.length || 0 
+    });
     return new Response(
       JSON.stringify(parsed),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch {
+    await audit.logSuccess('Task decomposition fallback', 'manager_decompose', undefined, { fallback: true });
     return new Response(
       JSON.stringify({ subtasks: [{ id: 1, description: task, assigned_to: 'general', priority: 'high' }] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -234,10 +261,11 @@ Output JSON:
 }
 
 // Parallel Race: Run multiple strategies and use first result
-async function parallelRace(params: any, apiKey: string | undefined) {
+async function parallelRace(params: any, apiKey: string | undefined, audit: any) {
   const { query, strategies } = params;
 
   if (!apiKey || !strategies?.length) {
+    await audit.logSuccess('Parallel race (no strategies)', 'parallel_race', undefined, { mock: true });
     return new Response(
       JSON.stringify({ result: null, winning_strategy: null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -289,6 +317,11 @@ async function parallelRace(params: any, apiKey: string | undefined) {
     if (r) controller.abort(); // Cancel others
     return r;
   })));
+
+  await audit.logSuccess('Parallel race completed', 'parallel_race', undefined, { 
+    winning_strategy: winner?.strategy_name,
+    time_ms: winner?.time_ms 
+  });
 
   return new Response(
     JSON.stringify({

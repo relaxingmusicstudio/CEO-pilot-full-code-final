@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,9 +20,13 @@ const handler = async (req: Request): Promise<Response> => {
   const stripeWebhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
   
+  const audit = createAuditContext(supabase, 'stripe-webhook', 'payment_event');
+
   if (!stripeWebhookSecret) {
     console.error("STRIPE_WEBHOOK_SECRET is not configured");
+    await audit.logError('Webhook secret not configured', new Error('Missing STRIPE_WEBHOOK_SECRET'));
     return new Response(
       JSON.stringify({ error: "Webhook secret not configured" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -34,6 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!signature) {
       console.error("No stripe-signature header found");
+      await audit.logError('Missing signature header', new Error('No stripe-signature header'));
       return new Response(
         JSON.stringify({ error: "Missing stripe-signature header" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -49,6 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
       event = stripe.webhooks.constructEvent(body, signature, stripeWebhookSecret);
     } catch (err: any) {
       console.error("Webhook signature verification failed:", err.message);
+      await audit.logError('Signature verification failed', err);
       return new Response(
         JSON.stringify({ error: "Invalid signature" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -56,6 +63,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Stripe event type:", event.type);
+    await audit.logStart(`Processing Stripe event: ${event.type}`, { event_type: event.type, event_id: event.id });
 
     // Handle checkout.session.completed event
     if (event.type === "checkout.session.completed") {
@@ -85,8 +93,6 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Trigger automated provisioning
       if (customerEmail) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        
         try {
           // Call product-provisioning function
           const provisioningResponse = await fetch(`${supabaseUrl}/functions/v1/product-provisioning`, {
@@ -165,6 +171,13 @@ const handler = async (req: Request): Promise<Response> => {
             console.log("GHL webhook response status:", ghlResponse.status);
           }
 
+          await audit.logSuccess(`Checkout completed: ${planName} plan`, 'checkout', session.id, { 
+            email: customerEmail, 
+            plan: planName, 
+            amount: amountTotal,
+            client_id: provisioningResult.client?.id 
+          });
+
           return new Response(
             JSON.stringify({ 
               received: true, 
@@ -177,6 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
           );
         } catch (provisionError: any) {
           console.error("Provisioning error:", provisionError);
+          await audit.logError('Provisioning failed', provisionError, { session_id: session.id });
           // Still return 200 to acknowledge Stripe, but log the error
         }
       }
@@ -188,7 +202,6 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Subscription updated:", subscription.id);
       
       // Update client subscription status
-      const supabase = createClient(supabaseUrl, supabaseKey);
       await supabase
         .from('clients')
         .update({ 
@@ -196,13 +209,14 @@ const handler = async (req: Request): Promise<Response> => {
           subscription_id: subscription.id,
         })
         .eq('stripe_customer_id', subscription.customer);
+
+      await audit.logSuccess(`Subscription updated: ${subscription.status}`, 'subscription', subscription.id, { status: subscription.status });
     }
 
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
       console.log("Subscription cancelled:", subscription.id);
       
-      const supabase = createClient(supabaseUrl, supabaseKey);
       await supabase
         .from('clients')
         .update({ 
@@ -210,6 +224,8 @@ const handler = async (req: Request): Promise<Response> => {
           churned_at: new Date().toISOString(),
         })
         .eq('stripe_customer_id', subscription.customer);
+
+      await audit.logSuccess('Subscription cancelled', 'subscription', subscription.id, { customer: subscription.customer });
     }
 
     // Handle invoice payment failed
@@ -217,7 +233,6 @@ const handler = async (req: Request): Promise<Response> => {
       const invoice = event.data.object as Stripe.Invoice;
       console.log("Invoice payment failed:", invoice.id);
       
-      const supabase = createClient(supabaseUrl, supabaseKey);
       await supabase
         .from('client_invoices')
         .update({ status: 'overdue' })
@@ -231,6 +246,8 @@ const handler = async (req: Request): Promise<Response> => {
         reason: `Payment failed for invoice ${invoice.number}`,
         ai_confidence: 0.9,
       });
+
+      await audit.logSuccess('Payment failed - dunning initiated', 'invoice', invoice.id, { invoice_number: invoice.number });
     }
 
     console.log("Event processed successfully");
@@ -240,6 +257,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: any) {
     console.error("Error in stripe-webhook function:", error);
+    await audit.logError('Webhook processing failed', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

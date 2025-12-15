@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,13 +12,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
+  const audit = createAuditContext(supabase, 'infrastructure-agent', 'infrastructure');
+
+  try {
     const { action, agent_type, data } = await req.json();
     console.log(`Infrastructure Agent: ${action} for ${agent_type || 'system'}`);
+    await audit.logStart(`Infrastructure action: ${action}`, { action, agent_type });
 
     switch (action) {
       case 'get_system_status': {
@@ -43,6 +47,14 @@ serve(async (req) => {
           costsByAgent[c.agent_type].successRate = c.success_rate || 100;
         });
 
+        const overallHealth = calculateOverallHealth(healthRes.data || []);
+
+        await audit.logSuccess('System status retrieved', 'system_status', undefined, {
+          total_costs: totalCosts,
+          total_api_calls: totalApiCalls,
+          overall_health: overallHealth
+        });
+
         return new Response(JSON.stringify({
           success: true,
           systemStatus: {
@@ -51,7 +63,7 @@ serve(async (req) => {
             totalApiCalls,
             costsByAgent,
             scalingEvents: scalingRes.data || [],
-            overallHealth: calculateOverallHealth(healthRes.data || []),
+            overallHealth,
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -100,6 +112,13 @@ serve(async (req) => {
         // Check for anomalies
         const anomalies = await checkForAnomalies(supabase, agent_type, latency_ms, cost_cents);
         
+        await audit.logSuccess('API call tracked', 'api_tracking', agent_type, {
+          tokens_used,
+          cost_cents,
+          latency_ms,
+          anomalies_detected: anomalies.length
+        });
+
         return new Response(JSON.stringify({ success: true, anomalies }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -115,6 +134,12 @@ serve(async (req) => {
           new_instances: new_instances || 1,
           trigger_reason,
           cost_impact_estimate: cost_impact,
+        });
+
+        await audit.logSuccess('Scaling event logged', 'scaling', agent_type, {
+          event_type,
+          previous_instances,
+          new_instances
         });
 
         return new Response(JSON.stringify({ success: true }), {
@@ -138,13 +163,20 @@ serve(async (req) => {
         const totals = Object.values(dailyTotals);
         const avgDaily = totals.length > 0 ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
         const projectedMonthly = avgDaily * 30;
+        const trend = totals.length > 5 ? (totals[totals.length - 1] > totals[totals.length - 5] ? 'increasing' : 'decreasing') : 'stable';
+
+        await audit.logSuccess('Cost forecast generated', 'forecast', undefined, {
+          avg_daily_cents: Math.round(avgDaily),
+          projected_monthly_cents: Math.round(projectedMonthly),
+          trend
+        });
 
         return new Response(JSON.stringify({
           success: true,
           forecast: {
             avgDailyCents: Math.round(avgDaily),
             projectedMonthlyCents: Math.round(projectedMonthly),
-            trend: totals.length > 5 ? (totals[totals.length - 1] > totals[totals.length - 5] ? 'increasing' : 'decreasing') : 'stable',
+            trend,
             historicalData: dailyTotals,
           }
         }), {
@@ -153,6 +185,7 @@ serve(async (req) => {
       }
 
       default:
+        await audit.logError('Unknown action', new Error(`Unknown action: ${action}`), { action });
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -160,6 +193,7 @@ serve(async (req) => {
     }
   } catch (error: any) {
     console.error('Infrastructure Agent error:', error);
+    await audit.logError('Infrastructure agent failed', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

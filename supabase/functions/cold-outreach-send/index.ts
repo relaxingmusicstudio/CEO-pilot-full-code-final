@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,15 +29,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 
+  const audit = createAuditContext(supabase, 'cold-outreach-send', 'outreach');
+
+  try {
     const { action, campaign_id, contact_data, sequence_step, skip_bypass_footer } = await req.json();
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+    await audit.logStart(`Cold outreach action: ${action}`, { action, campaign_id });
 
     // Check system mode before executing outreach
     if (action === 'execute_campaign') {
@@ -65,6 +70,8 @@ serve(async (req) => {
             })
             .eq('id', directive.id);
           
+          await audit.logSuccess('Paused by user directive', 'campaign', campaign_id, { directive_id: directive.id });
+          
           return new Response(JSON.stringify({ 
             success: false, 
             error: `Cold outreach paused by user directive: "${directive.content}"`,
@@ -89,6 +96,7 @@ serve(async (req) => {
         const currentMode = modeConfig?.config_value || 'growth';
         
         if (currentMode === 'vacation' || currentMode === 'emergency') {
+          await audit.logError(`Blocked by ${currentMode} mode`, new Error(`System in ${currentMode} mode`), { campaign_id });
           return new Response(JSON.stringify({ 
             success: false, 
             error: `Cold outreach blocked: System is in ${currentMode} mode`,
@@ -101,6 +109,7 @@ serve(async (req) => {
         
         if (currentMode === 'maintenance') {
           console.log('[cold-outreach] Skipping cold outreach in maintenance mode');
+          await audit.logSuccess('Skipped in maintenance mode', 'campaign', campaign_id);
           return new Response(JSON.stringify({ 
             success: true, 
             message: 'Cold outreach paused in maintenance mode',
@@ -122,6 +131,8 @@ serve(async (req) => {
         .single();
 
       if (error) throw error;
+
+      await audit.logSuccess('Campaign created', 'campaign', campaign.id);
 
       return new Response(JSON.stringify({ success: true, campaign }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -147,6 +158,8 @@ serve(async (req) => {
         .update({ total_contacts: contacts.length })
         .eq('id', campaign_id);
 
+      await audit.logSuccess('Contacts imported', 'campaign', campaign_id, { imported: data?.length || 0 });
+
       return new Response(JSON.stringify({ success: true, imported: data?.length || 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -163,6 +176,8 @@ serve(async (req) => {
 
       if (error) throw error;
 
+      await audit.logSuccess('Sequence step added', 'sequence', data.id, { campaign_id });
+
       return new Response(JSON.stringify({ success: true, step: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -175,7 +190,10 @@ serve(async (req) => {
         .eq('id', campaign_id)
         .single();
 
-      if (!campaign) throw new Error('Campaign not found');
+      if (!campaign) {
+        await audit.logError('Campaign not found', new Error('Campaign not found'), { campaign_id });
+        throw new Error('Campaign not found');
+      }
 
       const { data: sequences } = await supabase
         .from('cold_outreach_sequences')
@@ -193,6 +211,7 @@ serve(async (req) => {
         .limit(campaign.daily_limit);
 
       if (!contacts?.length || !sequences?.length) {
+        await audit.logSuccess('No contacts to process', 'campaign', campaign_id, { processed: 0 });
         return new Response(JSON.stringify({ 
           success: true, 
           message: 'No contacts or sequences to process',
@@ -368,6 +387,12 @@ serve(async (req) => {
         metadata: { campaign_id, errors, bypass_footer_added: !skip_bypass_footer }
       });
 
+      await audit.logSuccess('Campaign executed', 'campaign', campaign_id, {
+        processed,
+        errors,
+        bypass_footer_added: !skip_bypass_footer
+      });
+
       return new Response(JSON.stringify({
         success: true,
         processed,
@@ -389,11 +414,14 @@ serve(async (req) => {
 
       if (error) throw error;
 
+      await audit.logSuccess('Campaigns retrieved', 'campaigns', undefined, { count: data?.length || 0 });
+
       return new Response(JSON.stringify({ success: true, campaigns: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    await audit.logError('Invalid action', new Error(`Unknown action: ${action}`), { action });
     return new Response(JSON.stringify({ error: 'Invalid action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -401,6 +429,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Cold outreach error:', error);
+    await audit.logError('Cold outreach failed', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

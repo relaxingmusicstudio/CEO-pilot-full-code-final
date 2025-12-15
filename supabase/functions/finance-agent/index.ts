@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,9 +17,12 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  const audit = createAuditContext(supabase, 'finance-agent', 'finance_operation');
+
   try {
     const { action, ...params } = await req.json();
     console.log(`Finance Agent action: ${action}`);
+    await audit.logStart(`Starting finance action: ${action}`, { action, params });
 
     switch (action) {
       case 'categorize_transaction': {
@@ -32,6 +36,7 @@ serve(async (req) => {
           .single();
 
         if (error || !transaction) {
+          await audit.logError('Transaction not found', error, { transaction_id });
           throw new Error('Transaction not found');
         }
 
@@ -47,6 +52,8 @@ serve(async (req) => {
             needs_review: category.confidence < 0.8,
           })
           .eq('id', transaction_id);
+
+        await audit.logSuccess(`Categorized transaction: ${category.category}`, 'transaction', transaction_id, { category });
 
         return new Response(JSON.stringify({
           success: true,
@@ -66,6 +73,7 @@ serve(async (req) => {
           .limit(50);
 
         if (!transactions || transactions.length === 0) {
+          await audit.logSuccess('No transactions to categorize', 'bulk_categorize', undefined, { categorized: 0 });
           return new Response(JSON.stringify({ 
             success: true, 
             categorized: 0 
@@ -90,6 +98,8 @@ serve(async (req) => {
           categorized++;
         }
 
+        await audit.logSuccess(`Bulk categorized ${categorized} transactions`, 'bulk_categorize', undefined, { categorized });
+
         return new Response(JSON.stringify({
           success: true,
           categorized,
@@ -110,6 +120,7 @@ serve(async (req) => {
           .order('date', { ascending: false });
 
         if (!transactions) {
+          await audit.logSuccess('No transactions for anomaly detection', 'anomaly_detection');
           return new Response(JSON.stringify({ anomalies: [] }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -134,6 +145,8 @@ serve(async (req) => {
             severity: Math.abs(Math.abs(t.amount) - avg) > 3 * stdDev ? 'high' : 'medium',
           }));
 
+        await audit.logSuccess(`Detected ${anomalies.length} anomalies`, 'anomaly_detection', undefined, { anomaly_count: anomalies.length });
+
         return new Response(JSON.stringify({ anomalies }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -153,6 +166,8 @@ serve(async (req) => {
 
         // Generate response using context
         const response = await generateFinanceAnswer(question, summary, mrrBreakdown);
+
+        await audit.logSuccess('Answered finance question', 'finance_qa', undefined, { question: question?.substring(0, 100) });
 
         return new Response(JSON.stringify({ answer: response }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -188,6 +203,8 @@ serve(async (req) => {
         });
         results.quickbooks = qbStatus;
 
+        await audit.logSuccess('Synced all providers', 'provider_sync', undefined, { providers: Object.keys(results) });
+
         return new Response(JSON.stringify({ 
           success: true, 
           results,
@@ -218,7 +235,7 @@ serve(async (req) => {
           .select('id', { count: 'exact' })
           .is('ai_category', null);
 
-        return new Response(JSON.stringify({
+        const healthData = {
           mrr: pnl?.summary?.mrr || 0,
           ai_costs_mtd: pnl?.summary?.ai_costs || 0,
           gross_margin: pnl?.summary?.gross_margin || 0,
@@ -226,12 +243,17 @@ serve(async (req) => {
           plaid_connections: plaidConnections?.length || 0,
           uncategorized_transactions: uncategorized?.length || 0,
           last_sync: plaidConnections?.[0]?.last_sync_at || null,
-        }), {
+        };
+
+        await audit.logSuccess('Retrieved finance health', 'finance_health', undefined, { mrr: healthData.mrr });
+
+        return new Response(JSON.stringify(healthData), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       default:
+        await audit.logError('Unknown action', new Error(`Unknown action: ${action}`), { action });
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -239,6 +261,7 @@ serve(async (req) => {
     }
   } catch (error: any) {
     console.error('Finance Agent error:', error);
+    await audit.logError('Finance agent failed', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

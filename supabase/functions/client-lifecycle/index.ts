@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,14 +25,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  const audit = createAuditContext(supabase, 'client-lifecycle', 'lifecycle_check');
+
+  try {
     const { action } = await req.json();
 
     console.log(`Client Lifecycle: Running ${action || "full_check"}`);
+    await audit.logStart(`Starting lifecycle check: ${action || "full_check"}`);
 
     // Start automation log
     const { data: logEntry } = await supabase
@@ -232,6 +236,13 @@ serve(async (req) => {
     }
 
     console.log("Client Lifecycle complete:", results);
+    await audit.logSuccess('Lifecycle check completed', 'lifecycle', undefined, {
+      clients_checked: results.clients_checked,
+      health_updated: results.health_updated,
+      interventions_created: results.interventions_created,
+      at_risk_count: results.at_risk_clients.length,
+      churn_alerts: results.churn_alerts
+    });
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -240,6 +251,7 @@ serve(async (req) => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Client Lifecycle error:", error);
+    await audit.logError('Lifecycle check failed', error instanceof Error ? error : new Error(errorMessage));
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,14 +20,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
 
+  const audit = createAuditContext(supabase, 'messaging-send', 'message_send');
+
+  try {
     const { contact_id, channel, content, conversation_id, subject }: SendMessageRequest = await req.json();
     console.log(`[messaging-send] Sending ${channel} message to contact ${contact_id}`);
+    await audit.logStart(`Sending ${channel} message`, { contact_id, channel });
 
     // Get contact info
     const { data: contact, error: contactError } = await supabase
@@ -36,6 +40,7 @@ serve(async (req) => {
       .single();
 
     if (contactError || !contact) {
+      await audit.logError('Contact not found', contactError || new Error('Contact not found'), { contact_id });
       throw new Error(`Contact not found: ${contact_id}`);
     }
 
@@ -133,6 +138,12 @@ serve(async (req) => {
       .eq("id", convId);
 
     console.log(`[messaging-send] Message saved: ${message.id}, mock: ${isMock}`);
+    
+    await audit.logSuccess(`Message sent via ${channel}`, 'message', message.id, {
+      conversation_id: convId,
+      is_mock: isMock,
+      status
+    });
 
     return new Response(
       JSON.stringify({
@@ -146,6 +157,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[messaging-send] Error:", error);
+    await audit.logError('Message send failed', error instanceof Error ? error : new Error(String(error)));
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

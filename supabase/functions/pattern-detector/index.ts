@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,14 +21,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
+  const audit = createAuditContext(supabase, 'pattern-detector', 'pattern_analysis');
+
+  try {
     const { action = "analyze", daysBack = 30 } = await req.json().catch(() => ({}));
 
     console.log(`[Pattern Detector] Starting analysis with action=${action}, daysBack=${daysBack}`);
+    await audit.logStart(`Pattern analysis: ${action}`, { action, daysBack });
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
@@ -47,6 +51,7 @@ serve(async (req) => {
     console.log(`[Pattern Detector] Analyzing ${memories?.length || 0} memories`);
 
     if (!memories || memories.length === 0) {
+      await audit.logSuccess('No memories to analyze', 'analysis', undefined, { memories_count: 0 });
       return new Response(JSON.stringify({ 
         success: true, 
         patterns: [],
@@ -268,6 +273,12 @@ serve(async (req) => {
 
     console.log(`[Pattern Detector] Upserted ${upsertedCount} patterns to database`);
 
+    await audit.logSuccess('Pattern analysis completed', 'analysis', undefined, {
+      memories_analyzed: memories.length,
+      patterns_detected: detectedPatterns.length,
+      patterns_upserted: upsertedCount
+    });
+
     return new Response(JSON.stringify({ 
       success: true,
       patterns: detectedPatterns,
@@ -281,6 +292,7 @@ serve(async (req) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[Pattern Detector] Error:", message);
+    await audit.logError('Pattern analysis failed', error instanceof Error ? error : new Error(message));
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
