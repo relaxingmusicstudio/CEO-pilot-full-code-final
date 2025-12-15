@@ -6,10 +6,12 @@ import {
   LogOut,
   ChevronLeft,
   Bot,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePWA } from "@/hooks/usePWA";
 import { GroupedNavigation } from "@/components/GroupedNavigation";
+import NotificationCenter from "@/components/NotificationCenter";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -50,15 +52,26 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
               <Home className="h-4 w-4 mr-2" />
               Back to Site
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-2">
+              <NotificationCenter />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/admin/user-settings")}
+                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center gap-4 mb-2">

@@ -27,6 +27,7 @@ import ChannelPerformanceTable from "@/components/ChannelPerformanceTable";
 import ABTestsWidget from "@/components/ABTestsWidget";
 import AdminLayout from "@/components/AdminLayout";
 import CEOVoiceAssistant from "@/components/CEOVoiceAssistant";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import RevenueForecastChart from "@/components/ceo/RevenueForecastChart";
 import ClientHealthWidget from "@/components/ceo/ClientHealthWidget";
 import ChurnPredictionWidget from "@/components/ceo/ChurnPredictionWidget";
@@ -329,6 +330,7 @@ const CEOConsole = () => {
 
   return (
     <>
+      <OnboardingWizard />
       <CEOVoiceAssistant 
         isOpen={isVoiceOpen} 
         onClose={() => setIsVoiceOpen(false)} 

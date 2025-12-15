@@ -49,6 +49,7 @@ import AdminSystemHealth from "./pages/AdminSystemHealth";
 import AdminAccounts from "./pages/AdminAccounts";
 import AdminControlPanel from "./pages/AdminControlPanel";
 import AdminBypassQueue from "./pages/AdminBypassQueue";
+import AdminUserSettings from "./pages/AdminUserSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -114,6 +115,7 @@ const App = () => (
                 <Route path="/admin/system-health" element={<ProtectedRoute requireAdmin><AdminSystemHealth /></ProtectedRoute>} />
                 <Route path="/admin/control-panel" element={<ProtectedRoute requireAdmin><AdminControlPanel /></ProtectedRoute>} />
                 <Route path="/admin/bypass-queue" element={<ProtectedRoute requireAdmin><AdminBypassQueue /></ProtectedRoute>} />
+                <Route path="/admin/user-settings" element={<ProtectedRoute requireAdmin><AdminUserSettings /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

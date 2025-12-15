@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import AgentWorkItem, { WorkItem } from "@/components/AgentWorkItem";
+import WorkItemDetailModal from "@/components/WorkItemDetailModal";
 import AgentChatPanel from "@/components/AgentChatPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,13 @@ const mockWorkItems: WorkItem[] = [
     status: "pending",
     priority: "high",
     createdAt: new Date().toISOString(),
+    details: "This sequence targets high-intent leads with personalized follow-ups:\n\n1. Day 1: Welcome email with value proposition\n2. Day 3: Case study + social proof\n3. Day 5: Scarcity/urgency message\n4. Day 7: Objection handling\n5. Day 10: Final call-to-action with bonus offer",
+    metadata: {
+      budget: 0,
+      roi: 340,
+      audience: "Leads scoring 70+",
+      reach: "~150 contacts",
+    },
   },
   {
     id: "2",
@@ -35,6 +43,12 @@ const mockWorkItems: WorkItem[] = [
     status: "pending",
     priority: "medium",
     createdAt: new Date(Date.now() - 86400000).toISOString(),
+    details: "Recommended optimizations:\n\n- Subject line A/B test: Current vs \"Your HVAC Emergency Plan\"\n- Add personalization tokens: {{first_name}}, {{city}}\n- Reduce email length by 30%\n- Move CTA above the fold\n- Add P.S. line with phone number",
+    metadata: {
+      budget: 0,
+      roi: 45,
+      audience: "New subscribers",
+    },
   },
   {
     id: "3",
@@ -44,23 +58,31 @@ const mockWorkItems: WorkItem[] = [
     status: "pending",
     priority: "urgent",
     createdAt: new Date(Date.now() - 43200000).toISOString(),
+    details: "⚠️ URGENT: This sequence has a 4.2% unsubscribe rate (threshold: 2%)\n\nIssues identified:\n- Too aggressive sending frequency (3 emails in 5 days)\n- Subject lines perceived as spammy\n- No clear opt-out in first email\n- Missing value-first content\n\nRecommendation: Pause immediately and redesign.",
+    metadata: {
+      budget: 120,
+      roi: -15,
+      audience: "Cold leads",
+    },
   },
 ];
 
 const AdminAgentSequences = () => {
   const [workItems, setWorkItems] = useState<WorkItem[]>(mockWorkItems);
   const [loading, setLoading] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const { toast } = useToast();
 
   const pendingCount = workItems.filter(w => w.status === "pending").length;
 
-  const handleApprove = (id: string) => {
+  const handleApprove = (id: string, notes?: string) => {
     setWorkItems(prev => 
       prev.map(item => 
         item.id === id ? { ...item, status: "approved" as const } : item
       )
     );
-    toast({ title: "Sequence Approved" });
+    toast({ title: "Sequence Approved", description: notes || undefined });
   };
 
   const handleDeny = (id: string, reason: string) => {
@@ -73,7 +95,16 @@ const AdminAgentSequences = () => {
   };
 
   const handleDiscuss = (id: string) => {
-    toast({ title: "Use Chat Panel", description: "Ask the Sequences AI." });
+    const item = workItems.find(w => w.id === id);
+    if (item) {
+      setSelectedItem(item);
+      setDetailModalOpen(true);
+    }
+  };
+
+  const handleViewDetails = (item: WorkItem) => {
+    setSelectedItem(item);
+    setDetailModalOpen(true);
   };
 
   const handleRefresh = async () => {
@@ -88,6 +119,13 @@ const AdminAgentSequences = () => {
       title="Sequences Agent" 
       subtitle="AI-powered email and SMS automation"
     >
+      <WorkItemDetailModal
+        item={selectedItem}
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+        onApprove={handleApprove}
+        onDeny={handleDeny}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Stats */}
