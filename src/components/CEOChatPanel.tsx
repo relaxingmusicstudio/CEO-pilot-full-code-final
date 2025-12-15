@@ -15,7 +15,8 @@ import {
   TrendingUp,
   Target,
   AlertCircle,
-  Mic
+  Mic,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import CEOVoiceAssistant from "./CEOVoiceAssistant";
@@ -24,6 +25,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  suggestedActions?: string[];
 }
 
 interface CEOChatPanelProps {
@@ -35,8 +37,50 @@ const QUICK_ACTIONS = [
   { label: "Weekly summary", query: "Give me a weekly performance summary" },
   { label: "Top channels", query: "Which traffic channels are performing best?" },
   { label: "Hot leads", query: "Show me today's hottest leads" },
-  { label: "A/B winners", query: "Any A/B tests with clear winners?" },
+  { label: "Revenue leaks", query: "Where am I losing the most money?" },
 ];
+
+const COMPLETION_PHRASES = [
+  "that's all", "i'm done", "thanks, bye", "no more questions", 
+  "goodbye", "bye", "that's it", "all done", "nothing else"
+];
+
+// Parse suggested actions from AI response
+function parseSuggestedActions(content: string): string[] {
+  const actions: string[] = [];
+  
+  // Look for numbered options like "1. Do X" or "- Do X" or bullet points
+  const patterns = [
+    /(?:Would you like to|Want me to|Should I|Options?:)\s*(?:\n|:)?\s*((?:[1-3•\-\*]\.?\s+[^\n]+\n?)+)/gi,
+    /(?:\*\*What would you like to do\?\*\*|What's next\?)\s*(?:\n)?\s*((?:[•\-\*]\s+[^\n]+\n?)+)/gi,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      const lines = match[1].split('\n').filter(l => l.trim());
+      for (const line of lines.slice(0, 3)) {
+        const cleaned = line.replace(/^[1-3•\-\*]\.?\s*/, '').trim();
+        if (cleaned && cleaned.length < 80) {
+          actions.push(cleaned);
+        }
+      }
+    }
+  }
+  
+  // Also look for question-based options
+  const questionMatch = content.match(/(?:or should we|or do you want to|or would you prefer)\s+([^?]+)\?/gi);
+  if (questionMatch && actions.length < 3) {
+    for (const match of questionMatch.slice(0, 2)) {
+      const option = match.replace(/^(or should we|or do you want to|or would you prefer)\s+/i, '').replace('?', '').trim();
+      if (option && option.length < 60) {
+        actions.push(option);
+      }
+    }
+  }
+  
+  return actions.slice(0, 3);
+}
 
 export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPanelProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,6 +88,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [conversationComplete, setConversationComplete] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,9 +97,29 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
     }
   }, [messages, streamingContent]);
 
+  const isConversationEnding = (text: string): boolean => {
+    const lower = text.toLowerCase().trim();
+    return COMPLETION_PHRASES.some(phrase => lower.includes(phrase));
+  };
+
   const sendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
     
+    // Check if user is ending conversation
+    if (isConversationEnding(query)) {
+      setConversationComplete(true);
+      const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: "Great working with you! I'll be here whenever you need strategic insights or want to take action. Just come back anytime. 🎯", 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, userMessage, assistantMessage]);
+      setInput("");
+      return;
+    }
+    
+    setConversationComplete(false);
     const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setInput("");
@@ -123,7 +188,15 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         }
       }
 
-      const assistantMessage: Message = { role: "assistant", content: fullContent, timestamp: new Date() };
+      // Parse suggested actions from the response
+      const suggestedActions = parseSuggestedActions(fullContent);
+      
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: fullContent, 
+        timestamp: new Date(),
+        suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined
+      };
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingContent("");
     } catch (error) {
@@ -145,6 +218,14 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
     setMessages(prev => [...prev, newMessage]);
   };
 
+  const handleSuggestedAction = (action: string) => {
+    sendMessage(action);
+  };
+
+  const handleEndConversation = () => {
+    sendMessage("That's all for now, thanks!");
+  };
+
   return (
     <>
       <CEOVoiceAssistant 
@@ -159,6 +240,12 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
             <Bot className="h-4 w-4 text-accent" />
             CEO AI Assistant
             <Badge variant="secondary" className="text-xs">Live</Badge>
+            {conversationComplete && (
+              <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Complete
+              </Badge>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -196,26 +283,55 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           <div className="space-y-4">
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-3 w-3 text-accent" />
-                  </div>
-                )}
+              <div key={i}>
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
-                />
-                {msg.role === "user" && (
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <User className="h-3 w-3 text-primary" />
+                  className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-3 w-3 text-accent" />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground"
+                    }`}
+                    dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
+                  />
+                  {msg.role === "user" && (
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <User className="h-3 w-3 text-primary" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Suggested Actions */}
+                {msg.role === "assistant" && msg.suggestedActions && msg.suggestedActions.length > 0 && i === messages.length - 1 && !conversationComplete && (
+                  <div className="ml-8 mt-2 space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Quick options:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {msg.suggestedActions.map((action, j) => (
+                        <Button
+                          key={j}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 bg-background"
+                          onClick={() => handleSuggestedAction(action)}
+                        >
+                          {action.length > 50 ? action.slice(0, 50) + '...' : action}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-7 text-muted-foreground"
+                        onClick={handleEndConversation}
+                      >
+                        I'm done
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -260,7 +376,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
             className="flex gap-2"
           >
             <Input
-              placeholder="Ask about performance, leads, strategy..."
+              placeholder={conversationComplete ? "Start a new question..." : "Ask about performance, leads, strategy..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
