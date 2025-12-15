@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Video, Phone, BarChart3 } from "lucide-react";
 import LiveVideoCall from "./LiveVideoCall";
-import VapiVoiceDemo from "./VapiVoiceDemo";
+import { ElevenLabsVoiceDemo } from "./ElevenLabsVoiceDemo";
 import { useVisitor } from "@/contexts/VisitorContext";
 
 const HeroSection = () => {
@@ -174,8 +174,12 @@ const HeroSection = () => {
       {/* Live Video Call Modal */}
       <LiveVideoCall isOpen={isVideoCallOpen} onClose={() => setIsVideoCallOpen(false)} />
       
-      {/* Vapi Voice Demo Modal */}
-      <VapiVoiceDemo isOpen={isVoiceDemoOpen} onClose={() => setIsVoiceDemoOpen(false)} />
+      {/* ElevenLabs Voice Demo Modal */}
+      <ElevenLabsVoiceDemo 
+        isOpen={isVoiceDemoOpen} 
+        onClose={() => setIsVoiceDemoOpen(false)} 
+        agentId={import.meta.env.VITE_ELEVENLABS_AGENT_ID}
+      />
     </>
   );
 };
