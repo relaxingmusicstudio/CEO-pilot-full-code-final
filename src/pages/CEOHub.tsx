@@ -37,6 +37,7 @@ import { FollowUpTasksWidget } from "@/components/ceo/FollowUpTasksWidget";
 import { VoiceAgentHealthCheck } from "@/components/ceo/VoiceAgentHealthCheck";
 import VideoProviderHealthMonitor from "@/components/video/VideoProviderHealthMonitor";
 import VideoCostAnalytics from "@/components/video/VideoCostAnalytics";
+import FinanceHealthWidget from "@/components/finance/FinanceHealthWidget";
 
 interface Message {
   role: "user" | "assistant";
@@ -603,6 +604,9 @@ const CEOHub = () => {
                 <VideoProviderHealthMonitor compact />
               </CardContent>
             </Card>
+
+            {/* Finance Health Widget */}
+            <FinanceHealthWidget />
 
             {/* User Commands Widget */}
             <UserDirectivesWidget />

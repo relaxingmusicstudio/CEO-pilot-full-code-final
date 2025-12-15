@@ -115,6 +115,24 @@ const handler = async (req: Request): Promise<Response> => {
           const provisioningResult = await provisioningResponse.json();
           console.log("Provisioning result:", provisioningResult);
 
+          // Trigger QuickBooks sync for new customer
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/quickbooks-integration`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                action: 'sync_customer',
+                client_id: provisioningResult.client?.id,
+              }),
+            });
+            console.log('QuickBooks customer sync triggered');
+          } catch (qbError) {
+            console.error('QuickBooks sync error:', qbError);
+          }
+
           // Also send to GHL if configured
           if (GHL_WEBHOOK_URL) {
             const nameParts = customerName.trim().split(' ');

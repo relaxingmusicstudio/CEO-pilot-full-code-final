@@ -605,6 +605,15 @@ export default function AdminBilling() {
         <TabsContent value="health">
           <BillingHealthCheck />
         </TabsContent>
+
+        <TabsContent value="finance" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <PlaidLinkButton />
+            <QuickBooksConnect />
+          </div>
+          <PLDashboard />
+          <TransactionCategorizer />
+        </TabsContent>
       </Tabs>
       {/* View Invoice Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>

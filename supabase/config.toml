@@ -269,3 +269,15 @@ verify_jwt = false
 
 [functions.video-provider-monitor]
 verify_jwt = false
+
+[functions.plaid-integration]
+verify_jwt = false
+
+[functions.quickbooks-integration]
+verify_jwt = false
+
+[functions.pnl-generator]
+verify_jwt = false
+
+[functions.finance-agent]
+verify_jwt = false
