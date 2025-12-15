@@ -67,8 +67,11 @@ const Chatbot = () => {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string }>>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const conversationStartRef = useRef<number>(Date.now());
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
@@ -124,6 +127,56 @@ const Chatbot = () => {
 
   const trackActivity = () => {
     lastActivityRef.current = Date.now();
+  };
+
+  // Save conversation to database for analytics
+  const saveConversation = async (
+    updatedMessages: Array<{ role: string; content: string }>,
+    phase: string,
+    outcome?: string,
+    aiAnalysis?: any
+  ) => {
+    try {
+      const visitorGHLData = getGHLData();
+      const durationSeconds = Math.floor((Date.now() - conversationStartRef.current) / 1000);
+      
+      const conversationData = {
+        visitor_id: visitorGHLData.visitor_id || null,
+        session_id: sessionId,
+        messages: updatedMessages,
+        lead_data: leadData,
+        ai_analysis: aiAnalysis || null,
+        conversation_phase: phase,
+        outcome: outcome || null,
+        duration_seconds: durationSeconds,
+        message_count: updatedMessages.length,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (conversationId) {
+        // Update existing conversation
+        await supabase
+          .from('conversations')
+          .update(conversationData)
+          .eq('id', conversationId);
+      } else {
+        // Create new conversation
+        const { data, error } = await supabase
+          .from('conversations')
+          .insert({
+            ...conversationData,
+            created_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+        
+        if (!error && data) {
+          setConversationId(data.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error saving conversation:", error);
+    }
   };
 
   const savePartialLead = async () => {
@@ -240,7 +293,18 @@ Phase: ${leadData.conversationPhase}`;
       // Update conversation history
       setConversationHistory(allMessages);
       
-      return data as AIResponse;
+      // Add assistant response to history for persistence
+      const responseData = data as AIResponse;
+      const updatedHistory = [...allMessages, { role: 'assistant', content: responseData.text }];
+      
+      // Save conversation to database
+      await saveConversation(
+        updatedHistory,
+        responseData.conversationPhase || 'diagnostic',
+        responseData.conversationPhase === 'complete' ? 'completed' : undefined
+      );
+      
+      return responseData;
     } catch (error) {
       console.error("Error calling alex-chat:", error);
       return null;
