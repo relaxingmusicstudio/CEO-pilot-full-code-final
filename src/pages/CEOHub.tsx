@@ -26,7 +26,8 @@ import {
   ChevronRight,
   RefreshCw,
   Bell,
-  Shield
+  Shield,
+  Video
 } from "lucide-react";
 import { toast } from "sonner";
 import CEOVoiceAssistant from "@/components/CEOVoiceAssistant";
@@ -34,6 +35,8 @@ import ComplianceEnrichmentWidget from "@/components/ceo/ComplianceEnrichmentWid
 import UserDirectivesWidget from "@/components/ceo/UserDirectivesWidget";
 import { FollowUpTasksWidget } from "@/components/ceo/FollowUpTasksWidget";
 import { VoiceAgentHealthCheck } from "@/components/ceo/VoiceAgentHealthCheck";
+import VideoProviderHealthMonitor from "@/components/video/VideoProviderHealthMonitor";
+import VideoCostAnalytics from "@/components/video/VideoCostAnalytics";
 
 interface Message {
   role: "user" | "assistant";
@@ -585,6 +588,19 @@ const CEOHub = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <VoiceAgentHealthCheck />
+              </CardContent>
+            </Card>
+
+            {/* Video Production Health */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Video className="h-4 w-4 text-purple-500" />
+                  Video Production
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <VideoProviderHealthMonitor compact />
               </CardContent>
             </Card>
 

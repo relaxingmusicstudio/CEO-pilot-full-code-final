@@ -39,7 +39,11 @@ interface ProviderConfig {
   max_duration_seconds: number;
 }
 
-export default function VideoProviderHealthMonitor() {
+interface VideoProviderHealthMonitorProps {
+  compact?: boolean;
+}
+
+export default function VideoProviderHealthMonitor({ compact = false }: VideoProviderHealthMonitorProps) {
   const [providers, setProviders] = useState<(ProviderHealth & ProviderConfig)[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,11 +139,68 @@ export default function VideoProviderHealthMonitor() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className={compact ? "p-3" : ""}>
+        {!compact && <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>}
+        {compact && (
+          <div className="flex items-center justify-center py-4">
+            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Compact mode for CEO Hub widget
+  if (compact) {
+    return (
+      <div className="p-3 space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <Badge 
+            variant={overallStatus === "healthy" ? "default" : overallStatus === "degraded" ? "secondary" : "destructive"}
+            className="text-xs"
+          >
+            {overallStatus === "healthy" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+            {overallStatus === "degraded" && <AlertTriangle className="h-3 w-3 mr-1" />}
+            {overallStatus === "critical" && <XCircle className="h-3 w-3 mr-1" />}
+            {overallStatus}
+          </Badge>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 w-6 p-0"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+        {providers.slice(0, 3).map((provider) => (
+          <div 
+            key={provider.provider}
+            className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs"
+          >
+            <div className="flex items-center gap-2">
+              {getStatusIcon(provider.status)}
+              <span className="font-medium capitalize">
+                {provider.provider.replace("_", "/")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">
+                {(provider.success_rate || 100).toFixed(0)}%
+              </span>
+              {getStatusBadge(provider.status)}
+            </div>
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground text-center pt-1">
+          Total: {formatCost(providers.reduce((sum, p) => sum + (p.total_cost_cents || 0), 0))} spent
+        </p>
+      </div>
     );
   }
 
