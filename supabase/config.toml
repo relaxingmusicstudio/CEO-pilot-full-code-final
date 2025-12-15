@@ -212,3 +212,18 @@ verify_jwt = false
 
 [functions.lead-enrichment]
 verify_jwt = false
+
+[functions.infrastructure-agent]
+verify_jwt = false
+
+[functions.escalation-bridge]
+verify_jwt = false
+
+[functions.conflict-resolution]
+verify_jwt = false
+
+[functions.strategic-planner]
+verify_jwt = false
+
+[functions.financial-integrator]
+verify_jwt = false

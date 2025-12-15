@@ -186,6 +186,90 @@ export type Database = {
         }
         Relationships: []
       }
+      action_priority_rules: {
+        Row: {
+          action_type: string | null
+          agent_type: string | null
+          base_priority: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          priority_modifiers: Json | null
+          rule_name: string
+        }
+        Insert: {
+          action_type?: string | null
+          agent_type?: string | null
+          base_priority?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          priority_modifiers?: Json | null
+          rule_name: string
+        }
+        Update: {
+          action_type?: string | null
+          agent_type?: string | null
+          base_priority?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          priority_modifiers?: Json | null
+          rule_name?: string
+        }
+        Relationships: []
+      }
+      action_queue: {
+        Row: {
+          action_payload: Json | null
+          action_type: string
+          agent_type: string
+          conflict_resolution: string | null
+          created_at: string
+          executed_at: string | null
+          id: string
+          priority: number | null
+          result: Json | null
+          scheduled_at: string | null
+          status: string | null
+          target_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type: string
+          agent_type: string
+          conflict_resolution?: string | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          priority?: number | null
+          result?: Json | null
+          scheduled_at?: string | null
+          status?: string | null
+          target_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string
+          agent_type?: string
+          conflict_resolution?: string | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          priority?: number | null
+          result?: Json | null
+          scheduled_at?: string | null
+          status?: string | null
+          target_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ad_campaigns: {
         Row: {
           budget_daily: number | null
@@ -225,6 +309,45 @@ export type Database = {
           status?: string | null
           targeting?: Json | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      agent_cost_tracking: {
+        Row: {
+          agent_type: string
+          api_calls: number | null
+          avg_latency_ms: number | null
+          cost_cents: number | null
+          created_at: string
+          date: string
+          id: string
+          success_rate: number | null
+          tokens_used: number | null
+          updated_at: string
+        }
+        Insert: {
+          agent_type: string
+          api_calls?: number | null
+          avg_latency_ms?: number | null
+          cost_cents?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          success_rate?: number | null
+          tokens_used?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agent_type?: string
+          api_calls?: number | null
+          avg_latency_ms?: number | null
+          cost_cents?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          success_rate?: number | null
+          tokens_used?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -318,6 +441,75 @@ export type Database = {
           positive_feedback?: number | null
           total_queries?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      agent_roi_metrics: {
+        Row: {
+          agent_type: string
+          attributed_revenue: number | null
+          conversions: number | null
+          cost_spent: number | null
+          created_at: string
+          date: string
+          id: string
+          leads_generated: number | null
+          roi_percentage: number | null
+        }
+        Insert: {
+          agent_type: string
+          attributed_revenue?: number | null
+          conversions?: number | null
+          cost_spent?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          leads_generated?: number | null
+          roi_percentage?: number | null
+        }
+        Update: {
+          agent_type?: string
+          attributed_revenue?: number | null
+          conversions?: number | null
+          cost_spent?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          leads_generated?: number | null
+          roi_percentage?: number | null
+        }
+        Relationships: []
+      }
+      agent_shared_state: {
+        Row: {
+          category: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          key: string
+          last_accessed_by: string | null
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          key: string
+          last_accessed_by?: string | null
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          key?: string
+          last_accessed_by?: string | null
+          updated_at?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -1624,6 +1816,53 @@ export type Database = {
         }
         Relationships: []
       }
+      conflict_log: {
+        Row: {
+          cancelled_action_ids: string[] | null
+          conflicting_actions: Json
+          created_at: string
+          deferred_action_ids: string[] | null
+          id: string
+          reasoning: string | null
+          resolution_method: string | null
+          target_id: string
+          target_type: string
+          winner_action_id: string | null
+        }
+        Insert: {
+          cancelled_action_ids?: string[] | null
+          conflicting_actions: Json
+          created_at?: string
+          deferred_action_ids?: string[] | null
+          id?: string
+          reasoning?: string | null
+          resolution_method?: string | null
+          target_id: string
+          target_type: string
+          winner_action_id?: string | null
+        }
+        Update: {
+          cancelled_action_ids?: string[] | null
+          conflicting_actions?: Json
+          created_at?: string
+          deferred_action_ids?: string[] | null
+          id?: string
+          reasoning?: string | null
+          resolution_method?: string | null
+          target_id?: string
+          target_type?: string
+          winner_action_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conflict_log_winner_action_id_fkey"
+            columns: ["winner_action_id"]
+            isOneToOne: false
+            referencedRelation: "action_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consent_audit_log: {
         Row: {
           action: string
@@ -2311,6 +2550,127 @@ export type Database = {
           },
         ]
       }
+      escalation_queue: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          lead_id: string | null
+          outcome: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          response_time_minutes: number | null
+          rule_id: string | null
+          source_agent: string
+          status: string | null
+          trigger_data: Json | null
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          response_time_minutes?: number | null
+          rule_id?: string | null
+          source_agent: string
+          status?: string | null
+          trigger_data?: Json | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          response_time_minutes?: number | null
+          rule_id?: string | null
+          source_agent?: string
+          status?: string | null
+          trigger_data?: Json | null
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_queue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_rules: {
+        Row: {
+          assigned_to: string | null
+          auto_resolve_hours: number | null
+          created_at: string
+          description: string | null
+          escalation_channel: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          rule_name: string
+          trigger_conditions: Json
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          auto_resolve_hours?: number | null
+          created_at?: string
+          description?: string | null
+          escalation_channel?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name: string
+          trigger_conditions?: Json
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          auto_resolve_hours?: number | null
+          created_at?: string
+          description?: string | null
+          escalation_channel?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name?: string
+          trigger_conditions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expansion_revenue: {
         Row: {
           change_amount: number | null
@@ -2354,6 +2714,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      financial_forecasts: {
+        Row: {
+          actual_revenue: number | null
+          confidence_score: number | null
+          created_at: string
+          factors: Json | null
+          forecast_date: string
+          forecast_type: string | null
+          id: string
+          predicted_costs: number | null
+          predicted_mrr: number | null
+          predicted_revenue: number | null
+          variance_percentage: number | null
+        }
+        Insert: {
+          actual_revenue?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          factors?: Json | null
+          forecast_date: string
+          forecast_type?: string | null
+          id?: string
+          predicted_costs?: number | null
+          predicted_mrr?: number | null
+          predicted_revenue?: number | null
+          variance_percentage?: number | null
+        }
+        Update: {
+          actual_revenue?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          factors?: Json | null
+          forecast_date?: string
+          forecast_type?: string | null
+          id?: string
+          predicted_costs?: number | null
+          predicted_mrr?: number | null
+          predicted_revenue?: number | null
+          variance_percentage?: number | null
+        }
+        Relationships: []
       }
       funnel_enrollments: {
         Row: {
@@ -3625,6 +4027,69 @@ export type Database = {
           },
         ]
       }
+      revenue_attribution: {
+        Row: {
+          agent_contributions: Json | null
+          attribution_source: string | null
+          campaign_id: string | null
+          client_id: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          revenue_amount: number
+          revenue_type: string | null
+          stripe_payment_id: string | null
+          touchpoints: Json | null
+        }
+        Insert: {
+          agent_contributions?: Json | null
+          attribution_source?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          revenue_amount: number
+          revenue_type?: string | null
+          stripe_payment_id?: string | null
+          touchpoints?: Json | null
+        }
+        Update: {
+          agent_contributions?: Json | null
+          attribution_source?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          revenue_amount?: number
+          revenue_type?: string | null
+          stripe_payment_id?: string | null
+          touchpoints?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_attribution_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_attribution_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rules_of_engagement: {
         Row: {
           actions: Json
@@ -3658,6 +4123,48 @@ export type Database = {
           rule_name?: string
           rule_type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      scenario_simulations: {
+        Row: {
+          assumptions: string[] | null
+          baseline_metrics: Json | null
+          conclusion: string | null
+          confidence_interval: Json | null
+          created_at: string
+          id: string
+          input_parameters: Json
+          projected_outcomes: Json | null
+          recommended_action: string | null
+          scenario_name: string
+          scenario_type: string | null
+        }
+        Insert: {
+          assumptions?: string[] | null
+          baseline_metrics?: Json | null
+          conclusion?: string | null
+          confidence_interval?: Json | null
+          created_at?: string
+          id?: string
+          input_parameters?: Json
+          projected_outcomes?: Json | null
+          recommended_action?: string | null
+          scenario_name: string
+          scenario_type?: string | null
+        }
+        Update: {
+          assumptions?: string[] | null
+          baseline_metrics?: Json | null
+          conclusion?: string | null
+          confidence_interval?: Json | null
+          created_at?: string
+          id?: string
+          input_parameters?: Json
+          projected_outcomes?: Json | null
+          recommended_action?: string | null
+          scenario_name?: string
+          scenario_type?: string | null
         }
         Relationships: []
       }
@@ -4087,6 +4594,122 @@ export type Database = {
         }
         Relationships: []
       }
+      strategic_goals: {
+        Row: {
+          ai_generated: boolean | null
+          created_at: string
+          current_value: number | null
+          deadline: string | null
+          description: string | null
+          goal_type: string | null
+          id: string
+          owner: string | null
+          parent_goal_id: string | null
+          progress_percentage: number | null
+          status: string | null
+          target_metric: string | null
+          target_value: number | null
+          title: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          created_at?: string
+          current_value?: number | null
+          deadline?: string | null
+          description?: string | null
+          goal_type?: string | null
+          id?: string
+          owner?: string | null
+          parent_goal_id?: string | null
+          progress_percentage?: number | null
+          status?: string | null
+          target_metric?: string | null
+          target_value?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean | null
+          created_at?: string
+          current_value?: number | null
+          deadline?: string | null
+          description?: string | null
+          goal_type?: string | null
+          id?: string
+          owner?: string | null
+          parent_goal_id?: string | null
+          progress_percentage?: number | null
+          status?: string | null
+          target_metric?: string | null
+          target_value?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_goals_parent_goal_id_fkey"
+            columns: ["parent_goal_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_recommendations: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          confidence_score: number | null
+          created_at: string
+          description: string | null
+          expected_impact: Json | null
+          id: string
+          implementation_notes: string | null
+          outcome_data: Json | null
+          priority: string | null
+          recommendation_type: string | null
+          source_analysis: string | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          expected_impact?: Json | null
+          id?: string
+          implementation_notes?: string | null
+          outcome_data?: Json | null
+          priority?: string | null
+          recommendation_type?: string | null
+          source_analysis?: string | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          expected_impact?: Json | null
+          id?: string
+          implementation_notes?: string | null
+          outcome_data?: Json | null
+          priority?: string | null
+          recommendation_type?: string | null
+          source_analysis?: string | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       system_config: {
         Row: {
           config_key: string
@@ -4180,6 +4803,42 @@ export type Database = {
           previous_mode?: string | null
           reason?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      system_scaling_events: {
+        Row: {
+          agent_type: string
+          cost_impact_estimate: number | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          new_instances: number | null
+          previous_instances: number | null
+          trigger_reason: string | null
+        }
+        Insert: {
+          agent_type: string
+          cost_impact_estimate?: number | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          new_instances?: number | null
+          previous_instances?: number | null
+          trigger_reason?: string | null
+        }
+        Update: {
+          agent_type?: string
+          cost_impact_estimate?: number | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          new_instances?: number | null
+          previous_instances?: number | null
+          trigger_reason?: string | null
         }
         Relationships: []
       }
