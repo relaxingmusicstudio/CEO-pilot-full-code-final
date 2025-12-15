@@ -16,10 +16,10 @@ import {
   ArrowDownRight,
   Activity,
   Mic,
-  Heart,
   Bell,
   Shield,
-  Workflow
+  Workflow,
+  Brain
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CEOChatPanel from "@/components/CEOChatPanel";
@@ -439,7 +439,120 @@ const CEOConsole = () => {
         </CardContent>
       </Card>
 
-      {/* Tabs for different dashboard views */}
+      {/* Main Chat Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        {/* CEO Chat - Primary Workspace */}
+        <div className="lg:col-span-2">
+          <Card className="h-[500px]">
+            <CardHeader className="py-3 px-4 border-b">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                CEO Strategic Assistant
+                <Badge variant="outline" className="ml-2 text-xs">AI Powered</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 h-[calc(100%-56px)]">
+              <CEOChatPanel className="h-full border-0 shadow-none" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Approvals & Quick Actions Sidebar */}
+        <div className="space-y-4">
+          {/* Pending Approvals */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Bell className="h-4 w-4 text-amber-500" />
+                Pending Approvals
+                <Badge variant="destructive" className="ml-auto text-xs">3</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 space-y-2">
+              <div className="p-2 bg-muted/50 rounded-md flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Campaign Budget +$500</p>
+                  <p className="text-xs text-muted-foreground">Strategic Planner</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Deny</Button>
+                  <Button size="sm" className="h-6 px-2 text-xs">Approve</Button>
+                </div>
+              </div>
+              <div className="p-2 bg-muted/50 rounded-md flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Email Sequence Launch</p>
+                  <p className="text-xs text-muted-foreground">Marketing Agent</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Deny</Button>
+                  <Button size="sm" className="h-6 px-2 text-xs">Approve</Button>
+                </div>
+              </div>
+              <div className="p-2 bg-muted/50 rounded-md flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Lead Escalation</p>
+                  <p className="text-xs text-muted-foreground">Sales Agent</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Deny</Button>
+                  <Button size="sm" className="h-6 px-2 text-xs">Approve</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="justify-start"
+                onClick={() => navigate("/admin/agent/funnels")}
+              >
+                <Target className="h-4 w-4 mr-2" />
+                Funnels
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="justify-start"
+                onClick={() => navigate("/admin/contacts")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Leads
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="justify-start"
+                onClick={() => navigate("/admin/agent/content")}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Content
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="justify-start"
+                onClick={() => navigate("/admin/agent/ads")}
+              >
+                <DollarSign className="h-4 w-4 mr-2" />
+                Ads
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Goals Summary */}
+          <GoalTracker goals={goals} />
+        </div>
+      </div>
+
+      {/* Tabs for detailed views */}
       <Tabs defaultValue="overview" className="mb-4">
         <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -457,88 +570,32 @@ const CEOConsole = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {/* Row 3: Split View - Channel Performance + AI Chat */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {/* Left: Channel Performance (60%) */}
-            <div className="lg:col-span-3 space-y-4">
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    Channel Performance
-                    <Badge variant="secondary" className="text-xs ml-auto">
-                      {channelData.length} sources
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ChannelPerformanceTable data={channelData} isLoading={loading} />
-                </CardContent>
-              </Card>
+          {/* Channel Performance + A/B Tests */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  Channel Performance
+                  <Badge variant="secondary" className="text-xs ml-auto">
+                    {channelData.length} sources
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ChannelPerformanceTable data={channelData} isLoading={loading} />
+              </CardContent>
+            </Card>
 
-              <ABTestsWidget 
-                tests={abTests} 
-                onRefresh={fetchData}
-                isLoading={loading}
-              />
-            </div>
-
-            {/* Right: AI Chat + Quick Actions (40%) */}
-            <div className="lg:col-span-2 space-y-4">
-              <CEOChatPanel className="h-[420px]" />
-              
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => navigate("/admin/agent/funnels")}
-                  >
-                    <Target className="h-4 w-4 mr-2" />
-                    Funnels
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => navigate("/admin/contacts")}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Leads
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => navigate("/admin/agent/content")}
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Content
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => navigate("/admin/agent/ads")}
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Ads
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <ABTestsWidget 
+              tests={abTests} 
+              onRefresh={fetchData}
+              isLoading={loading}
+            />
           </div>
 
           {/* Alerts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <AnomalyAlerts data={anomalyData} />
-            <GoalTracker goals={goals} />
-          </div>
+          <AnomalyAlerts data={anomalyData} />
         </TabsContent>
 
         <TabsContent value="revenue" className="space-y-4">
