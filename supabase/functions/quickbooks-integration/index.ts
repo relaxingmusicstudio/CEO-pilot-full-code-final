@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const QB_CLIENT_ID = Deno.env.get('QUICKBOOKS_CLIENT_ID') || 'placeholder';
 const QB_CLIENT_SECRET = Deno.env.get('QUICKBOOKS_CLIENT_SECRET') || 'placeholder';
-const QB_ENV: 'sandbox' | 'production' = 'sandbox';
+const QB_ENV = 'sandbox' as 'sandbox' | 'production';
 const QB_BASE_URL = QB_ENV === 'production' 
   ? 'https://quickbooks.api.intuit.com' 
   : 'https://sandbox-quickbooks.api.intuit.com';
