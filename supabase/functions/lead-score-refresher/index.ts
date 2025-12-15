@@ -153,6 +153,16 @@ Deno.serve(async (req) => {
         .eq('id', logEntry.id);
     }
 
+    // Trigger CEO style learning after significant scoring changes
+    if (itemsUpdated >= 3 || hotLeads.length > 0) {
+      try {
+        await supabase.functions.invoke('ceo-style-learner', { body: { action: 'lead_update' } });
+        console.log('Triggered CEO style learning from lead scoring');
+      } catch (e) {
+        console.log('CEO style learning trigger skipped:', e);
+      }
+    }
+
     console.log(`Lead Score Refresher completed: ${itemsProcessed} processed, ${itemsUpdated} updated, ${hotLeads.length} hot`);
 
     return new Response(JSON.stringify({

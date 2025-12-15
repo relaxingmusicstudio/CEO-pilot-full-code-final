@@ -235,6 +235,16 @@ serve(async (req) => {
         .eq("id", logEntry.id);
     }
 
+    // Trigger CEO style learning after lifecycle analysis
+    if (results.interventions_created > 0 || results.health_updated >= 2) {
+      try {
+        await supabase.functions.invoke('ceo-style-learner', { body: { action: 'lifecycle_update' } });
+        console.log('Triggered CEO style learning from lifecycle check');
+      } catch (e) {
+        console.log('CEO style learning trigger skipped:', e);
+      }
+    }
+
     console.log("Client Lifecycle complete:", results);
     await audit.logSuccess('Lifecycle check completed', 'lifecycle', undefined, {
       clients_checked: results.clients_checked,
