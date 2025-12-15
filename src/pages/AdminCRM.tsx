@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { DealPipeline } from "@/components/crm/DealPipeline";
+import { PredictiveScoring } from "@/components/crm/PredictiveScoring";
+import { ContactTimeline } from "@/components/crm/ContactTimeline";
 import {
   Search,
   Filter,
@@ -37,6 +40,8 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 
 interface Lead {
@@ -294,6 +299,26 @@ const AdminCRM = () => {
 
   return (
     <AdminLayout title="CRM" subtitle="Spreadsheet-style lead management with drill-down profiles">
+      {/* Enhanced CRM with Tabs */}
+      <Tabs defaultValue="leads" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="leads" className="gap-2"><List className="h-4 w-4" /> Leads</TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2"><LayoutGrid className="h-4 w-4" /> Pipeline</TabsTrigger>
+          <TabsTrigger value="scoring" className="gap-2"><DollarSign className="h-4 w-4" /> AI Scoring</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pipeline">
+          <DealPipeline />
+        </TabsContent>
+
+        <TabsContent value="scoring">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PredictiveScoring />
+            <ContactTimeline />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="leads">
       {/* Filters Bar */}
       <Card className="p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
@@ -759,6 +784,8 @@ const AdminCRM = () => {
           )}
         </SheetContent>
       </Sheet>
+      </TabsContent>
+      </Tabs>
     </AdminLayout>
   );
 };
