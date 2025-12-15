@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import CEOVoiceAssistant from "./CEOVoiceAssistant";
+import FeedbackButtons from "./FeedbackButtons";
 
 interface Message {
   role: "user" | "assistant";
@@ -89,6 +90,11 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   const [streamingContent, setStreamingContent] = useState("");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [conversationComplete, setConversationComplete] = useState(false);
+  const [pendingCorrection, setPendingCorrection] = useState<{
+    query: string;
+    response: string;
+    index: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,18 +133,31 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
     setStreamingContent("");
 
     try {
+      // Build request body with optional correction context
+      const requestBody: any = {
+        query,
+        timeRange: "7d",
+        conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+        stream: true,
+      };
+      
+      // Include correction context if user previously downvoted
+      if (pendingCorrection) {
+        requestBody.correctionContext = {
+          previousQuery: pendingCorrection.query,
+          previousResponse: pendingCorrection.response,
+          userCorrection: query,
+        };
+        setPendingCorrection(null); // Clear after using
+      }
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-agent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({
-          query,
-          timeRange: "7d",
-          conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-          stream: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -234,8 +253,8 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         onTranscript={handleVoiceTranscript}
       />
       
-      <Card className={`flex flex-col ${className}`}>
-        <CardHeader className="pb-3 border-b">
+      <Card className={`flex flex-col overflow-hidden ${className}`}>
+        <CardHeader className="pb-3 border-b flex-shrink-0">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Bot className="h-4 w-4 text-accent" />
             CEO AI Assistant
@@ -258,7 +277,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
           </CardTitle>
         </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-0">
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
         {/* Quick Actions */}
         {messages.length === 0 && (
           <div className="p-4 border-b bg-muted/30">
@@ -280,62 +299,90 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         )}
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <ScrollArea className="flex-1 p-4 min-h-0" ref={scrollRef}>
           <div className="space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i}>
-                <div
-                  className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {msg.role === "assistant" && (
-                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="h-3 w-3 text-accent" />
+            {messages.map((msg, i) => {
+              // Find the previous user message for feedback context
+              const prevUserMsg = msg.role === "assistant" && i > 0 
+                ? messages.slice(0, i).reverse().find(m => m.role === "user")
+                : null;
+              
+              return (
+                <div key={i}>
+                  <div
+                    className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {msg.role === "assistant" && (
+                      <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="h-3 w-3 text-accent" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm break-words overflow-hidden ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
+                    />
+                    {msg.role === "user" && (
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <User className="h-3 w-3 text-primary" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Feedback Buttons for assistant messages */}
+                  {msg.role === "assistant" && prevUserMsg && (
+                    <div className="ml-8 mt-1">
+                      <FeedbackButtons
+                        agentType="ceo-agent"
+                        query={prevUserMsg.content}
+                        response={msg.content}
+                        onFeedbackSubmitted={(type) => {
+                          if (type === 'negative') {
+                            setPendingCorrection({
+                              query: prevUserMsg.content,
+                              response: msg.content,
+                              index: i,
+                            });
+                          }
+                        }}
+                        className="opacity-60 hover:opacity-100 transition-opacity"
+                      />
                     </div>
                   )}
-                  <div
-                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
-                  />
-                  {msg.role === "user" && (
-                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <User className="h-3 w-3 text-primary" />
+                  
+                  {/* Suggested Actions */}
+                  {msg.role === "assistant" && msg.suggestedActions && msg.suggestedActions.length > 0 && i === messages.length - 1 && !conversationComplete && (
+                    <div className="ml-8 mt-2 space-y-1.5">
+                      <p className="text-xs text-muted-foreground">Quick options:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.suggestedActions.map((action, j) => (
+                          <Button
+                            key={j}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7 bg-background"
+                            onClick={() => handleSuggestedAction(action)}
+                          >
+                            {action.length > 50 ? action.slice(0, 50) + '...' : action}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 text-muted-foreground"
+                          onClick={handleEndConversation}
+                        >
+                          I'm done
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
-                
-                {/* Suggested Actions */}
-                {msg.role === "assistant" && msg.suggestedActions && msg.suggestedActions.length > 0 && i === messages.length - 1 && !conversationComplete && (
-                  <div className="ml-8 mt-2 space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Quick options:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {msg.suggestedActions.map((action, j) => (
-                        <Button
-                          key={j}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 bg-background"
-                          onClick={() => handleSuggestedAction(action)}
-                        >
-                          {action.length > 50 ? action.slice(0, 50) + '...' : action}
-                        </Button>
-                      ))}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs h-7 text-muted-foreground"
-                        onClick={handleEndConversation}
-                      >
-                        I'm done
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
             
             {streamingContent && (
               <div className="flex gap-2 justify-start">
@@ -343,7 +390,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
                   <Sparkles className="h-3 w-3 text-accent animate-pulse" />
                 </div>
                 <div
-                  className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground"
+                  className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground break-words overflow-hidden"
                   dangerouslySetInnerHTML={{ __html: formatContent(streamingContent) }}
                 />
               </div>

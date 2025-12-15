@@ -445,15 +445,15 @@ const CEOConsole = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         {/* CEO Chat - Primary Workspace */}
         <div className="lg:col-span-2">
-          <Card className="h-[500px]">
-            <CardHeader className="py-3 px-4 border-b">
+          <Card className="h-[500px] flex flex-col overflow-hidden">
+            <CardHeader className="py-3 px-4 border-b flex-shrink-0">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Brain className="h-4 w-4 text-primary" />
                 CEO Strategic Assistant
                 <Badge variant="outline" className="ml-2 text-xs">AI Powered</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 h-[calc(100%-56px)]">
+            <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
               <CEOChatPanel className="h-full border-0 shadow-none" />
             </CardContent>
           </Card>

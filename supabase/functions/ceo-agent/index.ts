@@ -253,7 +253,7 @@ serve(async (req) => {
   }
 
   try {
-    const { query, timeRange = "7d", conversationHistory = [], stream = false, visitorId } = await req.json();
+    const { query, timeRange = "7d", conversationHistory = [], stream = false, visitorId, correctionContext } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -387,13 +387,37 @@ serve(async (req) => {
 
     console.log("CEO Agent query:", query);
     
+    // Build self-improvement context if user provided correction feedback
+    let selfImprovementPrompt = '';
+    if (correctionContext) {
+      selfImprovementPrompt = `
+═══ SELF-IMPROVEMENT CONTEXT ═══
+Your previous response was rated unhelpful by the user. Learn from this:
+
+PREVIOUS EXCHANGE:
+User asked: "${correctionContext.previousQuery}"
+Your response: "${correctionContext.previousResponse?.slice(0, 300)}..."
+
+User's follow-up (correction): "${correctionContext.userCorrection}"
+
+INSTRUCTIONS:
+1. Analyze what went wrong with your previous response
+2. Consider: Was it too vague? Wrong data? Missed the point? Poor recommendations?
+3. Adjust your approach for this new query
+4. Be more precise and actionable this time
+═══════════════════════════════
+
+`;
+      console.log('CEO Agent: Self-improvement mode activated due to negative feedback');
+    }
+    
     const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       ...conversationHistory.slice(-10).map((msg: any) => ({
         role: msg.role === "ceo" ? "assistant" : msg.role,
         content: msg.content
       })),
-      { role: "user", content: `${dataContext}\n\nUSER QUERY: ${query}` }
+      { role: "user", content: `${selfImprovementPrompt}${dataContext}\n\nUSER QUERY: ${query}` }
     ];
 
     if (stream) {
