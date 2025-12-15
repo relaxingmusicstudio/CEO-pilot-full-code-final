@@ -6,6 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Test/sandbox endpoints for services
+const SANDBOX_ENDPOINTS: Record<string, string> = {
+  stripe: "https://api.stripe.com/v1", // Same URL, test key differentiates
+  twilio: "https://api.twilio.com/2010-04-01", // Same URL, test credentials
+};
+
+// Get test credentials for sandbox mode
+function getTestCredentials(serviceKey: string): Record<string, string> | null {
+  switch (serviceKey) {
+    case 'stripe':
+      const stripeTestKey = Deno.env.get('STRIPE_TEST_SECRET_KEY');
+      return stripeTestKey ? { api_key: stripeTestKey } : null;
+    case 'twilio':
+      const twilioSid = Deno.env.get('TWILIO_TEST_ACCOUNT_SID');
+      const twilioToken = Deno.env.get('TWILIO_TEST_AUTH_TOKEN');
+      return twilioSid && twilioToken ? { account_sid: twilioSid, auth_token: twilioToken } : null;
+    default:
+      return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,7 +42,9 @@ serve(async (req) => {
       endpoint, 
       method = 'GET',
       body,
-      purpose 
+      purpose,
+      tenant_id,
+      use_sandbox = false // Explicit sandbox mode flag
     } = await req.json();
     
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -34,7 +57,56 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    console.log(`[IntegrationGateway] Agent: ${agent_name}, Service: ${service_key}, Action: ${action}`);
+    // Check tenant environment if tenant_id provided
+    let tenantEnvironment = 'live';
+    if (tenant_id) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('environment')
+        .eq('id', tenant_id)
+        .single();
+      
+      if (tenant?.environment) {
+        tenantEnvironment = tenant.environment;
+      }
+    }
+    
+    const isMockMode = tenantEnvironment === 'mock';
+    const useSandboxCredentials = use_sandbox || (isMockMode && getTestCredentials(service_key));
+    
+    console.log(`[IntegrationGateway] Agent: ${agent_name}, Service: ${service_key}, Action: ${action}, Env: ${tenantEnvironment}, Sandbox: ${useSandboxCredentials}`);
+
+    // If in mock mode and no sandbox credentials, route to mock-adapters for pure fake responses
+    if (isMockMode && !useSandboxCredentials) {
+      console.log(`[IntegrationGateway] Routing to mock-adapters for ${service_key}/${action}`);
+      
+      const mockResponse = await fetch(`${SUPABASE_URL}/functions/v1/mock-adapters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          service_key,
+          action,
+          payload: body,
+          tenant_id,
+        }),
+      });
+      
+      const mockData = await mockResponse.json();
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mock: true,
+          environment: 'mock',
+          data: mockData.response,
+          latency_ms: mockData.latency_ms || (Date.now() - startTime),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Validate agent permissions
     const { data: permission } = await supabase
@@ -91,35 +163,45 @@ serve(async (req) => {
       }
     }
 
-    // 2. Fetch credential from vault
-    const vaultResponse = await fetch(`${SUPABASE_URL}/functions/v1/credential-vault`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        action: 'retrieve',
-        service_key,
-        agent_name,
-        purpose,
-      }),
-    });
+    // 2. Get credentials - either sandbox test credentials or live from vault
+    let credential: Record<string, string> | null = null;
     
-    const vaultData = await vaultResponse.json();
-    
-    if (!vaultResponse.ok || !vaultData.success) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: vaultData.error || 'Failed to retrieve credential',
-          credential_status: 'not_configured'
-        }),
-        { status: vaultResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (useSandboxCredentials) {
+      credential = getTestCredentials(service_key);
+      console.log(`[IntegrationGateway] Using sandbox credentials for ${service_key}`);
     }
     
-    const credential = vaultData.credential;
+    // Fall back to vault if no sandbox credentials
+    if (!credential) {
+      const vaultResponse = await fetch(`${SUPABASE_URL}/functions/v1/credential-vault`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          action: 'retrieve',
+          service_key,
+          agent_name,
+          purpose,
+        }),
+      });
+      
+      const vaultData = await vaultResponse.json();
+      
+      if (!vaultResponse.ok || !vaultData.success) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: vaultData.error || 'Failed to retrieve credential',
+            credential_status: 'not_configured'
+          }),
+          { status: vaultResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      credential = vaultData.credential;
+    }
 
     // 3. If endpoint provided, make the external API call
     if (endpoint) {
@@ -129,13 +211,13 @@ serve(async (req) => {
         };
         
         // Build auth header based on credential type
-        if (credential.api_key) {
+        if (credential?.api_key) {
           headers['Authorization'] = `Bearer ${credential.api_key}`;
-        } else if (credential.account_sid && credential.auth_token) {
+        } else if (credential?.account_sid && credential?.auth_token) {
           // Twilio-style basic auth
           const auth = btoa(`${credential.account_sid}:${credential.auth_token}`);
           headers['Authorization'] = `Basic ${auth}`;
-        } else if (credential.oauth_access_token) {
+        } else if (credential?.oauth_access_token) {
           headers['Authorization'] = `Bearer ${credential.oauth_access_token}`;
         }
         
@@ -155,9 +237,9 @@ serve(async (req) => {
         
         const latency = Date.now() - startTime;
         
-        // Log to api_logs
+        // Log to api_logs (tag as sandbox if applicable)
         await supabase.from('api_logs').insert({
-          service: service_key,
+          service: useSandboxCredentials ? `${service_key}_sandbox` : service_key,
           endpoint,
           method,
           request_body: body || null,
@@ -172,6 +254,7 @@ serve(async (req) => {
             status: externalResponse.status,
             data: parsedResponse,
             latency_ms: latency,
+            environment: useSandboxCredentials ? 'sandbox' : 'live',
           }),
           { 
             status: externalResponse.ok ? 200 : externalResponse.status,
@@ -207,9 +290,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         service_key,
-        credential_type: credential.type || 'api_key',
-        connection_status: vaultData.connection_status,
-        last_health_check: vaultData.last_health_check,
+        credential_type: credential?.type || 'api_key',
+        environment: useSandboxCredentials ? 'sandbox' : tenantEnvironment,
         message: 'Credential validated successfully',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
