@@ -4842,6 +4842,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_patterns: {
+        Row: {
+          action_payload: Json | null
+          action_type: string
+          confidence_score: number | null
+          created_at: string | null
+          hit_count: number | null
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          miss_count: number | null
+          trigger_details: Json | null
+          trigger_type: string
+          updated_at: string | null
+          user_id: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type: string
+          confidence_score?: number | null
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          miss_count?: number | null
+          trigger_details?: Json | null
+          trigger_type: string
+          updated_at?: string | null
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          miss_count?: number | null
+          trigger_details?: Json | null
+          trigger_type?: string
+          updated_at?: string | null
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

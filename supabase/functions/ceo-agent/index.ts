@@ -253,15 +253,64 @@ serve(async (req) => {
   }
 
   try {
-    const { query, timeRange = "7d", conversationHistory = [], stream = false } = await req.json();
+    const { query, timeRange = "7d", conversationHistory = [], stream = false, visitorId } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
     
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // ═══ MEMORY RECALL: Search for relevant past discussions ═══
+    let relevantMemories: any[] = [];
+    let userPatterns: any[] = [];
+    
+    try {
+      // Search agent memory for similar past queries
+      const memoryResponse = await fetch(
+        `${SUPABASE_URL}/functions/v1/agent-memory`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            action: 'search',
+            agent_type: 'ceo-agent',
+            query: query,
+            threshold: 0.7,
+            limit: 3
+          }),
+        }
+      );
+      
+      if (memoryResponse.ok) {
+        const memoryData = await memoryResponse.json();
+        relevantMemories = memoryData.memories || [];
+        console.log(`CEO Agent: Found ${relevantMemories.length} relevant memories`);
+      }
+      
+      // Fetch user patterns if visitor ID is provided
+      if (visitorId) {
+        const { data: patterns } = await supabase
+          .from('user_patterns')
+          .select('*')
+          .eq('visitor_id', visitorId)
+          .eq('is_active', true)
+          .gte('confidence_score', 0.7)
+          .order('confidence_score', { ascending: false })
+          .limit(5);
+        
+        userPatterns = patterns || [];
+        console.log(`CEO Agent: Found ${userPatterns.length} user patterns for visitor ${visitorId}`);
+      }
+    } catch (memErr) {
+      console.error('Memory recall error (non-fatal):', memErr);
+    }
     
     // Calculate date range
     const now = new Date();
@@ -311,12 +360,30 @@ serve(async (req) => {
     // Analyze transcripts
     const transcriptAnalysis = analyzeTranscripts(conversations);
     
-    // Build context
+    // Build memory context for injection into prompt
+    let memoryContext = '';
+    if (relevantMemories.length > 0) {
+      memoryContext = `\n═══ RELEVANT PAST DISCUSSIONS (from your memory) ═══\n`;
+      relevantMemories.forEach((mem: any, i: number) => {
+        memoryContext += `${i + 1}. [${new Date(mem.created_at).toLocaleDateString()}] Q: "${mem.query.slice(0, 100)}..."\n   A: "${mem.response.slice(0, 150)}..."\n   (Similarity: ${Math.round(mem.similarity * 100)}%, Used ${mem.usage_count}x)\n`;
+      });
+    }
+    
+    // Build pattern-based suggestions
+    let patternContext = '';
+    if (userPatterns.length > 0) {
+      patternContext = `\n═══ USER BEHAVIOR PATTERNS (proactive suggestions) ═══\n`;
+      userPatterns.forEach((pat: any, i: number) => {
+        patternContext += `${i + 1}. ${pat.trigger_type}: ${JSON.stringify(pat.action_payload)} (Confidence: ${Math.round(pat.confidence_score * 100)}%)\n`;
+      });
+    }
+    
+    // Build context with memory
     const dataContext = buildDataContext({
       daysAgo, totalVisitors, totalConversations, totalLeads, conversionRate,
       avgEngagement, trafficSources, hotLeads, warmLeads, coldLeads,
       outcomeBreakdown, leads, transcriptAnalysis, conversations, prompts
-    });
+    }) + memoryContext + patternContext;
 
     console.log("CEO Agent query:", query);
     
@@ -427,6 +494,62 @@ serve(async (req) => {
       }
     } else if (choice?.message?.content) {
       result.response = choice.message.content;
+    }
+
+    // ═══ MEMORY SAVE: Store successful exchange for future recall ═══
+    if (result.response && result.response.length > 50) {
+      try {
+        await fetch(
+          `${SUPABASE_URL}/functions/v1/agent-memory`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              action: 'save',
+              agent_type: 'ceo-agent',
+              query: query,
+              response: result.response.slice(0, 500), // Truncate for storage
+              metadata: {
+                visitor_id: visitorId || null,
+                time_range: timeRange,
+                metrics_snapshot: {
+                  visitors: totalVisitors,
+                  leads: totalLeads,
+                  conversion: conversionRate
+                },
+                tools_used: result.actions?.map((a: any) => a.tool) || [],
+                timestamp: new Date().toISOString()
+              }
+            }),
+          }
+        );
+        console.log('CEO Agent: Saved exchange to memory');
+        
+        // Increment usage count for any memories that were used
+        for (const mem of relevantMemories) {
+          if (mem.id) {
+            await fetch(
+              `${SUPABASE_URL}/functions/v1/agent-memory`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify({
+                  action: 'increment_usage',
+                  memory_id: mem.id
+                }),
+              }
+            );
+          }
+        }
+      } catch (saveErr) {
+        console.error('Memory save error (non-fatal):', saveErr);
+      }
     }
 
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

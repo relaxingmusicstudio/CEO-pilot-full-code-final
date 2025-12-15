@@ -67,14 +67,15 @@ export const useCEOAgent = () => {
   const askCEO = useCallback(async (
     query: string, 
     timeRange: string = "7d",
-    conversationHistory: ChatMessage[] = []
+    conversationHistory: ChatMessage[] = [],
+    visitorId?: string
   ): Promise<CEOAgentResponse | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("ceo-agent", {
-        body: { query, timeRange, conversationHistory },
+        body: { query, timeRange, conversationHistory, visitorId },
       });
 
       if (invokeError) throw invokeError;
@@ -97,7 +98,8 @@ export const useCEOAgent = () => {
     timeRange: string = "7d",
     conversationHistory: ChatMessage[] = [],
     onDelta: (chunk: string) => void,
-    onDone: () => void
+    onDone: () => void,
+    visitorId?: string
   ): Promise<void> => {
     setIsStreaming(true);
     setError(null);
@@ -120,6 +122,7 @@ export const useCEOAgent = () => {
           query, 
           timeRange, 
           conversationHistory,
+          visitorId,
           stream: true 
         }),
         signal: abortControllerRef.current.signal,
