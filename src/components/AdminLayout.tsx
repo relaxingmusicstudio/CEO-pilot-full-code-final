@@ -34,6 +34,7 @@ interface AdminLayoutProps {
 const navItems = [
   { path: "/admin/ceo", label: "CEO Console", icon: Brain },
   { path: "/admin/pipeline", label: "Pipeline", icon: Target },
+  { path: "/admin/accounts", label: "Accounts", icon: Building2 },
   { path: "/admin/crm", label: "CRM", icon: LayoutGrid },
   { path: "/admin/dialer", label: "Dialer", icon: Phone },
   { path: "/admin/outreach", label: "Outreach", icon: Mail },
