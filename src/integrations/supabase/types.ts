@@ -6093,6 +6093,48 @@ export type Database = {
           },
         ]
       }
+      user_consent: {
+        Row: {
+          consent_version: string | null
+          consented_at: string | null
+          created_at: string | null
+          enhanced_analytics: boolean | null
+          id: string
+          ip_address: string | null
+          marketing_emails: boolean | null
+          personalization: boolean | null
+          updated_at: string | null
+          user_agent: string | null
+          visitor_id: string
+        }
+        Insert: {
+          consent_version?: string | null
+          consented_at?: string | null
+          created_at?: string | null
+          enhanced_analytics?: boolean | null
+          id?: string
+          ip_address?: string | null
+          marketing_emails?: boolean | null
+          personalization?: boolean | null
+          updated_at?: string | null
+          user_agent?: string | null
+          visitor_id: string
+        }
+        Update: {
+          consent_version?: string | null
+          consented_at?: string | null
+          created_at?: string | null
+          enhanced_analytics?: boolean | null
+          id?: string
+          ip_address?: string | null
+          marketing_emails?: boolean | null
+          personalization?: boolean | null
+          updated_at?: string | null
+          user_agent?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       user_directives: {
         Row: {
           action_required: boolean | null
