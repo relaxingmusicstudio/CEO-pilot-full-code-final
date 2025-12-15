@@ -6332,6 +6332,39 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_plans: {
+        Row: {
+          agent_limits: Json | null
+          created_at: string | null
+          display_name: string
+          features_json: Json
+          id: string
+          is_active: boolean | null
+          plan_key: string
+          price_monthly_cents: number | null
+        }
+        Insert: {
+          agent_limits?: Json | null
+          created_at?: string | null
+          display_name: string
+          features_json?: Json
+          id?: string
+          is_active?: boolean | null
+          plan_key: string
+          price_monthly_cents?: number | null
+        }
+        Update: {
+          agent_limits?: Json | null
+          created_at?: string | null
+          display_name?: string
+          features_json?: Json
+          id?: string
+          is_active?: boolean | null
+          plan_key?: string
+          price_monthly_cents?: number | null
+        }
+        Relationships: []
+      }
       system_config: {
         Row: {
           config_key: string
@@ -7298,6 +7331,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_feature_access: {
+        Args: { check_tenant_id: string; feature: string }
+        Returns: boolean
+      }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
