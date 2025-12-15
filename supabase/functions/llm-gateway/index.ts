@@ -42,6 +42,69 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
 
 const DEFAULT_CACHE_TTL = 3600; // 1 hour default
 
+// Circuit breaker state
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number;
+  state: 'closed' | 'open' | 'half-open';
+}
+
+const circuitBreaker: CircuitBreakerState = {
+  failures: 0,
+  lastFailure: 0,
+  state: 'closed',
+};
+
+const CIRCUIT_BREAKER_CONFIG = {
+  failureThreshold: 5,        // Open circuit after 5 consecutive failures
+  resetTimeout: 60000,        // Try again after 60 seconds
+  halfOpenRequests: 1,        // Allow 1 request in half-open state
+};
+
+// Fallback model priority (if primary fails, try these in order)
+const FALLBACK_MODELS = [
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+  'openai/gpt-5-nano',
+];
+
+function checkCircuitBreaker(model: string): { allowed: boolean; fallbackModel?: string } {
+  const now = Date.now();
+  
+  // Check if we should transition from open to half-open
+  if (circuitBreaker.state === 'open') {
+    if (now - circuitBreaker.lastFailure > CIRCUIT_BREAKER_CONFIG.resetTimeout) {
+      console.log('[CircuitBreaker] Transitioning to half-open state');
+      circuitBreaker.state = 'half-open';
+    } else {
+      // Circuit is open, suggest fallback
+      const fallback = FALLBACK_MODELS.find(m => m !== model);
+      console.log(`[CircuitBreaker] Circuit open, suggesting fallback: ${fallback}`);
+      return { allowed: false, fallbackModel: fallback };
+    }
+  }
+  
+  return { allowed: true };
+}
+
+function recordSuccess() {
+  if (circuitBreaker.state === 'half-open') {
+    console.log('[CircuitBreaker] Success in half-open, closing circuit');
+  }
+  circuitBreaker.failures = 0;
+  circuitBreaker.state = 'closed';
+}
+
+function recordFailure() {
+  circuitBreaker.failures++;
+  circuitBreaker.lastFailure = Date.now();
+  
+  if (circuitBreaker.failures >= CIRCUIT_BREAKER_CONFIG.failureThreshold) {
+    console.log(`[CircuitBreaker] Failure threshold reached (${circuitBreaker.failures}), opening circuit`);
+    circuitBreaker.state = 'open';
+  }
+}
+
 // Audit logging helper
 async function logAudit(supabase: any, entry: {
   agent_name: string;
@@ -122,14 +185,28 @@ serve(async (req) => {
       }
     }
 
-    // Step 3: Make actual LLM call
+    // Step 3: Check circuit breaker
+    let effectiveModel = model;
+    const circuitCheck = checkCircuitBreaker(model);
+    if (!circuitCheck.allowed && circuitCheck.fallbackModel) {
+      console.log(`[LLM Gateway] Circuit breaker triggered, using fallback: ${circuitCheck.fallbackModel}`);
+      effectiveModel = circuitCheck.fallbackModel;
+      await logAudit(supabase, {
+        agent_name: 'llm-gateway',
+        action_type: 'circuit_breaker_triggered',
+        description: `Circuit open for ${model}, falling back to ${effectiveModel}`,
+        success: true,
+      });
+    }
+
+    // Step 4: Make actual LLM call
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const llmRequestBody: Record<string, unknown> = {
-      model,
+      model: effectiveModel,
       messages,
       stream,
     };
@@ -150,15 +227,18 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error(`[LLM Gateway] API error (${response.status}): ${errorText}`);
       
+      // Record failure for circuit breaker
+      recordFailure();
+      
       if (response.status === 429) {
-        await logCost(supabase, agent_name, model, 0, 0, 0, false, priority, Date.now() - startTime, false, 'Provider rate limited');
+        await logCost(supabase, agent_name, effectiveModel, 0, 0, 0, false, priority, Date.now() - startTime, false, 'Provider rate limited');
         return new Response(JSON.stringify({ error: 'AI provider rate limited' }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       if (response.status === 402) {
-        await logCost(supabase, agent_name, model, 0, 0, 0, false, priority, Date.now() - startTime, false, 'Payment required');
+        await logCost(supabase, agent_name, effectiveModel, 0, 0, 0, false, priority, Date.now() - startTime, false, 'Payment required');
         return new Response(JSON.stringify({ error: 'AI credits exhausted' }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -167,37 +247,40 @@ serve(async (req) => {
       
       throw new Error(`LLM API error (${response.status}): ${errorText}`);
     }
+    
+    // Record success for circuit breaker
+    recordSuccess();
 
-    // Step 4: Handle streaming
+    // Step 5: Handle streaming
     if (stream) {
       // For streaming, we can't cache but we still track usage
       await incrementUsage(supabase, agent_name);
-      await logCost(supabase, agent_name, model, 0, 0, 0, false, priority, Date.now() - startTime, true);
+      await logCost(supabase, agent_name, effectiveModel, 0, 0, 0, false, priority, Date.now() - startTime, true);
       
       return new Response(response.body, {
         headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'X-Cache': 'MISS' },
       });
     }
 
-    // Step 5: Parse response and cache it
+    // Step 6: Parse response and cache it
     const result = await response.json();
     const latencyMs = Date.now() - startTime;
     
     // Estimate tokens and cost
     const inputTokens = estimateTokens(messages);
     const outputTokens = result.usage?.completion_tokens || estimateTokens([{ role: 'assistant', content: result.choices?.[0]?.message?.content || '' }]);
-    const costUsd = calculateCost(model, inputTokens, outputTokens);
+    const costUsd = calculateCost(effectiveModel, inputTokens, outputTokens);
 
     // Cache the response
     if (!skip_cache) {
-      await cacheResponse(supabase, messages, model, result, inputTokens, outputTokens, costUsd, cache_ttl);
+      await cacheResponse(supabase, messages, effectiveModel, result, inputTokens, outputTokens, costUsd, cache_ttl);
     }
 
     // Increment usage and log cost
     await incrementUsage(supabase, agent_name);
-    await logCost(supabase, agent_name, model, inputTokens, outputTokens, costUsd, false, priority, latencyMs, true);
+    await logCost(supabase, agent_name, effectiveModel, inputTokens, outputTokens, costUsd, false, priority, latencyMs, true);
 
-    console.log(`[LLM Gateway] Success for ${agent_name}, cost: $${costUsd.toFixed(6)}, latency: ${latencyMs}ms`);
+    console.log(`[LLM Gateway] Success for ${agent_name}, model: ${effectiveModel}, cost: $${costUsd.toFixed(6)}, latency: ${latencyMs}ms`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' },
