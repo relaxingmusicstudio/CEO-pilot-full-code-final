@@ -320,3 +320,6 @@ verify_jwt = false
 
 [functions.ceo-training]
 verify_jwt = false
+
+[functions.claude-alert]
+verify_jwt = false

@@ -1498,6 +1498,102 @@ export type Database = {
           },
         ]
       }
+      ceo_action_queue: {
+        Row: {
+          action_type: string
+          claude_reasoning: string | null
+          created_at: string
+          executed_at: string | null
+          execution_result: Json | null
+          expires_at: string | null
+          id: string
+          payload: Json | null
+          priority: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string | null
+          status: string | null
+          target_id: string | null
+          target_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          claude_reasoning?: string | null
+          created_at?: string
+          executed_at?: string | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          payload?: Json | null
+          priority?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string | null
+          status?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          claude_reasoning?: string | null
+          created_at?: string
+          executed_at?: string | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          payload?: Json | null
+          priority?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string | null
+          status?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ceo_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          alert_type: string
+          created_at: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          priority: string | null
+          sent_via: string[] | null
+          source: string | null
+          title: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          alert_type: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          priority?: string | null
+          sent_via?: string[] | null
+          source?: string | null
+          title: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          alert_type?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          priority?: string | null
+          sent_via?: string[] | null
+          source?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       ceo_score_history: {
         Row: {
           breakdown: Json | null
@@ -1534,6 +1630,51 @@ export type Database = {
           score?: number
           system_health_score?: number | null
           task_health_score?: number | null
+        }
+        Relationships: []
+      }
+      ceo_standing_orders: {
+        Row: {
+          action_payload: Json | null
+          action_type: string
+          conditions: Json
+          created_at: string
+          description: string | null
+          executions_count: number | null
+          id: string
+          is_active: boolean | null
+          last_executed_at: string | null
+          rule_name: string
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type: string
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          executions_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          rule_name: string
+          rule_type: string
+          updated_at?: string
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          executions_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          rule_name?: string
+          rule_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1644,6 +1785,33 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string | null
           version?: number | null
+        }
+        Relationships: []
+      }
+      claude_activity_log: {
+        Row: {
+          activity_type: string
+          created_at: string
+          description: string | null
+          details: Json | null
+          id: string
+          result: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          result?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          result?: string | null
         }
         Relationships: []
       }
