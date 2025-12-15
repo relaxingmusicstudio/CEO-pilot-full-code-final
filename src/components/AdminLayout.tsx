@@ -82,8 +82,8 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
         </div>
 
         {/* Navigation */}
-        <div className="border-t border-primary-foreground/10">
-          <div className="container py-2">
+        <div className="border-t border-primary-foreground/10 relative z-50">
+          <div className="container py-2 overflow-visible">
             <GroupedNavigation variant="horizontal" />
           </div>
         </div>
