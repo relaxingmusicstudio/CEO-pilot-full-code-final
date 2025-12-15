@@ -597,6 +597,171 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_cost_log: {
+        Row: {
+          agent_name: string
+          cached: boolean | null
+          cost_usd: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input_tokens: number | null
+          latency_ms: number | null
+          model: string
+          output_tokens: number | null
+          priority: string | null
+          success: boolean | null
+        }
+        Insert: {
+          agent_name: string
+          cached?: boolean | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model: string
+          output_tokens?: number | null
+          priority?: string | null
+          success?: boolean | null
+        }
+        Update: {
+          agent_name?: string
+          cached?: boolean | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model?: string
+          output_tokens?: number | null
+          priority?: string | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
+      ai_rate_limit_usage: {
+        Row: {
+          agent_name: string
+          created_at: string
+          id: string
+          request_count: number | null
+          window_start: string
+          window_type: string
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string
+          id?: string
+          request_count?: number | null
+          window_start: string
+          window_type: string
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string
+          id?: string
+          request_count?: number | null
+          window_start?: string
+          window_type?: string
+        }
+        Relationships: []
+      }
+      ai_rate_limits: {
+        Row: {
+          agent_name: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          off_hours_end: string | null
+          off_hours_multiplier: number | null
+          off_hours_start: string | null
+          priority_level: string
+          requests_per_day: number | null
+          requests_per_hour: number | null
+          requests_per_minute: number | null
+          updated_at: string
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          off_hours_end?: string | null
+          off_hours_multiplier?: number | null
+          off_hours_start?: string | null
+          priority_level?: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          off_hours_end?: string | null
+          off_hours_multiplier?: number | null
+          off_hours_start?: string | null
+          priority_level?: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_response_cache: {
+        Row: {
+          cache_key: string
+          cost_estimate: number | null
+          created_at: string
+          expires_at: string
+          hit_count: number | null
+          id: string
+          input_tokens: number | null
+          last_accessed_at: string | null
+          messages_hash: string
+          model: string
+          output_tokens: number | null
+          prompt_hash: string
+          response_json: Json
+        }
+        Insert: {
+          cache_key: string
+          cost_estimate?: number | null
+          created_at?: string
+          expires_at: string
+          hit_count?: number | null
+          id?: string
+          input_tokens?: number | null
+          last_accessed_at?: string | null
+          messages_hash: string
+          model: string
+          output_tokens?: number | null
+          prompt_hash: string
+          response_json: Json
+        }
+        Update: {
+          cache_key?: string
+          cost_estimate?: number | null
+          created_at?: string
+          expires_at?: string
+          hit_count?: number | null
+          id?: string
+          input_tokens?: number | null
+          last_accessed_at?: string | null
+          messages_hash?: string
+          model?: string
+          output_tokens?: number | null
+          prompt_hash?: string
+          response_json?: Json
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string | null

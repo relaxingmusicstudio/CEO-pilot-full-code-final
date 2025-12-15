@@ -3,14 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Settings, Key, Youtube, Facebook, Video, Phone, MessageSquare, 
   TrendingUp, Search, BarChart3, CheckCircle, XCircle, Loader2,
-  ArrowLeft, Save, TestTube
+  ArrowLeft, Save, TestTube, Zap
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import AIRateLimitConfig from "@/components/admin/AIRateLimitConfig";
 
 interface ApiSetting {
   id: string;
@@ -345,94 +347,113 @@ const AdminSettings = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {categories.map(category => (
-          <div key={category} className="mb-8">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              {category === "Google" && <Youtube className="h-5 w-5 text-red-400" />}
-              {category === "Social" && <Facebook className="h-5 w-5 text-blue-400" />}
-              {category === "Video" && <Video className="h-5 w-5 text-purple-400" />}
-              {category === "Messaging" && <MessageSquare className="h-5 w-5 text-green-400" />}
-              {category === "Ads" && <BarChart3 className="h-5 w-5 text-orange-400" />}
-              {category} Integrations
-            </h2>
-            
-            <div className="grid gap-4 md:grid-cols-2">
-              {integrations
-                .filter(i => i.category === category)
-                .map(integration => {
-                  const setting = settings[integration.key];
-                  return (
-                    <Card key={integration.key} className="bg-card border-border">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${
-                              setting?.test_status === "success" 
-                                ? "bg-green-500/20" 
-                                : "bg-muted"
-                            }`}>
-                              {integration.icon}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <CardTitle className="text-base">{integration.label}</CardTitle>
-                                {integration.required && (
-                                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                                    Required
-                                  </Badge>
-                                )}
+        <Tabs defaultValue="integrations" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              API Integrations
+            </TabsTrigger>
+            <TabsTrigger value="ai-limits" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              AI Rate Limits
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="integrations">
+            {categories.map(category => (
+              <div key={category} className="mb-8">
+                <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  {category === "Google" && <Youtube className="h-5 w-5 text-red-400" />}
+                  {category === "Social" && <Facebook className="h-5 w-5 text-blue-400" />}
+                  {category === "Video" && <Video className="h-5 w-5 text-purple-400" />}
+                  {category === "Messaging" && <MessageSquare className="h-5 w-5 text-green-400" />}
+                  {category === "Ads" && <BarChart3 className="h-5 w-5 text-orange-400" />}
+                  {category} Integrations
+                </h2>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  {integrations
+                    .filter(i => i.category === category)
+                    .map(integration => {
+                      const setting = settings[integration.key];
+                      return (
+                        <Card key={integration.key} className="bg-card border-border">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${
+                                  setting?.test_status === "success" 
+                                    ? "bg-green-500/20" 
+                                    : "bg-muted"
+                                }`}>
+                                  {integration.icon}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <CardTitle className="text-base">{integration.label}</CardTitle>
+                                    {integration.required && (
+                                      <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                                        Required
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <CardDescription className="text-sm">{integration.description}</CardDescription>
+                                </div>
                               </div>
-                              <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Input
-                          type="password"
-                          placeholder={integration.placeholder}
-                          value={formValues[integration.key] || ""}
-                          onChange={(e) => setFormValues(prev => ({
-                            ...prev,
-                            [integration.key]: e.target.value
-                          }))}
-                          className="bg-background"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave(integration.key)}
-                            disabled={saving === integration.key}
-                            className="flex-1"
-                          >
-                            {saving === integration.key ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                              <Save className="h-4 w-4 mr-2" />
-                            )}
-                            Save
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleTest(integration.key)}
-                            disabled={testing === integration.key || !setting?.is_configured}
-                          >
-                            {testing === integration.key ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                              <TestTube className="h-4 w-4 mr-2" />
-                            )}
-                            Test
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-            </div>
-          </div>
-        ))}
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <Input
+                              type="password"
+                              placeholder={integration.placeholder}
+                              value={formValues[integration.key] || ""}
+                              onChange={(e) => setFormValues(prev => ({
+                                ...prev,
+                                [integration.key]: e.target.value
+                              }))}
+                              className="bg-background"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSave(integration.key)}
+                                disabled={saving === integration.key}
+                                className="flex-1"
+                              >
+                                {saving === integration.key ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                  <Save className="h-4 w-4 mr-2" />
+                                )}
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTest(integration.key)}
+                                disabled={testing === integration.key || !setting?.is_configured}
+                              >
+                                {testing === integration.key ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                  <TestTube className="h-4 w-4 mr-2" />
+                                )}
+                                Test
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </div>
+              </div>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="ai-limits">
+            <AIRateLimitConfig />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
