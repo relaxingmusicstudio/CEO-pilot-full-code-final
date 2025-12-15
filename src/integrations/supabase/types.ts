@@ -1231,18 +1231,26 @@ export type Database = {
           address: string | null
           ai_preferences: Json | null
           avg_job_value: number | null
+          brand_voice: Json | null
           business_hours: Json | null
           business_name: string | null
           created_at: string | null
           email: string | null
           id: string
+          industry: string | null
+          main_competitors: string[] | null
           monthly_call_volume: number | null
           notification_settings: Json | null
+          onboarding_completed_at: string | null
+          onboarding_progress: Json | null
+          pain_points: string[] | null
           phone: string | null
           service_area: string | null
           services: string[] | null
+          target_customer_description: string | null
           tenant_id: string | null
           timezone: string | null
+          unique_selling_points: string[] | null
           updated_at: string | null
           website: string | null
         }
@@ -1250,18 +1258,26 @@ export type Database = {
           address?: string | null
           ai_preferences?: Json | null
           avg_job_value?: number | null
+          brand_voice?: Json | null
           business_hours?: Json | null
           business_name?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          industry?: string | null
+          main_competitors?: string[] | null
           monthly_call_volume?: number | null
           notification_settings?: Json | null
+          onboarding_completed_at?: string | null
+          onboarding_progress?: Json | null
+          pain_points?: string[] | null
           phone?: string | null
           service_area?: string | null
           services?: string[] | null
+          target_customer_description?: string | null
           tenant_id?: string | null
           timezone?: string | null
+          unique_selling_points?: string[] | null
           updated_at?: string | null
           website?: string | null
         }
@@ -1269,18 +1285,26 @@ export type Database = {
           address?: string | null
           ai_preferences?: Json | null
           avg_job_value?: number | null
+          brand_voice?: Json | null
           business_hours?: Json | null
           business_name?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          industry?: string | null
+          main_competitors?: string[] | null
           monthly_call_volume?: number | null
           notification_settings?: Json | null
+          onboarding_completed_at?: string | null
+          onboarding_progress?: Json | null
+          pain_points?: string[] | null
           phone?: string | null
           service_area?: string | null
           services?: string[] | null
+          target_customer_description?: string | null
           tenant_id?: string | null
           timezone?: string | null
+          unique_selling_points?: string[] | null
           updated_at?: string | null
           website?: string | null
         }
