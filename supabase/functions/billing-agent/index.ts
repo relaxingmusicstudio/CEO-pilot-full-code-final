@@ -14,11 +14,35 @@ interface BillingAction {
 
 const REFUND_THRESHOLD_REQUIRES_APPROVAL = 500; // $500+ requires human approval
 
+// Audit logging helper
+async function logAudit(supabase: any, entry: {
+  agent_name: string;
+  action_type: string;
+  entity_type?: string;
+  entity_id?: string;
+  description: string;
+  success: boolean;
+  request_snapshot?: any;
+  response_snapshot?: any;
+}) {
+  try {
+    await supabase.from('platform_audit_log').insert({
+      timestamp: new Date().toISOString(),
+      ...entry,
+      request_snapshot: entry.request_snapshot ? JSON.stringify(entry.request_snapshot) : null,
+      response_snapshot: entry.response_snapshot ? JSON.stringify(entry.response_snapshot) : null,
+    });
+  } catch (err) {
+    console.error('[AuditLog] Failed to log:', err);
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');

@@ -6,6 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Audit logging helper
+async function logAudit(supabase: any, entry: {
+  agent_name: string;
+  action_type: string;
+  entity_type?: string;
+  entity_id?: string;
+  description: string;
+  success: boolean;
+  request_snapshot?: any;
+  response_snapshot?: any;
+}) {
+  try {
+    await supabase.from('platform_audit_log').insert({
+      timestamp: new Date().toISOString(),
+      ...entry,
+      request_snapshot: entry.request_snapshot ? JSON.stringify(entry.request_snapshot) : null,
+      response_snapshot: entry.response_snapshot ? JSON.stringify(entry.response_snapshot) : null,
+    });
+  } catch (err) {
+    console.error('[AuditLog] Failed to log:', err);
+  }
+}
+
 const SYSTEM_PROMPT = `You are THE WORLD'S BEST strategic AI advisor for a CEO running a high-growth HVAC service business. You combine the analytical rigor of McKinsey, the action-orientation of a Y Combinator founder, and 20+ years outperforming every agency and consultant.
 
 ## YOUR IDENTITY:

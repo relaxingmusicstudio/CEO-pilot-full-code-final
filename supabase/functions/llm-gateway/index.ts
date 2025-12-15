@@ -42,6 +42,29 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
 
 const DEFAULT_CACHE_TTL = 3600; // 1 hour default
 
+// Audit logging helper
+async function logAudit(supabase: any, entry: {
+  agent_name: string;
+  action_type: string;
+  entity_type?: string;
+  entity_id?: string;
+  description: string;
+  success: boolean;
+  request_snapshot?: any;
+  response_snapshot?: any;
+}) {
+  try {
+    await supabase.from('platform_audit_log').insert({
+      timestamp: new Date().toISOString(),
+      ...entry,
+      request_snapshot: entry.request_snapshot ? JSON.stringify(entry.request_snapshot) : null,
+      response_snapshot: entry.response_snapshot ? JSON.stringify(entry.response_snapshot) : null,
+    });
+  } catch (err) {
+    console.error('[AuditLog] Failed to log:', err);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -181,8 +204,19 @@ serve(async (req) => {
     });
 
   } catch (err) {
+    const latencyMs = Date.now() - startTime;
     console.error('[LLM Gateway] Error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
+    
+    // Log error to audit trail
+    await logAudit(supabase, {
+      agent_name: 'llm-gateway',
+      action_type: 'llm_request_error',
+      description: `LLM request failed: ${message} (${latencyMs}ms)`,
+      success: false,
+      response_snapshot: { error: message },
+    });
+    
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -39,6 +39,7 @@ import VideoProviderHealthMonitor from "@/components/video/VideoProviderHealthMo
 import VideoCostAnalytics from "@/components/video/VideoCostAnalytics";
 import FinanceHealthWidget from "@/components/finance/FinanceHealthWidget";
 import AICostAnalytics from "@/components/ceo/AICostAnalytics";
+import BusinessHealthScore from "@/components/ceo/BusinessHealthScore";
 
 interface Message {
   role: "user" | "assistant";
@@ -534,6 +535,9 @@ const CEOHub = () => {
 
           {/* Side Panel */}
           <div className="space-y-4">
+            {/* Business Health Score - Primary KPI Widget */}
+            <BusinessHealthScore />
+
             {/* Pending Approvals */}
             <Card>
               <CardHeader className="pb-2">
