@@ -549,6 +549,54 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_skill_registry: {
+        Row: {
+          agent_name: string
+          avg_quality_score: number | null
+          created_at: string
+          current_workload: number | null
+          id: string
+          is_active: boolean | null
+          last_task_completed_at: string | null
+          max_workload: number | null
+          reliability_score: number | null
+          skill_tags: Json | null
+          tenant_id: string | null
+          total_tasks_completed: number | null
+          updated_at: string
+        }
+        Insert: {
+          agent_name: string
+          avg_quality_score?: number | null
+          created_at?: string
+          current_workload?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_task_completed_at?: string | null
+          max_workload?: number | null
+          reliability_score?: number | null
+          skill_tags?: Json | null
+          tenant_id?: string | null
+          total_tasks_completed?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agent_name?: string
+          avg_quality_score?: number | null
+          created_at?: string
+          current_workload?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_task_completed_at?: string | null
+          max_workload?: number | null
+          reliability_score?: number | null
+          skill_tags?: Json | null
+          tenant_id?: string | null
+          total_tasks_completed?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string | null
@@ -4446,6 +4494,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      orchestration_tasks: {
+        Row: {
+          assigned_agent: string | null
+          blocked_reason: string | null
+          completed_at: string | null
+          created_at: string
+          deadline: string | null
+          depends_on_tasks: Json | null
+          description: string | null
+          id: string
+          priority: number
+          progress_notes: string | null
+          quality_score: number | null
+          required_skill_tags: Json | null
+          source_agent: string
+          source_request_id: string | null
+          started_at: string | null
+          status: string
+          tenant_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_agent?: string | null
+          blocked_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          depends_on_tasks?: Json | null
+          description?: string | null
+          id?: string
+          priority?: number
+          progress_notes?: string | null
+          quality_score?: number | null
+          required_skill_tags?: Json | null
+          source_agent: string
+          source_request_id?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_agent?: string | null
+          blocked_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          depends_on_tasks?: Json | null
+          description?: string | null
+          id?: string
+          priority?: number
+          progress_notes?: string | null
+          quality_score?: number | null
+          required_skill_tags?: Json | null
+          source_agent?: string
+          source_request_id?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       phone_numbers: {
         Row: {
