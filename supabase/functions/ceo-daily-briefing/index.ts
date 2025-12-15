@@ -110,7 +110,16 @@ ${anomalies.length > 0 ? `Anomalies: ${anomalies.join(", ")}` : ""}`
       }
     }
 
-    const briefingData = {
+    const briefingData: {
+      date: string;
+      summary: string;
+      metrics: Record<string, unknown>;
+      anomalies: string[];
+      atRiskClients: Array<{ name: string; healthScore: number | null; mrr: number }>;
+      topLeads: Array<{ name: string; score: number | null; temperature: string | null; value: number | null }>;
+      patterns?: Array<unknown>;
+      proactiveSuggestions?: Array<{ type: string; message: string; confidence: number | null }>;
+    } = {
       date: today.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
       summary: aiSummary,
       metrics: {
@@ -140,6 +149,48 @@ ${anomalies.length > 0 ? `Anomalies: ${anomalies.join(", ")}` : ""}`
           value: l.revenue_value,
         })),
     };
+
+    // Run pattern detector to refresh user patterns
+    try {
+      console.log("[CEO Briefing] Running pattern detector...");
+      const patternResponse = await fetch(`${supabaseUrl}/functions/v1/pattern-detector`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'analyze', daysBack: 30 }),
+      });
+      
+      if (patternResponse.ok) {
+        const patternData = await patternResponse.json();
+        console.log(`[CEO Briefing] Pattern detector found ${patternData.patternsCount || 0} patterns`);
+        briefingData.patterns = patternData.patterns || [];
+      }
+    } catch (patternError) {
+      console.error("[CEO Briefing] Pattern detector error:", patternError);
+    }
+
+    // Fetch active user patterns for proactive suggestions
+    try {
+      const { data: activePatterns } = await supabase
+        .from('user_patterns')
+        .select('*')
+        .eq('is_active', true)
+        .gte('confidence_score', 0.5)
+        .order('confidence_score', { ascending: false })
+        .limit(5);
+
+      if (activePatterns && activePatterns.length > 0) {
+        briefingData.proactiveSuggestions = activePatterns.map(p => ({
+          type: p.trigger_type,
+          message: String((p.action_payload as Record<string, unknown>)?.message || 'Pattern detected'),
+          confidence: p.confidence_score,
+        }));
+      }
+    } catch (patternsError) {
+      console.error("[CEO Briefing] Error fetching patterns:", patternsError);
+    }
 
     if (generateOnly) {
       return new Response(JSON.stringify(briefingData), {

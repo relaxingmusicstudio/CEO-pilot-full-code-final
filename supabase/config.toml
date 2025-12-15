@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.financial-integrator]
 verify_jwt = false
+
+[functions.pattern-detector]
+verify_jwt = false
