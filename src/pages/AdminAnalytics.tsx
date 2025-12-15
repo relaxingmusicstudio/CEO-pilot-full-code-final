@@ -2,13 +2,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   BarChart3, Users, MessageSquare, TrendingUp, Send, Loader2, Brain, ArrowLeft,
-  Zap, AlertTriangle, FileText, Target, Lightbulb, StopCircle
+  Zap, AlertTriangle, FileText, Target, Lightbulb, StopCircle, LayoutDashboard
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCEOAgent } from "@/hooks/useCEOAgent";
+import { UnifiedDashboard } from "@/components/analytics/UnifiedDashboard";
 
 interface ChatMessage {
   role: "user" | "ceo";
@@ -169,7 +171,7 @@ const AdminAnalytics = () => {
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-3">
                 <Brain className="w-7 h-7 text-primary" />
-                CEO Agent
+                Analytics & CEO Agent
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">AI-powered business intelligence</p>
             </div>
@@ -178,6 +180,18 @@ const AdminAnalytics = () => {
             Clear Chat
           </Button>
         </div>
+
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="dashboard" className="gap-2"><LayoutDashboard className="h-4 w-4" /> Dashboard</TabsTrigger>
+            <TabsTrigger value="ceo" className="gap-2"><Brain className="h-4 w-4" /> CEO Agent</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <UnifiedDashboard />
+          </TabsContent>
+
+          <TabsContent value="ceo">
 
         {/* Metrics Cards */}
         {metrics && (
@@ -417,6 +431,8 @@ const AdminAnalytics = () => {
             </div>
           </CardContent>
         </Card>
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

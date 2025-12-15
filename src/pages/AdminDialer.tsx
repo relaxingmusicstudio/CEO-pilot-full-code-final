@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Phone, PhoneCall, PhoneOff, Clock, User, Building2, MessageSquare, Plus, AlertTriangle } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, Clock, User, Building2, MessageSquare, Plus, AlertTriangle, Brain } from "lucide-react";
+import { RealtimeCoaching } from "@/components/dialer/RealtimeCoaching";
 
 const AdminDialer = () => {
   const queryClient = useQueryClient();
@@ -215,6 +216,8 @@ const AdminDialer = () => {
           </Card>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
         <Tabs defaultValue="queue" className="space-y-4">
           <TabsList>
             <TabsTrigger value="queue">Call Queue</TabsTrigger>
@@ -384,6 +387,11 @@ const AdminDialer = () => {
             </Card>
           </TabsContent>
         </Tabs>
+          </div>
+          <div className="lg:col-span-1">
+            <RealtimeCoaching isActive={false} />
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );

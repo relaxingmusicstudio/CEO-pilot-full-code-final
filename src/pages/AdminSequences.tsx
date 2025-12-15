@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Play, Pause, Edit2, Trash2, Clock, Mail, Phone, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Play, Pause, Edit2, Trash2, Clock, Mail, Phone, MessageSquare, ChevronDown, ChevronRight, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,9 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMessaging, Sequence } from "@/hooks/useMessaging";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { AIPersonalization } from "@/components/sequences/AIPersonalization";
+import { BehavioralTriggers } from "@/components/sequences/BehavioralTriggers";
 
 interface SequenceStep {
   delay_minutes: number;
@@ -267,7 +270,23 @@ export default function AdminSequences() {
       </header>
 
       {/* Content */}
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <Tabs defaultValue="sequences" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="sequences" className="gap-2"><Clock className="h-4 w-4" /> Sequences</TabsTrigger>
+            <TabsTrigger value="personalization" className="gap-2"><Sparkles className="h-4 w-4" /> AI Personalization</TabsTrigger>
+            <TabsTrigger value="triggers" className="gap-2"><Zap className="h-4 w-4" /> Behavioral Triggers</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="personalization">
+            <AIPersonalization />
+          </TabsContent>
+
+          <TabsContent value="triggers">
+            <BehavioralTriggers />
+          </TabsContent>
+
+          <TabsContent value="sequences">
         {sequences.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -363,6 +382,8 @@ export default function AdminSequences() {
             ))}
           </div>
         )}
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
