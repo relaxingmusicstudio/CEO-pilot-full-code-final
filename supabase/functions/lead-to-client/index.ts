@@ -1,25 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { logAudit, createAuditContext } from "../_shared/auditLogger.ts";
+import { 
+  isValidUUID, 
+  sanitizeString, 
+  sanitizeNumber,
+  corsHeaders,
+  createErrorResponse 
+} from "../_shared/validation.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const audit = createAuditContext(supabase, 'lead-to-client', 'convert_lead');
+
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const body = await req.json();
+    
+    // Validate and sanitize inputs
+    const lead_id = sanitizeString(body.lead_id, 36);
+    const plan = sanitizeString(body.plan, 50);
+    const mrr = sanitizeNumber(body.mrr, 0, 100000);
+    const notes = sanitizeString(body.notes, 1000);
 
-    const { lead_id, plan, mrr, notes } = await req.json();
-
-    if (!lead_id) {
-      throw new Error("lead_id is required");
+    if (!lead_id || !isValidUUID(lead_id)) {
+      await audit.logError('Invalid lead_id format', { lead_id });
+      return createErrorResponse("Valid lead_id (UUID) is required", 400);
     }
 
     console.log(`Converting lead ${lead_id} to client`);

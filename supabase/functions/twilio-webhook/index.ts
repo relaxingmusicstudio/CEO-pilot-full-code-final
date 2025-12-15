@@ -1,30 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { logAudit, createAuditContext } from "../_shared/auditLogger.ts";
+import { sanitizeString, isValidPhone, corsHeaders } from "../_shared/validation.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+  const audit = createAuditContext(supabase, 'twilio-webhook', 'receive_sms');
 
+  try {
     // Parse Twilio webhook (form-urlencoded)
     const formData = await req.formData();
-    const from = formData.get("From") as string;
-    const to = formData.get("To") as string;
-    const body = formData.get("Body") as string;
+    const rawFrom = formData.get("From") as string;
+    const rawTo = formData.get("To") as string;
+    const rawBody = formData.get("Body") as string;
     const messageSid = formData.get("MessageSid") as string;
+    
+    // Sanitize inputs
+    const from = sanitizeString(rawFrom, 20);
+    const to = sanitizeString(rawTo, 20);
+    const body = sanitizeString(rawBody, 1600); // SMS limit
+    
+    // Validate phone format
+    if (!from || !isValidPhone(from)) {
+      console.error("[twilio-webhook] Invalid From number:", from);
+      await audit.logError('Invalid From number', { from });
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/xml" } }
+      );
+    }
 
-    console.log(`[twilio-webhook] Received SMS from ${from}: ${body}`);
+    console.log(`[twilio-webhook] Received SMS from ${from}: ${body?.substring(0, 50)}...`);
+    await audit.logStart('Received SMS', { from, to, messageSid });
 
     // Normalize phone number
     const normalizedPhone = from?.replace(/\D/g, "");
