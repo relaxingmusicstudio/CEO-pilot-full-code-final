@@ -1,8 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Brain,
   BarChart3,
@@ -127,19 +133,6 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
   const [openGroups, setOpenGroups] = useState<string[]>(
     navGroups.filter(g => g.defaultOpen).map(g => g.id)
   );
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => 
@@ -149,13 +142,8 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
     );
   };
 
-  const toggleDropdown = (groupId: string) => {
-    setOpenDropdown(prev => prev === groupId ? null : groupId);
-  };
-
   const handleNavigation = (path: string) => {
     navigate(path);
-    setOpenDropdown(null);
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -207,48 +195,41 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
     );
   }
 
-  // Horizontal variant with click-based dropdowns
+  // Horizontal variant with shadcn DropdownMenu
   return (
-    <nav ref={dropdownRef} className={`flex items-center gap-1 overflow-x-auto ${className}`}>
+    <nav className={`flex items-center gap-1 overflow-visible ${className}`}>
       {navGroups.map((group) => (
-        <div key={group.id} className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => toggleDropdown(group.id)}
-            className={`
-              flex items-center gap-2 whitespace-nowrap px-3 py-2 rounded-lg transition-all
-              ${isGroupActive(group) 
-                ? "bg-primary-foreground/20 text-primary-foreground" 
-                : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              }
-            `}
-          >
-            {React.createElement(group.icon, { className: "h-4 w-4" })}
-            <span className="hidden md:inline">{group.label}</span>
-            <ChevronDown className={`h-3 w-3 transition-transform ${openDropdown === group.id ? 'rotate-180' : ''}`} />
-          </Button>
-          
-          {/* Dropdown - click triggered */}
-          {openDropdown === group.id && (
-            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-[100] min-w-48">
-              <div className="p-1">
-                {group.items.map((item) => (
-                  <Button
-                    key={item.path}
-                    variant="ghost"
-                    size="sm"
-                    className={`w-full justify-start ${isActive(item.path) ? 'bg-accent' : ''}`}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    {React.createElement(item.icon, { className: "h-4 w-4 mr-2" })}
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <DropdownMenu key={group.id}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`
+                flex items-center gap-2 whitespace-nowrap px-3 py-2 rounded-lg transition-all
+                ${isGroupActive(group) 
+                  ? "bg-primary-foreground/20 text-primary-foreground" 
+                  : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                }
+              `}
+            >
+              {React.createElement(group.icon, { className: "h-4 w-4" })}
+              <span className="hidden md:inline">{group.label}</span>
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-48 bg-popover">
+            {group.items.map((item) => (
+              <DropdownMenuItem
+                key={item.path}
+                onClick={() => handleNavigation(item.path)}
+                className={`cursor-pointer ${isActive(item.path) ? 'bg-accent' : ''}`}
+              >
+                {React.createElement(item.icon, { className: "h-4 w-4 mr-2" })}
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ))}
     </nav>
   );
