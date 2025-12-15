@@ -12,11 +12,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { DealPipeline } from "@/components/crm/DealPipeline";
 import { PredictiveScoring } from "@/components/crm/PredictiveScoring";
 import { ContactTimeline } from "@/components/crm/ContactTimeline";
+import { CustomerTimelinePanel } from "@/components/crm/CustomerTimelinePanel";
 import {
   Search,
   Filter,
@@ -42,6 +44,7 @@ import {
   AlertTriangle,
   LayoutGrid,
   List,
+  Users,
 } from "lucide-react";
 
 interface Lead {
@@ -103,12 +106,19 @@ const AdminCRM = () => {
   const [consentFilter, setConsentFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [newNote, setNewNote] = useState("");
+
+  // Handle row click to open timeline panel
+  const handleRowClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsTimelinePanelOpen(true);
+  };
 
   // Fetch leads
   const { data: leads = [], isLoading } = useQuery({
@@ -454,8 +464,15 @@ const AdminCRM = () => {
                 </TableRow>
               ) : paginatedLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                    No leads found
+                  <TableCell colSpan={11} className="py-8">
+                    <EmptyState
+                      icon={Users}
+                      title="No leads found"
+                      description="Connect a lead source or add leads manually to get started"
+                      actionLabel="Add Lead"
+                      onAction={() => toast.info("Add lead feature coming soon")}
+                      size="sm"
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -463,7 +480,7 @@ const AdminCRM = () => {
                   <TableRow 
                     key={lead.id} 
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedLead(lead)}
+                    onClick={() => handleRowClick(lead)}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -786,6 +803,16 @@ const AdminCRM = () => {
       </Sheet>
       </TabsContent>
       </Tabs>
+
+      {/* Customer Timeline Panel */}
+      <CustomerTimelinePanel
+        isOpen={isTimelinePanelOpen}
+        onClose={() => setIsTimelinePanelOpen(false)}
+        leadId={selectedLead?.id}
+        customerName={selectedLead?.name || undefined}
+        customerEmail={selectedLead?.email || undefined}
+        customerPhone={selectedLead?.phone || undefined}
+      />
     </AdminLayout>
   );
 };
