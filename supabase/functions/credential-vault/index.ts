@@ -6,49 +6,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Simple XOR-based encryption (production should use Web Crypto API with AES-GCM)
-// This is a lightweight approach that works in Deno without external deps
-function getEncryptionKey(): string {
-  // Use configured key or generate a deterministic one from service role key
-  const configuredKey = Deno.env.get("VAULT_ENCRYPTION_KEY");
-  if (configuredKey) return configuredKey;
-  
-  // Fallback: derive from service role key (for development)
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "default-dev-key";
-  return serviceKey.slice(0, 32).padEnd(32, 'x');
+// AES-256-GCM Encryption (Production-grade)
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyString = Deno.env.get("VAULT_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.digest('SHA-256', encoder.encode(keyString));
+  return await crypto.subtle.importKey('raw', keyMaterial, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
-function encrypt(text: string): string {
-  const key = getEncryptionKey();
-  const textBytes = new TextEncoder().encode(text);
-  const keyBytes = new TextEncoder().encode(key);
-  
-  const encrypted = new Uint8Array(textBytes.length);
-  for (let i = 0; i < textBytes.length; i++) {
-    encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  
-  // Convert to base64
-  return btoa(String.fromCharCode(...encrypted));
+async function encrypt(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plaintext);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
 }
 
-function decrypt(encryptedBase64: string): string {
-  const key = getEncryptionKey();
-  const keyBytes = new TextEncoder().encode(key);
-  
-  // Decode from base64
-  const encryptedStr = atob(encryptedBase64);
-  const encrypted = new Uint8Array(encryptedStr.length);
-  for (let i = 0; i < encryptedStr.length; i++) {
-    encrypted[i] = encryptedStr.charCodeAt(i);
+async function decrypt(encryptedBase64: string): Promise<string> {
+  try {
+    const key = await getEncryptionKey();
+    const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(decrypted);
+  } catch (err) {
+    console.error('[Vault] Decryption failed:', err);
+    throw new Error('Failed to decrypt credential');
   }
-  
-  const decrypted = new Uint8Array(encrypted.length);
-  for (let i = 0; i < encrypted.length; i++) {
-    decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
-  }
-  
-  return new TextDecoder().decode(decrypted);
 }
 
 // Log credential usage
@@ -205,7 +194,7 @@ serve(async (req) => {
         // Decrypt credential
         let decryptedData;
         try {
-          decryptedData = JSON.parse(decrypt(credential.encrypted_value));
+          decryptedData = JSON.parse(await decrypt(credential.encrypted_value));
         } catch (decryptErr) {
           await logUsage(supabase, credential.id, service_key, agent_name, 'decrypt', false, 'Decryption failed', purpose);
           throw new Error('Failed to decrypt credential');
@@ -270,7 +259,7 @@ serve(async (req) => {
         
         if (service?.test_endpoint) {
           try {
-            const decryptedData = JSON.parse(decrypt(credential.encrypted_value));
+            const decryptedData = JSON.parse(await decrypt(credential.encrypted_value));
             
             // Build auth header based on type
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
