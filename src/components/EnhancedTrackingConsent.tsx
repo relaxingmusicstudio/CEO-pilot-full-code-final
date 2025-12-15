@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Eye, Shield, X } from "lucide-react";
+import { Eye, Shield, Mail, Sparkles, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,6 @@ const EnhancedTrackingConsent = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Check if we've already asked or have stored consent
     const hasAsked = localStorage.getItem(CONSENT_ASKED_KEY);
     const storedConsent = localStorage.getItem(CONSENT_STORAGE_KEY);
 
@@ -45,7 +44,6 @@ const EnhancedTrackingConsent = () => {
     }
 
     if (!hasAsked && !storedConsent) {
-      // Delay showing dialog for better UX
       const timer = setTimeout(() => setShowDialog(true), 3000);
       return () => clearTimeout(timer);
     }
@@ -65,7 +63,6 @@ const EnhancedTrackingConsent = () => {
     try {
       const visitorId = getVisitorId();
       
-      // Save to database
       const { error } = await supabase
         .from('user_consent')
         .upsert({
@@ -82,10 +79,8 @@ const EnhancedTrackingConsent = () => {
 
       if (error) {
         console.error('Error saving consent:', error);
-        // Still save locally even if DB fails
       }
 
-      // Save locally
       localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(prefs));
       localStorage.setItem(CONSENT_ASKED_KEY, "true");
       setPreferences(prefs);
@@ -126,27 +121,40 @@ const EnhancedTrackingConsent = () => {
 
   return (
     <Dialog open={showDialog} onOpenChange={setShowDialog}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5 text-primary" />
-            Help Us Improve Your Experience
-          </DialogTitle>
-          <DialogDescription>
-            Enable enhanced analytics to help us understand how you use our platform and provide better recommendations.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-md overflow-hidden p-0 animate-in slide-in-from-bottom-4 duration-500 ring-2 ring-primary/30 shadow-2xl shadow-primary/20">
+        {/* Gradient Header */}
+        <div className="bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-6 py-4 text-primary-foreground">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-primary-foreground">
+              <Sparkles className="h-6 w-6 animate-pulse" />
+              Unlock Personalized Insights
+            </DialogTitle>
+            <DialogDescription className="text-primary-foreground/90">
+              Get tailored recommendations and help us improve your experience
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4 py-4">
+        {/* Benefit Banner */}
+        <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg bg-accent/50 px-4 py-3 border border-accent">
+          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+          <p className="text-sm font-medium text-foreground">
+            Enable all for the best experience — it's anonymous & secure
+          </p>
+        </div>
+
+        <div className="space-y-3 px-6 py-4">
           {/* Enhanced Analytics */}
-          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Eye className="h-4 w-4" />
+          <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent p-4 transition-all hover:border-primary/40">
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <div className="rounded-lg bg-primary/10 p-1.5">
+                  <Eye className="h-4 w-4 text-primary" />
+                </div>
                 Enhanced Analytics
               </Label>
               <p className="text-xs text-muted-foreground">
-                Track click patterns and scroll behavior to improve UX. Data is anonymized.
+                Track patterns to improve UX • <span className="text-primary font-medium">Fully anonymized</span>
               </p>
             </div>
             <Switch
@@ -154,18 +162,21 @@ const EnhancedTrackingConsent = () => {
               onCheckedChange={(checked) =>
                 setPreferences((prev) => ({ ...prev, enhanced_analytics: checked }))
               }
+              className="data-[state=checked]:bg-primary"
             />
           </div>
 
           {/* Personalization */}
-          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Shield className="h-4 w-4" />
+          <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent p-4 transition-all hover:border-primary/40">
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <div className="rounded-lg bg-primary/10 p-1.5">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
                 Smart Personalization
               </Label>
               <p className="text-xs text-muted-foreground">
-                Get AI-powered recommendations based on your usage patterns.
+                AI-powered recommendations • <span className="text-primary font-medium">Just for you</span>
               </p>
             </div>
             <Switch
@@ -173,15 +184,21 @@ const EnhancedTrackingConsent = () => {
               onCheckedChange={(checked) =>
                 setPreferences((prev) => ({ ...prev, personalization: checked }))
               }
+              className="data-[state=checked]:bg-primary"
             />
           </div>
 
           {/* Marketing */}
-          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Product Updates</Label>
+          <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-muted bg-muted/30 p-4 transition-all hover:border-muted-foreground/30">
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <div className="rounded-lg bg-muted p-1.5">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                </div>
+                Product Updates
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Receive occasional emails about new features and tips.
+                New features & tips • <span className="font-medium">Unsubscribe anytime</span>
               </p>
             </div>
             <Switch
@@ -193,8 +210,14 @@ const EnhancedTrackingConsent = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Button onClick={handleAcceptAll} disabled={isSaving}>
+        <div className="flex flex-col gap-3 border-t bg-muted/30 px-6 py-5">
+          <Button 
+            onClick={handleAcceptAll} 
+            disabled={isSaving}
+            size="lg"
+            className="w-full bg-gradient-to-r from-primary to-primary/80 text-lg font-semibold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300 hover:scale-[1.02]"
+          >
+            <Sparkles className="mr-2 h-5 w-5" />
             Enable All & Continue
           </Button>
           <div className="flex gap-2">
@@ -208,7 +231,7 @@ const EnhancedTrackingConsent = () => {
             </Button>
             <Button
               variant="ghost"
-              className="flex-1"
+              className="flex-1 text-muted-foreground"
               onClick={handleDecline}
               disabled={isSaving}
             >
@@ -217,7 +240,7 @@ const EnhancedTrackingConsent = () => {
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="px-6 pb-4 text-xs text-muted-foreground text-center">
           You can change these preferences anytime in Settings.
         </p>
       </DialogContent>
