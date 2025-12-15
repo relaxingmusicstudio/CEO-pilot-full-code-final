@@ -1504,6 +1504,126 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_audit_log: {
+        Row: {
+          action_type: string
+          agent_name: string
+          compliance_status: string
+          consent_basis: string | null
+          created_at: string
+          data_source: string | null
+          id: string
+          metadata: Json | null
+          resource_url: string | null
+          risk_score: number | null
+          rule_checked: string | null
+        }
+        Insert: {
+          action_type: string
+          agent_name: string
+          compliance_status?: string
+          consent_basis?: string | null
+          created_at?: string
+          data_source?: string | null
+          id?: string
+          metadata?: Json | null
+          resource_url?: string | null
+          risk_score?: number | null
+          rule_checked?: string | null
+        }
+        Update: {
+          action_type?: string
+          agent_name?: string
+          compliance_status?: string
+          consent_basis?: string | null
+          created_at?: string
+          data_source?: string | null
+          id?: string
+          metadata?: Json | null
+          resource_url?: string | null
+          risk_score?: number | null
+          rule_checked?: string | null
+        }
+        Relationships: []
+      }
+      compliance_health: {
+        Row: {
+          blocked_actions: number | null
+          created_at: string
+          date: string
+          flagged_actions: number | null
+          health_score: number
+          id: string
+          passed_checks: number | null
+          risk_alerts: number | null
+          top_risk_areas: Json | null
+          total_checks: number | null
+        }
+        Insert: {
+          blocked_actions?: number | null
+          created_at?: string
+          date?: string
+          flagged_actions?: number | null
+          health_score?: number
+          id?: string
+          passed_checks?: number | null
+          risk_alerts?: number | null
+          top_risk_areas?: Json | null
+          total_checks?: number | null
+        }
+        Update: {
+          blocked_actions?: number | null
+          created_at?: string
+          date?: string
+          flagged_actions?: number | null
+          health_score?: number
+          id?: string
+          passed_checks?: number | null
+          risk_alerts?: number | null
+          top_risk_areas?: Json | null
+          total_checks?: number | null
+        }
+        Relationships: []
+      }
+      compliance_rules: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          enforcement_level: string
+          id: string
+          is_active: boolean
+          rule_key: string
+          rule_type: string
+          rule_value: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          enforcement_level?: string
+          id?: string
+          is_active?: boolean
+          rule_key: string
+          rule_type?: string
+          rule_value: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          enforcement_level?: string
+          id?: string
+          is_active?: boolean
+          rule_key?: string
+          rule_type?: string
+          rule_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consent_audit_log: {
         Row: {
           action: string
@@ -2147,6 +2267,50 @@ export type Database = {
           },
         ]
       }
+      enrichment_queue: {
+        Row: {
+          attempts: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          priority: number | null
+          processed_at: string | null
+          stage: string
+          status: string
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          stage?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          stage?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expansion_revenue: {
         Row: {
           change_amount: number | null
@@ -2587,6 +2751,101 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_enrichment_profiles: {
+        Row: {
+          annual_revenue_estimate: number | null
+          buying_signals: Json | null
+          call_responses: number | null
+          chat_interactions: number | null
+          company_size: string | null
+          consent_verified: boolean | null
+          contact_risk: string[] | null
+          content_downloads: number | null
+          created_at: string
+          email_opens: number | null
+          employee_count_estimate: number | null
+          engagement_score: number | null
+          enriched_data: Json | null
+          enrichment_source: string | null
+          fit_score: number | null
+          form_submissions: number | null
+          id: string
+          industry_match: boolean | null
+          intent_tags: string[] | null
+          interest_score: number | null
+          last_consent_date: string | null
+          lead_id: string | null
+          page_visits: number | null
+          routing_agent: string | null
+          segment: string | null
+          updated_at: string
+        }
+        Insert: {
+          annual_revenue_estimate?: number | null
+          buying_signals?: Json | null
+          call_responses?: number | null
+          chat_interactions?: number | null
+          company_size?: string | null
+          consent_verified?: boolean | null
+          contact_risk?: string[] | null
+          content_downloads?: number | null
+          created_at?: string
+          email_opens?: number | null
+          employee_count_estimate?: number | null
+          engagement_score?: number | null
+          enriched_data?: Json | null
+          enrichment_source?: string | null
+          fit_score?: number | null
+          form_submissions?: number | null
+          id?: string
+          industry_match?: boolean | null
+          intent_tags?: string[] | null
+          interest_score?: number | null
+          last_consent_date?: string | null
+          lead_id?: string | null
+          page_visits?: number | null
+          routing_agent?: string | null
+          segment?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annual_revenue_estimate?: number | null
+          buying_signals?: Json | null
+          call_responses?: number | null
+          chat_interactions?: number | null
+          company_size?: string | null
+          consent_verified?: boolean | null
+          contact_risk?: string[] | null
+          content_downloads?: number | null
+          created_at?: string
+          email_opens?: number | null
+          employee_count_estimate?: number | null
+          engagement_score?: number | null
+          enriched_data?: Json | null
+          enrichment_source?: string | null
+          fit_score?: number | null
+          form_submissions?: number | null
+          id?: string
+          industry_match?: boolean | null
+          intent_tags?: string[] | null
+          interest_score?: number | null
+          last_consent_date?: string | null
+          lead_id?: string | null
+          page_visits?: number | null
+          routing_agent?: string | null
+          segment?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_enrichment_profiles_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"

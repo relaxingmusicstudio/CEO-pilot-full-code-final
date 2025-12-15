@@ -206,3 +206,9 @@ verify_jwt = false
 
 [functions.activity-log]
 verify_jwt = false
+
+[functions.compliance-engine]
+verify_jwt = false
+
+[functions.lead-enrichment]
+verify_jwt = false
