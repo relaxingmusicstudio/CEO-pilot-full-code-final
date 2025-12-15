@@ -230,3 +230,6 @@ verify_jwt = false
 
 [functions.pattern-detector]
 verify_jwt = false
+
+[functions.client-billing]
+verify_jwt = false

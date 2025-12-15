@@ -35,6 +35,7 @@ import {
   Inbox,
   Calendar,
   Cog,
+  CreditCard,
 } from "lucide-react";
 
 interface NavItem {
@@ -98,6 +99,7 @@ const navGroups: NavGroup[] = [
     icon: Users,
     items: [
       { path: "/admin/clients", label: "Clients", icon: Users },
+      { path: "/admin/billing", label: "Billing", icon: CreditCard },
       { path: "/admin/accounts", label: "Accounts", icon: Building2 },
       { path: "/admin/onboarding", label: "Onboarding", icon: Calendar },
       { path: "/admin/agent/inbox", label: "Inbox", icon: Inbox },
