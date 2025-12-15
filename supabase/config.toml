@@ -248,3 +248,6 @@ verify_jwt = false
 
 [functions.test-billing-system]
 verify_jwt = false
+
+[functions.test-voice-agent]
+verify_jwt = false

@@ -33,6 +33,7 @@ import CEOVoiceAssistant from "@/components/CEOVoiceAssistant";
 import ComplianceEnrichmentWidget from "@/components/ceo/ComplianceEnrichmentWidget";
 import UserDirectivesWidget from "@/components/ceo/UserDirectivesWidget";
 import { FollowUpTasksWidget } from "@/components/ceo/FollowUpTasksWidget";
+import { VoiceAgentHealthCheck } from "@/components/ceo/VoiceAgentHealthCheck";
 
 interface Message {
   role: "user" | "assistant";
@@ -573,6 +574,19 @@ const CEOHub = () => {
 
             {/* Follow-up Tasks (Human Request Handling) */}
             <FollowUpTasksWidget />
+
+            {/* Voice Agent Health Check */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Mic className="h-4 w-4 text-primary" />
+                  Voice Agent Health
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <VoiceAgentHealthCheck />
+              </CardContent>
+            </Card>
 
             {/* User Commands Widget */}
             <UserDirectivesWidget />

@@ -160,6 +160,30 @@ serve(async (req) => {
             .eq('id', call_log_id);
         }
 
+        // Log to CRM - automation_logs
+        await supabase.from('automation_logs').insert({
+          function_name: 'voice-agent-handler',
+          status: 'completed',
+          metadata: {
+            event: 'message_collected',
+            lead_id,
+            topic,
+            contact_preference,
+            task_id: task.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // Log to lead_activities if lead_id exists
+        if (lead_id) {
+          await supabase.from('lead_activities').insert({
+            lead_id,
+            activity_type: 'voice_message_collected',
+            description: `AI collected message: ${topic}`,
+            metadata: { task_id: task.id, contact_preference, timeline_expectation },
+          });
+        }
+
         // Log activity
         await supabase.from('api_logs').insert({
           service: 'voice-agent-handler',
@@ -297,6 +321,20 @@ Generate a professional but friendly SMS (under 160 characters).`;
           .from('follow_up_tasks')
           .update(updateData)
           .eq('id', task_id);
+
+        // Log draft generation to CRM
+        await supabase.from('automation_logs').insert({
+          function_name: 'voice-agent-handler',
+          status: 'completed',
+          metadata: {
+            event: 'draft_generated',
+            task_id,
+            draft_type,
+            lead_name: task.leads?.name,
+            topic: task.topic,
+            timestamp: new Date().toISOString(),
+          },
+        });
 
         return new Response(JSON.stringify({
           success: true,
