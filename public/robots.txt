@@ -1,5 +1,5 @@
-# ApexLocal360 - AI Voice Agents for Plumbing Businesses
-# https://apexlocal360.com
+# AI CEO in a Box - AI Voice Agents for HVAC Businesses
+# https://ai-ceo-in-a-box.com
 
 # Default rules for all crawlers
 User-agent: *
@@ -7,10 +7,11 @@ Allow: /
 Crawl-delay: 1
 
 # Sitemap location
-Sitemap: https://apexlocal360.com/sitemap.xml
+Sitemap: https://ai-ceo-in-a-box.com/sitemap.xml
 
 # Block sensitive paths
 Disallow: /api/
+Disallow: /admin/
 Disallow: /.env
 Disallow: /node_modules/
 

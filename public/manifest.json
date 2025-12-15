@@ -1,6 +1,6 @@
 {
-  "name": "ApexLocal360 - HVAC Business Command Center",
-  "short_name": "ApexLocal360",
+  "name": "AI CEO in a Box - HVAC Business Command Center",
+  "short_name": "AI CEO Box",
   "description": "AI-powered HVAC business management platform with voice control and real-time analytics",
   "start_url": "/admin/ceo",
   "display": "standalone",
