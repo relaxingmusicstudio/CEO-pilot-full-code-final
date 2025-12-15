@@ -61,6 +61,11 @@ import UsageDashboard from "@/components/billing/UsageDashboard";
 import BillingAgentActivity from "@/components/billing/BillingAgentActivity";
 import PricingManager from "@/components/billing/PricingManager";
 import BillingHealthCheck from "@/components/billing/BillingHealthCheck";
+import PlaidLinkButton from "@/components/finance/PlaidLinkButton";
+import QuickBooksConnect from "@/components/finance/QuickBooksConnect";
+import PLDashboard from "@/components/finance/PLDashboard";
+import TransactionCategorizer from "@/components/finance/TransactionCategorizer";
+import { Landmark } from "lucide-react";
 
 interface InvoiceItem {
   description: string;
@@ -301,6 +306,10 @@ export default function AdminBilling() {
           <TabsTrigger value="health">
             <Activity className="h-4 w-4 mr-1" />
             Health
+          </TabsTrigger>
+          <TabsTrigger value="finance">
+            <Landmark className="h-4 w-4 mr-1" />
+            Finance
           </TabsTrigger>
         </TabsList>
 
