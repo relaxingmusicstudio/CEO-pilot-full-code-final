@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Task types for automatic model selection
+type TaskType = 'classification' | 'yes_no' | 'extraction' | 'summarization' | 'qa' | 'generation' | 'analysis' | 'reasoning' | 'multi_step';
+type TaskComplexity = 'simple' | 'standard' | 'complex';
+
 interface LLMRequest {
   messages: Array<{ role: string; content: string }>;
   model?: string;
@@ -16,6 +20,7 @@ interface LLMRequest {
   priority?: 'high' | 'medium' | 'low';
   cache_ttl?: number;
   skip_cache?: boolean;
+  task_type?: TaskType; // NEW: For automatic model selection
 }
 
 interface RateLimit {
@@ -30,6 +35,26 @@ interface RateLimit {
   is_active: boolean;
 }
 
+// Model tiers based on complexity
+const MODEL_TIERS = {
+  simple: 'google/gemini-2.5-flash-lite',    // Cheapest - 75% cost reduction
+  standard: 'google/gemini-2.5-flash',       // Default - balanced
+  complex: 'google/gemini-2.5-pro',          // Most capable - rare use
+} as const;
+
+// Map task types to complexity levels
+const TASK_COMPLEXITY_MAP: Record<TaskType, TaskComplexity> = {
+  classification: 'simple',
+  yes_no: 'simple',
+  extraction: 'simple',
+  summarization: 'standard',
+  qa: 'standard',
+  generation: 'standard',
+  analysis: 'complex',
+  reasoning: 'complex',
+  multi_step: 'complex',
+};
+
 // Cost estimates per 1M tokens (in USD)
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'google/gemini-2.5-flash': { input: 0.075, output: 0.30 },
@@ -40,6 +65,8 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'openai/gpt-5-nano': { input: 0.05, output: 0.20 },
 };
 
+// Extended cache TTL for common queries
+const EXTENDED_CACHE_TTL = 86400; // 24 hours for FAQ/common responses
 const DEFAULT_CACHE_TTL = 3600; // 1 hour default
 
 // Circuit breaker state
@@ -56,28 +83,33 @@ const circuitBreaker: CircuitBreakerState = {
 };
 
 const CIRCUIT_BREAKER_CONFIG = {
-  failureThreshold: 5,        // Open circuit after 5 consecutive failures
-  resetTimeout: 60000,        // Try again after 60 seconds
-  halfOpenRequests: 1,        // Allow 1 request in half-open state
+  failureThreshold: 5,
+  resetTimeout: 60000,
+  halfOpenRequests: 1,
 };
 
-// Fallback model priority (if primary fails, try these in order)
+// Fallback model priority
 const FALLBACK_MODELS = [
   'google/gemini-2.5-flash',
   'google/gemini-2.5-flash-lite',
   'openai/gpt-5-nano',
 ];
 
+function selectModelForTask(taskType?: TaskType, explicitModel?: string): string {
+  if (explicitModel) return explicitModel;
+  if (!taskType) return MODEL_TIERS.standard;
+  const complexity = TASK_COMPLEXITY_MAP[taskType] || 'standard';
+  return MODEL_TIERS[complexity];
+}
+
 function checkCircuitBreaker(model: string): { allowed: boolean; fallbackModel?: string } {
   const now = Date.now();
   
-  // Check if we should transition from open to half-open
   if (circuitBreaker.state === 'open') {
     if (now - circuitBreaker.lastFailure > CIRCUIT_BREAKER_CONFIG.resetTimeout) {
       console.log('[CircuitBreaker] Transitioning to half-open state');
       circuitBreaker.state = 'half-open';
     } else {
-      // Circuit is open, suggest fallback
       const fallback = FALLBACK_MODELS.find(m => m !== model);
       console.log(`[CircuitBreaker] Circuit open, suggesting fallback: ${fallback}`);
       return { allowed: false, fallbackModel: fallback };
@@ -105,7 +137,6 @@ function recordFailure() {
   }
 }
 
-// Audit logging helper
 async function logAudit(supabase: any, entry: {
   agent_name: string;
   action_type: string;
@@ -142,23 +173,28 @@ serve(async (req) => {
     const requestBody: LLMRequest = await req.json();
     const { 
       messages, 
-      model = 'google/gemini-2.5-flash', 
+      model: explicitModel, 
       stream = false, 
       max_tokens, 
       temperature,
       agent_name = 'unknown',
       priority = 'medium',
-      cache_ttl = DEFAULT_CACHE_TTL,
-      skip_cache = false
+      cache_ttl,
+      skip_cache = false,
+      task_type
     } = requestBody;
 
-    console.log(`[LLM Gateway] Request from ${agent_name}, priority: ${priority}, model: ${model}`);
+    // Smart model selection based on task type
+    const selectedModel = selectModelForTask(task_type, explicitModel);
+    const effectiveCacheTtl = cache_ttl || (task_type === 'qa' ? EXTENDED_CACHE_TTL : DEFAULT_CACHE_TTL);
+
+    console.log(`[LLM Gateway] Request from ${agent_name}, priority: ${priority}, model: ${selectedModel}, task: ${task_type || 'unspecified'}`);
 
     // Step 1: Check rate limits
     const rateLimitResult = await checkRateLimit(supabase, agent_name, priority);
     if (!rateLimitResult.allowed) {
       console.log(`[LLM Gateway] Rate limited: ${agent_name}, retry after: ${rateLimitResult.retryAfter}s`);
-      await logCost(supabase, agent_name, model, 0, 0, 0, false, priority, 0, false, 'Rate limited');
+      await logCost(supabase, agent_name, selectedModel, 0, 0, 0, false, priority, 0, false, 'Rate limited');
       return new Response(JSON.stringify({ 
         error: 'Rate limit exceeded', 
         retry_after: rateLimitResult.retryAfter 
@@ -174,27 +210,27 @@ serve(async (req) => {
 
     // Step 2: Check cache (for non-streaming requests)
     if (!stream && !skip_cache) {
-      const cachedResponse = await checkCache(supabase, messages, model);
+      const cachedResponse = await checkCache(supabase, messages, selectedModel);
       if (cachedResponse) {
         console.log(`[LLM Gateway] Cache hit for ${agent_name}`);
         await incrementCacheHit(supabase, cachedResponse.id);
-        await logCost(supabase, agent_name, model, cachedResponse.input_tokens || 0, cachedResponse.output_tokens || 0, cachedResponse.cost_estimate || 0, true, priority, Date.now() - startTime, true);
+        await logCost(supabase, agent_name, selectedModel, cachedResponse.input_tokens || 0, cachedResponse.output_tokens || 0, cachedResponse.cost_estimate || 0, true, priority, Date.now() - startTime, true);
         return new Response(JSON.stringify(cachedResponse.response_json), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT', 'X-Model-Tier': task_type ? TASK_COMPLEXITY_MAP[task_type] : 'standard' },
         });
       }
     }
 
     // Step 3: Check circuit breaker
-    let effectiveModel = model;
-    const circuitCheck = checkCircuitBreaker(model);
+    let effectiveModel = selectedModel;
+    const circuitCheck = checkCircuitBreaker(selectedModel);
     if (!circuitCheck.allowed && circuitCheck.fallbackModel) {
       console.log(`[LLM Gateway] Circuit breaker triggered, using fallback: ${circuitCheck.fallbackModel}`);
       effectiveModel = circuitCheck.fallbackModel;
       await logAudit(supabase, {
         agent_name: 'llm-gateway',
         action_type: 'circuit_breaker_triggered',
-        description: `Circuit open for ${model}, falling back to ${effectiveModel}`,
+        description: `Circuit open for ${selectedModel}, falling back to ${effectiveModel}`,
         success: true,
       });
     }
@@ -227,7 +263,6 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error(`[LLM Gateway] API error (${response.status}): ${errorText}`);
       
-      // Record failure for circuit breaker
       recordFailure();
       
       if (response.status === 429) {
@@ -248,17 +283,15 @@ serve(async (req) => {
       throw new Error(`LLM API error (${response.status}): ${errorText}`);
     }
     
-    // Record success for circuit breaker
     recordSuccess();
 
     // Step 5: Handle streaming
     if (stream) {
-      // For streaming, we can't cache but we still track usage
       await incrementUsage(supabase, agent_name);
       await logCost(supabase, agent_name, effectiveModel, 0, 0, 0, false, priority, Date.now() - startTime, true);
       
       return new Response(response.body, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'X-Cache': 'MISS' },
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'X-Cache': 'MISS', 'X-Model': effectiveModel },
       });
     }
 
@@ -266,24 +299,21 @@ serve(async (req) => {
     const result = await response.json();
     const latencyMs = Date.now() - startTime;
     
-    // Estimate tokens and cost
     const inputTokens = estimateTokens(messages);
     const outputTokens = result.usage?.completion_tokens || estimateTokens([{ role: 'assistant', content: result.choices?.[0]?.message?.content || '' }]);
     const costUsd = calculateCost(effectiveModel, inputTokens, outputTokens);
 
-    // Cache the response
     if (!skip_cache) {
-      await cacheResponse(supabase, messages, effectiveModel, result, inputTokens, outputTokens, costUsd, cache_ttl);
+      await cacheResponse(supabase, messages, effectiveModel, result, inputTokens, outputTokens, costUsd, effectiveCacheTtl);
     }
 
-    // Increment usage and log cost
     await incrementUsage(supabase, agent_name);
     await logCost(supabase, agent_name, effectiveModel, inputTokens, outputTokens, costUsd, false, priority, latencyMs, true);
 
     console.log(`[LLM Gateway] Success for ${agent_name}, model: ${effectiveModel}, cost: $${costUsd.toFixed(6)}, latency: ${latencyMs}ms`);
 
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-Model': effectiveModel, 'X-Cost': costUsd.toFixed(6) },
     });
 
   } catch (err) {
@@ -291,7 +321,6 @@ serve(async (req) => {
     console.error('[LLM Gateway] Error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     
-    // Log error to audit trail
     await logAudit(supabase, {
       agent_name: 'llm-gateway',
       action_type: 'llm_request_error',
@@ -311,7 +340,6 @@ serve(async (req) => {
 
 async function checkRateLimit(supabase: any, agentName: string, priority: string): Promise<{ allowed: boolean; retryAfter: number }> {
   try {
-    // Get rate limit config for this agent
     const { data: config } = await supabase
       .from('ai_rate_limits')
       .select('*')
@@ -319,16 +347,12 @@ async function checkRateLimit(supabase: any, agentName: string, priority: string
       .eq('is_active', true)
       .maybeSingle();
 
-    if (!config) {
-      // No config = no limit (allow all)
-      return { allowed: true, retryAfter: 0 };
-    }
+    if (!config) return { allowed: true, retryAfter: 0 };
 
     const now = new Date();
     const isOffHours = checkOffHours(now, config.off_hours_start, config.off_hours_end);
     const multiplier = isOffHours ? config.off_hours_multiplier : 1;
 
-    // Check minute window
     const minuteStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
     const { data: minuteUsage } = await supabase
       .from('ai_rate_limit_usage')
@@ -340,13 +364,11 @@ async function checkRateLimit(supabase: any, agentName: string, priority: string
 
     const minuteLimit = Math.floor(config.requests_per_minute * multiplier);
     if (minuteUsage && minuteUsage.request_count >= minuteLimit) {
-      // High priority requests can bypass minute limits
       if (priority !== 'high') {
         return { allowed: false, retryAfter: 60 - now.getSeconds() };
       }
     }
 
-    // Check hour window
     const hourStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
     const { data: hourUsage } = await supabase
       .from('ai_rate_limit_usage')
@@ -364,12 +386,12 @@ async function checkRateLimit(supabase: any, agentName: string, priority: string
     return { allowed: true, retryAfter: 0 };
   } catch (error) {
     console.error('[RateLimit] Error checking rate limit:', error);
-    // On error, allow the request
     return { allowed: true, retryAfter: 0 };
   }
 }
 
 function checkOffHours(now: Date, startTime: string, endTime: string): boolean {
+  if (!startTime || !endTime) return false;
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -377,7 +399,6 @@ function checkOffHours(now: Date, startTime: string, endTime: string): boolean {
   const endMinutes = endHour * 60 + endMin;
 
   if (startMinutes > endMinutes) {
-    // Crosses midnight (e.g., 22:00 - 06:00)
     return currentMinutes >= startMinutes || currentMinutes < endMinutes;
   }
   return currentMinutes >= startMinutes && currentMinutes < endMinutes;
@@ -397,7 +418,6 @@ async function incrementUsage(supabase: any, agentName: string) {
       p_window_type: window.type,
       p_window_start: window.start.toISOString()
     }).catch(() => {
-      // Fallback to upsert if RPC doesn't exist
       supabase
         .from('ai_rate_limit_usage')
         .upsert({
@@ -414,7 +434,6 @@ async function incrementUsage(supabase: any, agentName: string) {
 
 function generateCacheKey(messages: Array<{ role: string; content: string }>, model: string): string {
   const content = JSON.stringify({ messages, model });
-  // Simple hash function
   let hash = 0;
   for (let i = 0; i < content.length; i++) {
     const char = content.charCodeAt(i);
@@ -478,23 +497,19 @@ async function cacheResponse(
 
 async function incrementCacheHit(supabase: any, cacheId: string) {
   try {
-    await supabase.rpc('increment_cache_hit', { p_cache_id: cacheId }).catch(() => {
-      // Fallback
-      supabase
-        .from('ai_response_cache')
-        .update({ 
-          hit_count: supabase.raw('hit_count + 1'),
-          last_accessed_at: new Date().toISOString()
-        })
-        .eq('id', cacheId);
-    });
+    await supabase
+      .from('ai_response_cache')
+      .update({ 
+        hit_count: supabase.raw('hit_count + 1'),
+        last_accessed_at: new Date().toISOString()
+      })
+      .eq('id', cacheId);
   } catch (error) {
     console.error('[Cache] Error incrementing hit count:', error);
   }
 }
 
 function estimateTokens(messages: Array<{ role: string; content: string }>): number {
-  // Rough estimate: ~4 chars per token
   const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
   return Math.ceil(totalChars / 4);
 }

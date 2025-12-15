@@ -8,13 +8,12 @@ import {
   MicOff, 
   Phone, 
   PhoneOff, 
-  Volume2, 
-  VolumeX,
+  Volume2,
   Loader2,
   Sparkles,
   X
 } from "lucide-react";
-import Vapi from "@vapi-ai/web";
+import { useConversation } from "@elevenlabs/react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,70 +23,48 @@ interface CEOVoiceAssistantProps {
   onTranscript?: (text: string, role: "user" | "assistant") => void;
 }
 
-// CEO Assistant ID - this should be configured in Vapi dashboard
-const CEO_VAPI_ASSISTANT_ID = "299cdcb8-642d-4728-b434-196724f53ae6";
-
 const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantProps) => {
-  const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState<{ role: string; text: string }[]>([]);
   const [callDuration, setCallDuration] = useState(0);
-  const [volumeLevel, setVolumeLevel] = useState(0);
+  const [transcripts, setTranscripts] = useState<Array<{ role: string; text: string }>>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Vapi
-  useEffect(() => {
-    if (isOpen && !vapi) {
-      // Use the public key from environment or hardcoded for demo
-      const vapiInstance = new Vapi("6a190658-a99b-44be-a009-94a8110195bb");
-      setVapi(vapiInstance);
-
-      vapiInstance.on("call-start", () => {
-        console.log("CEO Voice call started");
-        setIsConnected(true);
-        setIsConnecting(false);
-        toast.success("Connected to CEO Assistant");
-      });
-
-      vapiInstance.on("call-end", () => {
-        console.log("CEO Voice call ended");
-        setIsConnected(false);
-        setIsConnecting(false);
-        setCallDuration(0);
-        setVolumeLevel(0);
-      });
-
-      vapiInstance.on("speech-start", () => {
-        setIsSpeaking(true);
-      });
-
-      vapiInstance.on("speech-end", () => {
-        setIsSpeaking(false);
-      });
-
-      vapiInstance.on("volume-level", (level: number) => {
-        setVolumeLevel(level);
-      });
-
-      vapiInstance.on("message", async (message: any) => {
-        console.log("Vapi message:", message);
-        if (message.type === "transcript" && message.transcript) {
-          const newEntry = { role: message.role || "user", text: message.transcript };
-          setTranscript((prev) => [...prev, newEntry]);
-          onTranscript?.(message.transcript, message.role as "user" | "assistant");
+  const conversation = useConversation({
+    onConnect: () => {
+      console.log("ElevenLabs CEO Voice connected");
+      setIsConnecting(false);
+      toast.success("Connected to CEO Assistant");
+    },
+    onDisconnect: () => {
+      console.log("ElevenLabs CEO Voice disconnected");
+      setCallDuration(0);
+    },
+    onMessage: async (message) => {
+      console.log("ElevenLabs message:", message);
+      
+      // Handle different message types
+      const messageType = (message as any).type;
+      if (messageType === "user_transcript" || messageType === "agent_response") {
+        const isUser = messageType === "user_transcript";
+        const text = isUser 
+          ? (message as any).user_transcription_event?.user_transcript 
+          : (message as any).agent_response_event?.agent_response;
+        
+        if (text) {
+          const role = isUser ? "user" : "assistant";
+          setTranscripts(prev => [...prev, { role, text }]);
+          onTranscript?.(text, role);
           
           // Log user voice input to directives system
-          if (message.role === "user") {
+          if (isUser) {
             try {
               await supabase.functions.invoke('user-input-logger', {
                 body: {
                   action: 'log_input',
-                  source: 'ceo_voice',
+                  source: 'ceo_voice_elevenlabs',
                   input_type: 'voice',
-                  content: message.transcript,
+                  content: text,
                   classify: true,
                 },
               });
@@ -96,42 +73,32 @@ const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantP
             }
           }
         }
-        if (message.type === "function-call") {
-          console.log("Function call:", message.functionCall);
-        }
-      });
-
-      vapiInstance.on("error", (error: any) => {
-        console.error("Vapi error:", error);
-        toast.error("Voice connection error. Please try again.");
-        setIsConnecting(false);
-      });
-    }
-
-    return () => {
-      if (vapi) {
-        vapi.stop();
       }
-    };
-  }, [isOpen, onTranscript]);
+    },
+    onError: (error) => {
+      console.error("ElevenLabs error:", error);
+      toast.error("Voice connection error. Please try again.");
+      setIsConnecting(false);
+    },
+  });
 
   // Auto-scroll transcript
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcript]);
+  }, [transcripts]);
 
   // Call duration timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isConnected) {
+    if (conversation.status === "connected") {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [conversation.status]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -140,44 +107,50 @@ const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantP
   };
 
   const startCall = useCallback(async () => {
-    if (!vapi) return;
-
     setIsConnecting(true);
-    setTranscript([]);
+    setTranscripts([]);
 
     try {
-      await vapi.start(CEO_VAPI_ASSISTANT_ID);
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Get conversation token from edge function
+      const { data, error } = await supabase.functions.invoke('elevenlabs-conversation-token');
+      
+      if (error || !data?.token) {
+        throw new Error(error?.message || 'Failed to get conversation token');
+      }
+
+      // Start ElevenLabs conversation
+      await conversation.startSession({
+        signedUrl: data.token,
+      });
     } catch (error) {
       console.error("Failed to start CEO voice call:", error);
-      toast.error("Could not connect to CEO Assistant. Check your configuration.");
+      toast.error("Could not connect to CEO Assistant. Please try again.");
       setIsConnecting(false);
     }
-  }, [vapi]);
+  }, [conversation]);
 
-  const endCall = useCallback(() => {
-    if (vapi) {
-      vapi.stop();
-    }
-  }, [vapi]);
+  const endCall = useCallback(async () => {
+    await conversation.endSession();
+  }, [conversation]);
 
   const toggleMute = useCallback(() => {
-    if (vapi) {
-      vapi.setMuted(!isMuted);
-      setIsMuted(!isMuted);
-    }
-  }, [vapi, isMuted]);
+    setIsMuted(!isMuted);
+    // ElevenLabs mute would be handled here if supported
+  }, [isMuted]);
 
-  const handleClose = () => {
-    if (vapi) {
-      vapi.stop();
-    }
-    setIsConnected(false);
-    setIsConnecting(false);
-    setTranscript([]);
+  const handleClose = async () => {
+    await conversation.endSession();
+    setTranscripts([]);
     onClose();
   };
 
   if (!isOpen) return null;
+
+  const isConnected = conversation.status === "connected";
+  const isSpeaking = conversation.isSpeaking;
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -263,15 +236,12 @@ const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantP
           ) : (
             // Active Call Screen
             <div className="space-y-4">
-              {/* AI Avatar with Volume Visualization */}
+              {/* AI Avatar with Speaking Indicator */}
               <div className="flex items-center justify-center">
                 <div 
                   className={`relative w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center transition-all duration-300 ${
                     isSpeaking ? "scale-110 shadow-lg shadow-primary/30" : ""
                   }`}
-                  style={{
-                    boxShadow: isSpeaking ? `0 0 ${20 + volumeLevel * 30}px rgba(var(--primary), ${0.3 + volumeLevel * 0.4})` : undefined
-                  }}
                 >
                   <Sparkles className="w-12 h-12 text-primary-foreground" />
                   {isSpeaking && (
@@ -295,10 +265,10 @@ const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantP
               </div>
 
               {/* Transcript */}
-              {transcript.length > 0 && (
+              {transcripts.length > 0 && (
                 <ScrollArea className="h-32 rounded-lg bg-muted/50 p-3" ref={scrollRef}>
                   <div className="space-y-2">
-                    {transcript.slice(-6).map((entry, i) => (
+                    {transcripts.slice(-6).map((entry, i) => (
                       <p 
                         key={i} 
                         className={`text-sm ${

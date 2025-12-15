@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2, CheckCircle, Clock, Search, Bot, Phone } from "lucide-react";
-import LiveVideoCall from "@/components/LiveVideoCall";
+import { ElevenLabsVoiceDemo } from "@/components/ElevenLabsVoiceDemo";
 import { useVisitor } from "@/contexts/VisitorContext";
 
 const transcriptData = [
@@ -22,7 +22,7 @@ const VoiceDemo = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
+  const [isVoiceDemoOpen, setIsVoiceDemoOpen] = useState(false);
   const [hasTrackedPlay, setHasTrackedPlay] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -83,7 +83,7 @@ const VoiceDemo = () => {
 
   const handleTryDemo = () => {
     trackCtaClick("demo-try-voice");
-    setIsVideoCallOpen(true);
+    setIsVoiceDemoOpen(true);
   };
 
   const stats = [
@@ -249,9 +249,10 @@ const VoiceDemo = () => {
         </div>
       </div>
 
-      <LiveVideoCall 
-        isOpen={isVideoCallOpen} 
-        onClose={() => setIsVideoCallOpen(false)} 
+      {/* ElevenLabs Voice Demo - Replaces VAPI/LiveVideoCall */}
+      <ElevenLabsVoiceDemo 
+        isOpen={isVoiceDemoOpen} 
+        onClose={() => setIsVoiceDemoOpen(false)} 
       />
     </section>
   );
