@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -34,14 +34,14 @@ import {
 interface NavItem {
   path: string;
   label: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }
 
 interface NavGroup {
   id: string;
   label: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
   defaultOpen?: boolean;
 }
@@ -176,7 +176,7 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
                 className={`w-full justify-between ${isGroupActive(group) ? 'bg-primary/10 text-primary' : ''}`}
               >
                 <span className="flex items-center gap-2">
-                  <group.icon className="h-4 w-4" />
+                  {React.createElement(group.icon, { className: "h-4 w-4" })}
                   {group.label}
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${openGroups.includes(group.id) ? 'rotate-180' : ''}`} />
@@ -191,7 +191,7 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
                   className={`w-full justify-start ${isActive(item.path) ? 'bg-primary text-primary-foreground' : ''}`}
                   onClick={() => handleNavigation(item.path)}
                 >
-                  <item.icon className="h-4 w-4 mr-2" />
+                  {React.createElement(item.icon, { className: "h-4 w-4 mr-2" })}
                   {item.label}
                   {item.badge && (
                     <Badge variant="destructive" className="ml-auto text-xs">
@@ -224,7 +224,7 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
               }
             `}
           >
-            <group.icon className="h-4 w-4" />
+            {React.createElement(group.icon, { className: "h-4 w-4" })}
             <span className="hidden md:inline">{group.label}</span>
             <ChevronDown className={`h-3 w-3 transition-transform ${openDropdown === group.id ? 'rotate-180' : ''}`} />
           </Button>
@@ -241,7 +241,7 @@ export const GroupedNavigation = ({ variant = "horizontal", className = "" }: Gr
                     className={`w-full justify-start ${isActive(item.path) ? 'bg-accent' : ''}`}
                     onClick={() => handleNavigation(item.path)}
                   >
-                    <item.icon className="h-4 w-4 mr-2" />
+                    {React.createElement(item.icon, { className: "h-4 w-4 mr-2" })}
                     {item.label}
                   </Button>
                 ))}
