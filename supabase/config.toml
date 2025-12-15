@@ -326,3 +326,9 @@ verify_jwt = false
 
 [functions.ceo-style-learner]
 verify_jwt = false
+
+[functions.sms-alert]
+verify_jwt = false
+
+[functions.predictive-churn]
+verify_jwt = false
