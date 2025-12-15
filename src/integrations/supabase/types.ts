@@ -5375,6 +5375,50 @@ export type Database = {
           },
         ]
       }
+      relationship_memory: {
+        Row: {
+          content: string
+          context: Json | null
+          created_at: string | null
+          id: string
+          importance_score: number | null
+          last_referenced_at: string | null
+          memory_type: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_referenced_at?: string | null
+          memory_type: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_referenced_at?: string | null
+          memory_type?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_memory_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_attribution: {
         Row: {
           agent_contributions: Json | null
@@ -6777,6 +6821,56 @@ export type Database = {
           visitor_id?: string | null
         }
         Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          celebration_preference: string | null
+          communication_style: string | null
+          created_at: string | null
+          id: string
+          notification_preferences: Json | null
+          preferred_name: string | null
+          tenant_id: string | null
+          timezone: string | null
+          updated_at: string | null
+          user_id: string | null
+          working_hours: Json | null
+        }
+        Insert: {
+          celebration_preference?: string | null
+          communication_style?: string | null
+          created_at?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          preferred_name?: string | null
+          tenant_id?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          working_hours?: Json | null
+        }
+        Update: {
+          celebration_preference?: string | null
+          communication_style?: string | null
+          created_at?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          preferred_name?: string | null
+          tenant_id?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          working_hours?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
