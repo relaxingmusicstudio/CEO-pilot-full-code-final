@@ -134,6 +134,15 @@ serve(async (req: Request): Promise<Response> => {
           result: { product_id: product.id, price_id: price.id },
         });
 
+        // Log to CRM timeline (for audit trail)
+        await supabase.from('automation_logs').insert({
+          function_name: 'billing-agent',
+          status: 'completed',
+          items_processed: 1,
+          metadata: { action: 'create_stripe_product', product_name: name, pricing_type },
+          completed_at: new Date().toISOString(),
+        });
+
         return new Response(JSON.stringify({ success: true, product: dbProduct }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -305,6 +314,16 @@ serve(async (req: Request): Promise<Response> => {
             .from('client_invoices')
             .update({ status: 'refunded' })
             .eq('id', invoice_id);
+
+          // Log refund to CRM timeline
+          await supabase.from('contact_timeline').insert({
+            contact_id: invoice.client_id,
+            event_type: 'billing_refund',
+            title: `Refund Processed: $${refundAmount}`,
+            description: `Refund issued for invoice. Reason: ${reason || 'Customer request'}`,
+            metadata: { invoice_id, refund_id: refund.id, amount: refundAmount },
+            source: 'billing_agent',
+          });
 
           return new Response(JSON.stringify({
             success: true,
@@ -507,20 +526,63 @@ serve(async (req: Request): Promise<Response> => {
               amount: invoice.amount,
               reason: `Invoice ${invoice.invoice_number} is ${daysPastDue} days past due`,
               ai_confidence: 0.85,
-              requires_human_review: daysPastDue > 30, // Flag for review if 30+ days
+              requires_human_review: daysPastDue > 30,
             })
             .select()
             .single();
 
+          // Log to CRM timeline
+          await supabase.from('contact_timeline').insert({
+            contact_id: invoice.client_id,
+            event_type: 'billing_dunning',
+            title: `Payment Reminder: Invoice ${invoice.invoice_number}`,
+            description: `Invoice $${invoice.amount} is ${daysPastDue} days overdue`,
+            metadata: { invoice_id: invoice.id, days_past_due: daysPastDue, action_id: action?.id },
+            source: 'billing_agent',
+          });
+
+          // Send dunning notifications via messaging-send
+          const client = invoice.clients as any;
+          if (client?.email) {
+            try {
+              await supabase.functions.invoke('messaging-send', {
+                body: {
+                  channel: 'email',
+                  to: client.email,
+                  subject: `Payment Reminder: Invoice ${invoice.invoice_number}`,
+                  content: `Dear ${client.name},\n\nYour invoice ${invoice.invoice_number} for $${invoice.amount} is ${daysPastDue} days overdue.\n\nPlease process payment at your earliest convenience to avoid any service interruptions.\n\nThank you,\nBilling Team`,
+                  metadata: { invoice_id: invoice.id, dunning_level: daysPastDue > 14 ? 'urgent' : 'reminder' }
+                }
+              });
+            } catch (err) {
+              console.error(`Failed to send dunning email: ${err}`);
+            }
+          }
+
+          // Send SMS for urgent cases (14+ days)
+          if (client?.phone && daysPastDue >= 14) {
+            try {
+              await supabase.functions.invoke('messaging-send', {
+                body: {
+                  channel: 'sms',
+                  to: client.phone,
+                  content: `Payment reminder: Invoice ${invoice.invoice_number} ($${invoice.amount}) is ${daysPastDue} days overdue. Please pay ASAP to avoid service interruption.`,
+                  metadata: { invoice_id: invoice.id }
+                }
+              });
+            } catch (err) {
+              console.error(`Failed to send dunning SMS: ${err}`);
+            }
+          }
+
           actions.push({
             invoice_id: invoice.id,
             invoice_number: invoice.invoice_number,
-            client: invoice.clients?.name,
+            client: client?.name,
             days_past_due: daysPastDue,
             action_id: action?.id,
+            notifications_sent: { email: !!client?.email, sms: client?.phone && daysPastDue >= 14 },
           });
-
-          // TODO: Send reminder email/SMS via messaging-send function
         }
 
         return new Response(JSON.stringify({
