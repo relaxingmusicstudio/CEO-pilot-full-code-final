@@ -245,3 +245,6 @@ verify_jwt = false
 
 [functions.voice-agent-handler]
 verify_jwt = false
+
+[functions.test-billing-system]
+verify_jwt = false

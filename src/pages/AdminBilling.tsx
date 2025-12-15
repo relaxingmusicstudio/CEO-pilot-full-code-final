@@ -54,11 +54,13 @@ import {
   FileText,
   Bot,
   Clock,
+  Activity,
 } from "lucide-react";
 import { format } from "date-fns";
 import UsageDashboard from "@/components/billing/UsageDashboard";
 import BillingAgentActivity from "@/components/billing/BillingAgentActivity";
 import PricingManager from "@/components/billing/PricingManager";
+import BillingHealthCheck from "@/components/billing/BillingHealthCheck";
 
 interface InvoiceItem {
   description: string;
@@ -295,6 +297,10 @@ export default function AdminBilling() {
           <TabsTrigger value="agent">
             <Bot className="h-4 w-4 mr-1" />
             AI Agent
+          </TabsTrigger>
+          <TabsTrigger value="health">
+            <Activity className="h-4 w-4 mr-1" />
+            Health
           </TabsTrigger>
         </TabsList>
 
@@ -585,6 +591,10 @@ export default function AdminBilling() {
 
         <TabsContent value="agent">
           <BillingAgentActivity />
+        </TabsContent>
+
+        <TabsContent value="health">
+          <BillingHealthCheck />
         </TabsContent>
       </Tabs>
       {/* View Invoice Dialog */}
