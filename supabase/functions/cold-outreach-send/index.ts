@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AI Bypass footer for all outbound messages
+const EMAIL_BYPASS_FOOTER_HTML = `
+<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+  <p style="margin: 0 0 8px 0;">
+    ⏸️ To pause automated messages: <strong>Reply STOP</strong>
+  </p>
+  <p style="margin: 0 0 8px 0;">
+    👋 To speak to a human: <strong>Reply HUMAN</strong>
+  </p>
+  <p style="margin: 16px 0 0 0; color: #9ca3af;">
+    ApexLocal360 AI Assistant
+  </p>
+</div>
+`;
+
+const SMS_BYPASS_FOOTER = `\n\nReply STOP to pause or HUMAN to talk to a person.`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,9 +34,46 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, campaign_id, contact_data, sequence_step } = await req.json();
+    const { action, campaign_id, contact_data, sequence_step, skip_bypass_footer } = await req.json();
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+    // Check system mode before executing outreach
+    if (action === 'execute_campaign') {
+      try {
+        const { data: modeConfig } = await supabase
+          .from('system_config')
+          .select('config_value')
+          .eq('config_key', 'current_mode')
+          .single();
+        
+        const currentMode = modeConfig?.config_value || 'growth';
+        
+        if (currentMode === 'vacation' || currentMode === 'emergency') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `Cold outreach blocked: System is in ${currentMode} mode`,
+            mode: currentMode
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        if (currentMode === 'maintenance') {
+          console.log('[cold-outreach] Skipping cold outreach in maintenance mode');
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Cold outreach paused in maintenance mode',
+            processed: 0
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (e) {
+        console.log('[cold-outreach] Could not check system mode, proceeding');
+      }
+    }
 
     if (action === 'create_campaign') {
       const { data: campaign, error } = await supabase
@@ -135,6 +189,15 @@ serve(async (req) => {
         let subject = (sequence.subject || '')
           .replace(/{{first_name}}/g, contact.first_name || '')
           .replace(/{{company}}/g, contact.company || '');
+
+        // ✅ ADD AI BYPASS FOOTER TO ALL MESSAGES
+        if (!skip_bypass_footer) {
+          if (sequence.channel === 'email') {
+            body = body + EMAIL_BYPASS_FOOTER_HTML;
+          } else if (sequence.channel === 'sms') {
+            body = body + SMS_BYPASS_FOOTER;
+          }
+        }
 
         // Create send record
         const { data: sendRecord } = await supabase
@@ -257,10 +320,20 @@ serve(async (req) => {
         })
         .eq('id', campaign_id);
 
+      // Log to automation_logs
+      await supabase.from('automation_logs').insert({
+        function_name: 'cold-outreach-send',
+        status: 'completed',
+        items_processed: contacts.length,
+        items_created: processed,
+        metadata: { campaign_id, errors, bypass_footer_added: !skip_bypass_footer }
+      });
+
       return new Response(JSON.stringify({
         success: true,
         processed,
         errors,
+        bypass_footer_added: !skip_bypass_footer
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AI Bypass footer for all outbound SMS
+const SMS_BYPASS_FOOTER = `\n\nReply STOP to pause or HUMAN to talk to a person.`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,7 +20,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, campaign_id, message, recipients, phone_number } = await req.json();
+    const { action, campaign_id, message, recipients, phone_number, skip_bypass_footer } = await req.json();
 
     // Check if Twilio is configured
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
@@ -25,6 +28,32 @@ serve(async (req) => {
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
     const twilioConfigured = twilioAccountSid && twilioAuthToken && twilioPhoneNumber;
+
+    // Check system mode before sending campaign
+    if (action === 'send_campaign') {
+      try {
+        const { data: modeConfig } = await supabase
+          .from('system_config')
+          .select('config_value')
+          .eq('config_key', 'current_mode')
+          .single();
+        
+        const currentMode = modeConfig?.config_value || 'growth';
+        
+        if (currentMode === 'vacation' || currentMode === 'emergency') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `SMS blast blocked: System is in ${currentMode} mode`,
+            mode: currentMode
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (e) {
+        console.log('[sms-blast] Could not check system mode, proceeding');
+      }
+    }
 
     if (action === 'create_campaign') {
       // Create SMS campaign
@@ -92,6 +121,11 @@ serve(async (req) => {
       let failedCount = 0;
       let optOutCount = 0;
 
+      // ✅ ADD AI BYPASS FOOTER TO CAMPAIGN MESSAGE
+      const messageWithFooter = skip_bypass_footer 
+        ? campaign.message 
+        : campaign.message + SMS_BYPASS_FOOTER;
+
       for (const recipient of recipients || []) {
         // Skip opt-outs
         if (optOutNumbers.has(recipient.phone_number)) {
@@ -105,7 +139,7 @@ serve(async (req) => {
 
         if (!twilioConfigured) {
           // Mock send
-          console.log('[MOCK] SMS to:', recipient.phone_number, '- Message:', campaign.message);
+          console.log('[MOCK] SMS to:', recipient.phone_number, '- Message:', messageWithFooter);
           
           await supabase
             .from('sms_campaign_recipients')
@@ -127,7 +161,7 @@ serve(async (req) => {
           const smsParams = new URLSearchParams({
             To: recipient.phone_number,
             From: twilioPhoneNumber,
-            Body: campaign.message,
+            Body: messageWithFooter,
             StatusCallback: `${Deno.env.get('SUPABASE_URL')}/functions/v1/sms-status-webhook`,
           });
 
@@ -188,25 +222,38 @@ serve(async (req) => {
         })
         .eq('id', campaign_id);
 
+      // Log to automation_logs
+      await supabase.from('automation_logs').insert({
+        function_name: 'sms-blast',
+        status: 'completed',
+        items_processed: (recipients?.length || 0),
+        items_created: sentCount,
+        metadata: { campaign_id, bypass_footer_added: !skip_bypass_footer }
+      });
+
       return new Response(JSON.stringify({
         success: true,
         mock: !twilioConfigured,
         sent_count: sentCount,
         failed_count: failedCount,
         opt_out_count: optOutCount,
+        bypass_footer_added: !skip_bypass_footer
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
     } else if (action === 'send_single') {
-      // Send single SMS
+      // Send single SMS - also add footer unless skipped
+      const messageWithFooter = skip_bypass_footer ? message : message + SMS_BYPASS_FOOTER;
+      
       if (!twilioConfigured) {
-        console.log('[MOCK] Single SMS to:', phone_number, '- Message:', message);
+        console.log('[MOCK] Single SMS to:', phone_number, '- Message:', messageWithFooter);
         
         return new Response(JSON.stringify({
           success: true,
           mock: true,
           message: 'Twilio not configured - SMS simulated',
+          bypass_footer_added: !skip_bypass_footer
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -217,7 +264,7 @@ serve(async (req) => {
       const smsParams = new URLSearchParams({
         To: phone_number,
         From: twilioPhoneNumber,
-        Body: message,
+        Body: messageWithFooter,
       });
 
       const response = await fetch(twilioUrl, {
@@ -239,6 +286,7 @@ serve(async (req) => {
         success: true,
         message_sid: data.sid,
         status: data.status,
+        bypass_footer_added: !skip_bypass_footer
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
