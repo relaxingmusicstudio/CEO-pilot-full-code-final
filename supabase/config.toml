@@ -251,3 +251,21 @@ verify_jwt = false
 
 [functions.test-voice-agent]
 verify_jwt = false
+
+[functions.video-production-coordinator]
+verify_jwt = false
+
+[functions.video-router]
+verify_jwt = false
+
+[functions.video-editor-agent]
+verify_jwt = false
+
+[functions.video-quality-agent]
+verify_jwt = false
+
+[functions.video-cost-agent]
+verify_jwt = false
+
+[functions.video-provider-monitor]
+verify_jwt = false

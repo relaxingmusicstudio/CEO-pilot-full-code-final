@@ -5483,6 +5483,357 @@ export type Database = {
         }
         Relationships: []
       }
+      video_assets: {
+        Row: {
+          asset_type: string
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          file_url: string | null
+          id: string
+          metadata: Json | null
+          mime_type: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          mime_type?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          mime_type?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      video_generation_events: {
+        Row: {
+          ai_decision_reason: string | null
+          cost_cents: number | null
+          created_at: string | null
+          duration_seconds: number | null
+          error_message: string | null
+          fallback_from: string | null
+          id: string
+          latency_ms: number | null
+          project_id: string | null
+          provider: string
+          quality_score: number | null
+          request_params: Json | null
+          status: string | null
+          video_id: string | null
+        }
+        Insert: {
+          ai_decision_reason?: string | null
+          cost_cents?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          error_message?: string | null
+          fallback_from?: string | null
+          id?: string
+          latency_ms?: number | null
+          project_id?: string | null
+          provider: string
+          quality_score?: number | null
+          request_params?: Json | null
+          status?: string | null
+          video_id?: string | null
+        }
+        Update: {
+          ai_decision_reason?: string | null
+          cost_cents?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          error_message?: string | null
+          fallback_from?: string | null
+          id?: string
+          latency_ms?: number | null
+          project_id?: string | null
+          provider?: string
+          quality_score?: number | null
+          request_params?: Json | null
+          status?: string | null
+          video_id?: string | null
+        }
+        Relationships: []
+      }
+      video_project_items: {
+        Row: {
+          asset_id: string | null
+          content: string | null
+          created_at: string | null
+          duration_ms: number
+          id: string
+          item_type: string
+          layer_props: Json | null
+          project_id: string
+          start_time_ms: number
+          track_index: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          duration_ms?: number
+          id?: string
+          item_type: string
+          layer_props?: Json | null
+          project_id: string
+          start_time_ms?: number
+          track_index?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          duration_ms?: number
+          id?: string
+          item_type?: string
+          layer_props?: Json | null
+          project_id?: string
+          start_time_ms?: number
+          track_index?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_project_items_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "video_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_project_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "video_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          quality_check_passed: boolean | null
+          quality_check_result: Json | null
+          render_url: string | null
+          settings: Json | null
+          status: string | null
+          template_id: string | null
+          thumbnail_url: string | null
+          title: string
+          total_cost_cents: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          quality_check_passed?: boolean | null
+          quality_check_result?: Json | null
+          render_url?: string | null
+          settings?: Json | null
+          status?: string | null
+          template_id?: string | null
+          thumbnail_url?: string | null
+          title: string
+          total_cost_cents?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          quality_check_passed?: boolean | null
+          quality_check_result?: Json | null
+          render_url?: string | null
+          settings?: Json | null
+          status?: string | null
+          template_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_cost_cents?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      video_provider_config: {
+        Row: {
+          api_key_configured: boolean | null
+          capabilities: Json | null
+          cost_per_second_cents: number | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          max_duration_seconds: number | null
+          priority: number | null
+          provider: string
+          quality_score: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_configured?: boolean | null
+          capabilities?: Json | null
+          cost_per_second_cents?: number | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_duration_seconds?: number | null
+          priority?: number | null
+          provider: string
+          quality_score?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_configured?: boolean | null
+          capabilities?: Json | null
+          cost_per_second_cents?: number | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_duration_seconds?: number | null
+          priority?: number | null
+          provider?: string
+          quality_score?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      video_provider_health: {
+        Row: {
+          auto_disable_threshold: number | null
+          avg_latency_ms: number | null
+          consecutive_failures: number | null
+          created_at: string | null
+          id: string
+          is_auto_disabled: boolean | null
+          last_failure_at: string | null
+          last_health_check_at: string | null
+          last_success_at: string | null
+          provider: string
+          status: string | null
+          success_rate: number | null
+          total_cost_cents: number | null
+          total_failures: number | null
+          total_seconds_generated: number | null
+          total_videos_generated: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_disable_threshold?: number | null
+          avg_latency_ms?: number | null
+          consecutive_failures?: number | null
+          created_at?: string | null
+          id?: string
+          is_auto_disabled?: boolean | null
+          last_failure_at?: string | null
+          last_health_check_at?: string | null
+          last_success_at?: string | null
+          provider: string
+          status?: string | null
+          success_rate?: number | null
+          total_cost_cents?: number | null
+          total_failures?: number | null
+          total_seconds_generated?: number | null
+          total_videos_generated?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_disable_threshold?: number | null
+          avg_latency_ms?: number | null
+          consecutive_failures?: number | null
+          created_at?: string | null
+          id?: string
+          is_auto_disabled?: boolean | null
+          last_failure_at?: string | null
+          last_health_check_at?: string | null
+          last_success_at?: string | null
+          provider?: string
+          status?: string | null
+          success_rate?: number | null
+          total_cost_cents?: number | null
+          total_failures?: number | null
+          total_seconds_generated?: number | null
+          total_videos_generated?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      video_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          duration_estimate_seconds: number | null
+          id: string
+          is_system: boolean | null
+          name: string
+          structure: Json
+          thumbnail_url: string | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_estimate_seconds?: number | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          structure?: Json
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_estimate_seconds?: number | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          structure?: Json
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       visitors: {
         Row: {
           browser: string | null
