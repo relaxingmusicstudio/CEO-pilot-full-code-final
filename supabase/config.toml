@@ -200,3 +200,9 @@ verify_jwt = false
 
 [functions.human-bypass]
 verify_jwt = false
+
+[functions.daily-brief]
+verify_jwt = false
+
+[functions.activity-log]
+verify_jwt = false

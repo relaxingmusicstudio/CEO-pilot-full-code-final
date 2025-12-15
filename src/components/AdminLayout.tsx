@@ -2,63 +2,20 @@ import { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Brain,
-  BarChart3,
-  MessageSquare,
-  Users,
-  Zap,
-  Settings,
-  FileText,
-  Share2,
-  Megaphone,
   Home,
   LogOut,
   ChevronLeft,
-  GitBranch,
-  Youtube,
-  Phone,
-  Mail,
-  LayoutGrid,
-  Target,
-  Activity,
-  Building2,
-  Shield,
-  UserCheck,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePWA } from "@/hooks/usePWA";
+import { GroupedNavigation } from "@/components/GroupedNavigation";
 
 interface AdminLayoutProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
 }
-
-const navItems = [
-  { path: "/admin/ceo", label: "CEO Console", icon: Brain },
-  { path: "/admin/control-panel", label: "Control", icon: Shield },
-  { path: "/admin/pipeline", label: "Pipeline", icon: Target },
-  { path: "/admin/accounts", label: "Accounts", icon: Building2 },
-  { path: "/admin/crm", label: "CRM", icon: LayoutGrid },
-  { path: "/admin/dialer", label: "Dialer", icon: Phone },
-  { path: "/admin/outreach", label: "Outreach", icon: Mail },
-  { path: "/admin/sms-blast", label: "SMS Blast", icon: MessageSquare },
-  { path: "/admin/agent/funnels", label: "Funnels", icon: GitBranch },
-  { path: "/admin/agent/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/admin/agent/inbox", label: "Inbox", icon: MessageSquare },
-  { path: "/admin/leads", label: "Leads", icon: Users },
-  { path: "/admin/clients", label: "Clients", icon: Users },
-  { path: "/admin/onboarding", label: "Onboarding", icon: Zap },
-  { path: "/admin/agent/content", label: "Content", icon: FileText },
-  { path: "/admin/agent/youtube", label: "YouTube", icon: Youtube },
-  { path: "/admin/agent/social", label: "Social", icon: Share2 },
-  { path: "/admin/agent/ads", label: "Ads", icon: Megaphone },
-  { path: "/admin/agent/sequences", label: "Sequences", icon: Zap },
-  { path: "/admin/automation", label: "Automation", icon: Zap },
-  { path: "/admin/bypass-queue", label: "Bypass Queue", icon: UserCheck },
-  { path: "/admin/system-health", label: "System Health", icon: Activity },
-  { path: "/admin/settings", label: "Settings", icon: Settings },
-];
 
 const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
   const navigate = useNavigate();
@@ -126,30 +83,8 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
 
         {/* Navigation */}
         <div className="border-t border-primary-foreground/10">
-          <div className="container">
-            <nav className="flex gap-1 overflow-x-auto py-2 -mb-px">
-              {navItems.map((item) => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <Button
-                    key={item.path}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(item.path)}
-                    className={`
-                      flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg transition-all
-                      ${isActive 
-                        ? "bg-primary-foreground/20 text-primary-foreground" 
-                        : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      }
-                    `}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                  </Button>
-                );
-              })}
-            </nav>
+          <div className="container py-2">
+            <GroupedNavigation variant="horizontal" />
           </div>
         </div>
       </header>
