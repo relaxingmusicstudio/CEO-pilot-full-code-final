@@ -14,6 +14,13 @@ serve(async (req) => {
   try {
     const { topic, platform, style = "professional", idea_id } = await req.json();
 
+    if (!topic) {
+      return new Response(JSON.stringify({ error: "topic is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
