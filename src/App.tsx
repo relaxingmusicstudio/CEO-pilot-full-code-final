@@ -102,21 +102,21 @@ const App = () => (
                 {/* Unified Dashboard - Single Entry Point */}
                 <Route path="/app" element={<ProtectedRoute requireAdmin><UnifiedDashboard /></ProtectedRoute>} />
                 
-                {/* Detail Views with DualWorkspaceLayout */}
-                <Route path="/app/details" element={<ProtectedRoute requireAdmin><DualWorkspaceLayout /></ProtectedRoute>}>
-                  <Route path="ceo" element={<AICEODashboard />} />
-                  <Route path="command-center" element={<CommandCenterHome />} />
-                  <Route path="crm" element={<AdminCRM />} />
-                  <Route path="pipeline" element={<AdminPipeline />} />
-                  <Route path="content" element={<AdminContent />} />
-                  <Route path="sequences" element={<AdminSequences />} />
-                  <Route path="clients" element={<AdminClients />} />
-                  <Route path="approvals" element={<AdminApprovalQueue />} />
-                  <Route path="vault" element={<KnowledgeVault />} />
-                  <Route path="system-health" element={<AdminSystemHealth />} />
-                  <Route path="settings" element={<AdminSettings />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
-                </Route>
+                {/* AI CEO Dashboard */}
+                <Route path="/app/ceo" element={<ProtectedRoute requireAdmin><AICEODashboard /></ProtectedRoute>} />
+                
+                {/* Command Center Routes */}
+                <Route path="/app/command-center" element={<ProtectedRoute requireAdmin><CommandCenterHome /></ProtectedRoute>} />
+                <Route path="/app/command-center/crm" element={<ProtectedRoute requireAdmin><AdminCRM /></ProtectedRoute>} />
+                <Route path="/app/command-center/pipeline" element={<ProtectedRoute requireAdmin><AdminPipeline /></ProtectedRoute>} />
+                <Route path="/app/command-center/content" element={<ProtectedRoute requireAdmin><AdminContent /></ProtectedRoute>} />
+                <Route path="/app/command-center/sequences" element={<ProtectedRoute requireAdmin><AdminSequences /></ProtectedRoute>} />
+                <Route path="/app/command-center/clients" element={<ProtectedRoute requireAdmin><AdminClients /></ProtectedRoute>} />
+                <Route path="/app/command-center/approvals" element={<ProtectedRoute requireAdmin><AdminApprovalQueue /></ProtectedRoute>} />
+                <Route path="/app/command-center/vault" element={<ProtectedRoute requireAdmin><KnowledgeVault /></ProtectedRoute>} />
+                <Route path="/app/command-center/system-health" element={<ProtectedRoute requireAdmin><AdminSystemHealth /></ProtectedRoute>} />
+                <Route path="/app/command-center/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
+                <Route path="/app/command-center/analytics" element={<ProtectedRoute requireAdmin><AdminAnalytics /></ProtectedRoute>} />
                 
                 {/* Legacy Admin Routes */}
                 <Route path="/admin/analytics" element={<ProtectedRoute requireAdmin><AdminAnalytics /></ProtectedRoute>} />

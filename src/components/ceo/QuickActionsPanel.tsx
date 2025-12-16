@@ -20,17 +20,17 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "Hot Leads", icon: Zap, path: "/admin/leads?filter=hot", variant: "default" },
-  { label: "Approve Content", icon: CheckCircle2, path: "/admin/approval-queue", variant: "outline" },
-  { label: "Pipeline", icon: Target, path: "/admin/pipeline", variant: "outline" },
-  { label: "Analytics", icon: BarChart3, path: "/admin/analytics", variant: "outline" },
+  { label: "Hot Leads", icon: Zap, path: "/app/command-center/crm?filter=hot", variant: "default" },
+  { label: "Approve Content", icon: CheckCircle2, path: "/app/command-center/approvals", variant: "outline" },
+  { label: "Pipeline", icon: Target, path: "/app/command-center/pipeline", variant: "outline" },
+  { label: "Analytics", icon: BarChart3, path: "/app/command-center/analytics", variant: "outline" },
 ];
 
 const SECONDARY_ACTIONS: QuickAction[] = [
-  { label: "CRM", icon: Users, path: "/admin/crm" },
-  { label: "Content", icon: FileText, path: "/admin/content" },
-  { label: "Dialer", icon: Phone, path: "/admin/dialer" },
-  { label: "Settings", icon: Settings, path: "/admin/settings" },
+  { label: "CRM", icon: Users, path: "/app/command-center/crm" },
+  { label: "Content", icon: FileText, path: "/app/command-center/content" },
+  { label: "Dialer", icon: Phone, path: "/app/command-center/sequences" },
+  { label: "Settings", icon: Settings, path: "/app/command-center/settings" },
 ];
 
 export function QuickActionsPanel() {
