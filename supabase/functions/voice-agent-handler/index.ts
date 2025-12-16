@@ -481,8 +481,13 @@ Generate a professional but friendly SMS (under 160 characters).`;
     }
   } catch (error) {
     console.error('Voice agent handler error:', error);
+    const err: any = error;
+    const message = err?.message || err?.error?.message || (typeof err === 'string' ? err : 'Unknown error');
+    const code = err?.code;
+
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: message,
+      code,
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
