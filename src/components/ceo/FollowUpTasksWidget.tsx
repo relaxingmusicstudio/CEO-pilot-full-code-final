@@ -37,7 +37,7 @@ interface FollowUpTask {
   ai_draft_script: string | null;
   ai_draft_sms: string | null;
   call_logs: { transcription: string | null; duration_seconds: number | null } | null;
-  leads: { name: string | null; email: string | null; phone: string | null; company: string | null } | null;
+  leads: { name: string | null; email: string | null; phone: string | null; business_name: string | null } | null;
 }
 
 export function FollowUpTasksWidget() {
@@ -46,14 +46,14 @@ export function FollowUpTasksWidget() {
   const [editedContent, setEditedContent] = useState<Record<string, any>>({});
   const [generatingDraft, setGeneratingDraft] = useState<string | null>(null);
 
-  const { data: tasks, isLoading } = useQuery({
+  const { data: tasks, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['follow-up-tasks'],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('voice-agent-handler', {
         body: { action: 'get_pending_tasks', limit: 20 },
       });
       if (error) throw error;
-      return data.tasks as FollowUpTask[];
+      return (data?.tasks || []) as FollowUpTask[];
     },
     refetchInterval: 30000,
   });
@@ -198,6 +198,31 @@ export function FollowUpTasksWidget() {
     );
   }
 
+  if (isError) {
+    const message = (error as any)?.message || "Voice follow-up service is temporarily unavailable.";
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5" />
+              Follow-up Tasks
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Retry"}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-sm font-medium">Couldn't load follow-up tasks</p>
+            <p className="text-xs text-muted-foreground mt-1">{message}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -263,8 +288,8 @@ export function FollowUpTasksWidget() {
                       {/* Task Details */}
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Company:</span>{' '}
-                          {task.leads?.company || 'N/A'}
+                          <span className="text-muted-foreground">Business:</span>{' '}
+                          {task.leads?.business_name || 'N/A'}
                         </div>
                         <div>
                           <span className="text-muted-foreground">Timeline:</span>{' '}
