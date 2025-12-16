@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +16,28 @@ import {
   Target,
   AlertCircle,
   Mic,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import CEOVoiceAssistant from "./CEOVoiceAssistant";
 import FeedbackButtons from "./FeedbackButtons";
+import StrategicPlanWidget from "./ceo/StrategicPlanWidget";
+
+interface AgentDelegation {
+  id: string;
+  agent: string;
+  task: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  result?: string;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
   suggestedActions?: string[];
+  delegations?: AgentDelegation[];
 }
 
 interface CEOChatPanelProps {
@@ -35,10 +46,10 @@ interface CEOChatPanelProps {
 }
 
 const QUICK_ACTIONS = [
-  { label: "Weekly summary", query: "Give me a weekly performance summary" },
-  { label: "Top channels", query: "Which traffic channels are performing best?" },
+  { label: "What's the plan?", query: "Show me the current 2-week strategic plan" },
+  { label: "Status update", query: "What's been accomplished since we last talked?" },
   { label: "Hot leads", query: "Show me today's hottest leads" },
-  { label: "Revenue leaks", query: "Where am I losing the most money?" },
+  { label: "Revenue focus", query: "What should we focus on to maximize revenue this week?" },
 ];
 
 const COMPLETION_PHRASES = [
@@ -46,11 +57,18 @@ const COMPLETION_PHRASES = [
   "goodbye", "bye", "that's it", "all done", "nothing else"
 ];
 
+const AGENT_LABELS: Record<string, { label: string; icon: string }> = {
+  content: { label: "Content Agent", icon: "📝" },
+  ads: { label: "Ads Agent", icon: "📢" },
+  sequences: { label: "Sequences Agent", icon: "📧" },
+  inbox: { label: "Inbox Agent", icon: "💬" },
+  social: { label: "Social Agent", icon: "🌐" },
+};
+
 // Parse suggested actions from AI response
 function parseSuggestedActions(content: string): string[] {
   const actions: string[] = [];
   
-  // Look for numbered options like "1. Do X" or "- Do X" or bullet points
   const patterns = [
     /(?:Would you like to|Want me to|Should I|Options?:)\s*(?:\n|:)?\s*((?:[1-3•\-\*]\.?\s+[^\n]+\n?)+)/gi,
     /(?:\*\*What would you like to do\?\*\*|What's next\?)\s*(?:\n)?\s*((?:[•\-\*]\s+[^\n]+\n?)+)/gi,
@@ -69,7 +87,6 @@ function parseSuggestedActions(content: string): string[] {
     }
   }
   
-  // Also look for question-based options
   const questionMatch = content.match(/(?:or should we|or do you want to|or would you prefer)\s+([^?]+)\?/gi);
   if (questionMatch && actions.length < 3) {
     for (const match of questionMatch.slice(0, 2)) {
@@ -83,6 +100,26 @@ function parseSuggestedActions(content: string): string[] {
   return actions.slice(0, 3);
 }
 
+// Parse agent delegations from AI response
+function parseDelegations(content: string): AgentDelegation[] {
+  const delegations: AgentDelegation[] = [];
+  const pattern = /🤖\s*\*\*Delegating to ([^*]+)\*\*:\s*([^\n]+)/gi;
+  let match;
+  
+  while ((match = pattern.exec(content)) !== null) {
+    const agentName = match[1].toLowerCase().trim();
+    const task = match[2].trim();
+    delegations.push({
+      id: `del-${Date.now()}-${delegations.length}`,
+      agent: agentName,
+      task,
+      status: 'in_progress'
+    });
+  }
+  
+  return delegations;
+}
+
 export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPanelProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -90,18 +127,102 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   const [streamingContent, setStreamingContent] = useState("");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [conversationComplete, setConversationComplete] = useState(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [pendingCorrection, setPendingCorrection] = useState<{
     query: string;
     response: string;
     index: number;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const initialLoadRef = useRef(false);
+
+  // Load conversation on mount
+  useEffect(() => {
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      loadConversation();
+    }
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streamingContent]);
+
+  const loadConversation = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ceo_conversations')
+        .select('*')
+        .eq('is_active', true)
+        .order('last_message_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading conversation:', error);
+        return;
+      }
+
+      if (data && data.messages) {
+        const loadedMessages = (data.messages as any[]).map((m: any) => ({
+          ...m,
+          timestamp: new Date(m.timestamp)
+        }));
+        setMessages(loadedMessages);
+        setConversationId(data.id);
+        setIsReturningUser(loadedMessages.length > 0);
+      }
+    } catch (err) {
+      console.error('Failed to load conversation:', err);
+    }
+  };
+
+  const saveConversation = useCallback(async (newMessages: Message[]) => {
+    try {
+      const messagesToSave = newMessages.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp.toISOString(),
+        suggestedActions: m.suggestedActions || null,
+        delegations: m.delegations ? m.delegations.map(d => ({
+          id: d.id,
+          agent: d.agent,
+          task: d.task,
+          status: d.status,
+          result: d.result || null
+        })) : null
+      }));
+
+      if (conversationId) {
+        await supabase
+          .from('ceo_conversations')
+          .update({
+            messages: messagesToSave as any,
+            last_message_at: new Date().toISOString()
+          })
+          .eq('id', conversationId);
+      } else {
+        const { data, error } = await supabase
+          .from('ceo_conversations')
+          .insert([{
+            messages: messagesToSave as any,
+            is_active: true,
+            last_message_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
+        
+        if (data && !error) {
+          setConversationId(data.id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save conversation:', err);
+    }
+  }, [conversationId]);
 
   const isConversationEnding = (text: string): boolean => {
     const lower = text.toLowerCase().trim();
@@ -111,29 +232,30 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   const sendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
     
-    // Check if user is ending conversation
     if (isConversationEnding(query)) {
       setConversationComplete(true);
       const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
       const assistantMessage: Message = { 
         role: "assistant", 
-        content: "Great working with you! I'll be here whenever you need strategic insights or want to take action. Just come back anytime. 🎯", 
+        content: "Great session! I'll keep working on the plan in the background. Come back anytime to check progress or adjust priorities. 🎯", 
         timestamp: new Date() 
       };
-      setMessages(prev => [...prev, userMessage, assistantMessage]);
+      const newMessages = [...messages, userMessage, assistantMessage];
+      setMessages(newMessages);
+      saveConversation(newMessages);
       setInput("");
       return;
     }
     
     setConversationComplete(false);
     const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
     setStreamingContent("");
 
     try {
-      // Build request body with optional correction context
       const requestBody: any = {
         query,
         timeRange: "7d",
@@ -141,14 +263,13 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         stream: true,
       };
       
-      // Include correction context if user previously downvoted
       if (pendingCorrection) {
         requestBody.correctionContext = {
           previousQuery: pendingCorrection.query,
           previousResponse: pendingCorrection.response,
           userCorrection: query,
         };
-        setPendingCorrection(null); // Clear after using
+        setPendingCorrection(null);
       }
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-agent`, {
@@ -207,17 +328,22 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         }
       }
 
-      // Parse suggested actions from the response
       const suggestedActions = parseSuggestedActions(fullContent);
+      const delegations = parseDelegations(fullContent);
       
       const assistantMessage: Message = { 
         role: "assistant", 
         content: fullContent, 
         timestamp: new Date(),
-        suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined
+        suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined,
+        delegations: delegations.length > 0 ? delegations : undefined
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      
+      const finalMessages = [...updatedMessages, assistantMessage];
+      setMessages(finalMessages);
       setStreamingContent("");
+      saveConversation(finalMessages);
+      setIsReturningUser(true);
     } catch (error) {
       console.error("CEO Chat error:", error);
       toast.error("Failed to get AI response");
@@ -227,14 +353,18 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   };
 
   const formatContent = (content: string) => {
-    return content
+    // Remove delegation markers from display (they're shown separately)
+    let cleaned = content.replace(/🤖\s*\*\*Delegating to [^*]+\*\*:\s*[^\n]+\n?/gi, '');
+    return cleaned
       .replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground">$1</strong>')
       .replace(/\n/g, '<br/>');
   };
 
   const handleVoiceTranscript = (text: string, role: "user" | "assistant") => {
     const newMessage: Message = { role, content: text, timestamp: new Date() };
-    setMessages(prev => [...prev, newMessage]);
+    const newMessages = [...messages, newMessage];
+    setMessages(newMessages);
+    saveConversation(newMessages);
   };
 
   const handleSuggestedAction = (action: string) => {
@@ -243,6 +373,37 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
 
   const handleEndConversation = () => {
     sendMessage("That's all for now, thanks!");
+  };
+
+  const renderDelegation = (delegation: AgentDelegation) => {
+    const agentInfo = AGENT_LABELS[delegation.agent] || { label: delegation.agent, icon: "🤖" };
+    
+    return (
+      <div 
+        key={delegation.id}
+        className="ml-8 my-2 p-2 bg-primary/5 rounded-lg border border-primary/20"
+      >
+        <div className="flex items-center gap-2 text-sm">
+          <span>{agentInfo.icon}</span>
+          <span className="font-medium text-primary">{agentInfo.label}</span>
+          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          <span className="text-muted-foreground">{delegation.task}</span>
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          {delegation.status === 'completed' ? (
+            <Badge variant="outline" className="text-[10px] text-green-600 border-green-600/30">
+              <CheckCircle2 className="h-2 w-2 mr-1" />
+              Done
+            </Badge>
+          ) : delegation.status === 'in_progress' ? (
+            <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
+              <Loader2 className="h-2 w-2 mr-1 animate-spin" />
+              Working
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -257,12 +418,12 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         <CardHeader className="pb-3 border-b flex-shrink-0">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Bot className="h-4 w-4 text-accent" />
-            CEO AI Assistant
+            CEO AI Partner
             <Badge variant="secondary" className="text-xs">Live</Badge>
             {conversationComplete && (
               <Badge variant="outline" className="text-xs text-green-600 border-green-600">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                Complete
+                Session Complete
               </Badge>
             )}
             <Button
@@ -278,10 +439,17 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
-        {/* Quick Actions */}
-        {messages.length === 0 && (
+        {/* Strategic Plan Widget for returning users */}
+        {isReturningUser && messages.length > 0 && (
+          <div className="p-3 border-b">
+            <StrategicPlanWidget compact />
+          </div>
+        )}
+        
+        {/* Quick Actions - only for new users */}
+        {messages.length === 0 && !isReturningUser && (
           <div className="p-4 border-b bg-muted/30">
-            <p className="text-xs text-muted-foreground mb-2">Quick actions:</p>
+            <p className="text-xs text-muted-foreground mb-2">Start a conversation:</p>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_ACTIONS.map((action) => (
                 <Button
@@ -302,7 +470,6 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         <ScrollArea className="flex-1 p-4 min-h-0" ref={scrollRef}>
           <div className="space-y-4">
             {messages.map((msg, i) => {
-              // Find the previous user message for feedback context
               const prevUserMsg = msg.role === "assistant" && i > 0 
                 ? messages.slice(0, i).reverse().find(m => m.role === "user")
                 : null;
@@ -331,6 +498,13 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
                       </div>
                     )}
                   </div>
+                  
+                  {/* Agent Delegations */}
+                  {msg.role === "assistant" && msg.delegations && msg.delegations.length > 0 && (
+                    <div className="space-y-1">
+                      {msg.delegations.map(renderDelegation)}
+                    </div>
+                  )}
                   
                   {/* Feedback Buttons for assistant messages */}
                   {msg.role === "assistant" && prevUserMsg && (
@@ -423,7 +597,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
             className="flex gap-2"
           >
             <Input
-              placeholder={conversationComplete ? "Start a new question..." : "Ask about performance, leads, strategy..."}
+              placeholder={conversationComplete ? "Start a new topic..." : "What should we focus on?"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}

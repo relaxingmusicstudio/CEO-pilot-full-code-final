@@ -29,90 +29,94 @@ async function logAudit(supabase: any, entry: {
   }
 }
 
-const SYSTEM_PROMPT = `You are THE WORLD'S BEST strategic AI advisor for a CEO running a high-growth HVAC service business. You combine the analytical rigor of McKinsey, the action-orientation of a Y Combinator founder, and 20+ years outperforming every agency and consultant.
+const SYSTEM_PROMPT = `You are the CEO's AI business partner - not just an advisor, but an active co-pilot who runs systems and builds their business 24/7. Think of yourself as their strategic co-founder with perfect memory and tireless execution.
 
-## YOUR IDENTITY:
-- You are THE authority on HVAC business growth
-- You've analyzed 10,000+ service businesses
-- You don't give generic advice - you give battle-tested strategies
-- You're confident but not arrogant
-- You CARE about the user's success
+## YOUR CORE IDENTITY
+- You're not waiting for questions - you're ALWAYS working on a 2-week strategic plan
+- Every conversation continues from where you left off (never reset, never say "How can I help you today?")
+- You delegate tasks to specialized agents and show the user when you do
+- Your conversation style is warm, direct, and action-oriented (Lovable style)
+- You genuinely care about their success and celebrate wins with them
+- You are THE authority on HVAC business growth with 20+ years outperforming every agency
 
-## YOUR CAPABILITIES:
+## YOUR OPERATING MODE
 
-### 1. REAL-TIME ANALYTICS
-- Traffic sources, engagement patterns, device types
-- Lead scores, conversion rates, pipeline value
-- Sales performance metrics and A/B test results
-- Channel attribution and ROI
+### 1. PROACTIVE BUSINESS BUILDER
+When the conversation has history, be proactive:
+- Reference what you discussed before
+- Share progress on assigned tasks
+- Highlight what's working and what needs attention
+- Propose next priorities based on data
 
-### 2. STRATEGIC ANALYSIS
-- Identify biggest revenue leaks
-- Prioritize opportunities by ROI
-- Competitive positioning insights
-- Growth bottleneck diagnosis
+Example opening for returning user:
+"Hey! Since we last talked, I've been working on the content calendar we discussed. 📈 Also noticed John from Heritage HVAC opened our follow-up email - want me to bump his priority?
 
-### 3. MANAGEMENT CAPABILITIES
-- Update chatbot prompts and scripts
-- Manage lead status and pipeline
-- View conversation transcripts
-- Analyze objection patterns
+Quick plan status:
+✅ Content calendar: Complete
+🔄 Google Ads A/B test: Day 4 of 7
+📋 Up next: Customer re-engagement sequence
+
+What should we tackle today?"
+
+### 2. 2-WEEK ROLLING STRATEGIC PLAN
+You ALWAYS maintain and reference a 14-day plan including:
+- Weekly objectives with assigned agents
+- Daily focus areas and key tasks
+- Agent workloads (Content, Ads, Sequences, Inbox, Social)
+- Milestones and success metrics
+- Blockers and how you're addressing them
+
+### 3. AGENT DELEGATION (VISIBLE TO USER)
+When you need specialized help, delegate and SHOW IT in your response:
+- **Content Agent**: Blog posts, social content, video scripts
+- **Ads Agent**: Campaign creation, optimization, budget allocation  
+- **Sequences Agent**: Email/SMS automation, nurture flows
+- **Inbox Agent**: Response templates, lead qualification
+- **Social Agent**: Community management, engagement
+
+Format delegations like this in your response:
+🤖 **Delegating to Content Agent**: Creating 3 blog posts for HVAC seasonal maintenance...
+
+### 4. CONVERSATION CONTINUITY
+- NEVER say "How can I help you today?" to returning users
+- Pick up exactly where you left off
+- Reference past decisions and their outcomes
+- Build on previous strategies
+
+### 5. LOVABLE CONVERSATION STYLE
+- Warm and direct, like a trusted business partner
+- Use emojis sparingly: 🎯 goals, 📈 wins, ⚠️ alerts, ✅ done, 🔄 in progress
+- Be concise but not robotic
+- Celebrate progress genuinely
+- Push back constructively when needed
+
+## PUSHBACK GUIDELINES (CRITICAL):
+When the user suggests something suboptimal:
+1. ACKNOWLEDGE: "I see where you're going with that..."
+2. EXPLAIN with data: "However, based on [experience], this typically..."
+3. OFFER better alternative with specific next steps
+4. LET THEM DECIDE: "Want to proceed anyway or try my suggestion?"
+
+## RESPONSE PATTERN
+Every response should:
+1. Acknowledge context (what you know, what's happened)
+2. Take or propose action
+3. Show agent delegations if any (using the 🤖 format)
+4. End with a forward-looking question or next step
 
 ## AVAILABLE TOOLS:
 - generate_insight: Create data-backed strategic insights
+- update_strategic_plan: Modify the 2-week rolling plan
+- delegate_to_agent: Assign task to specialized agent
+- get_current_plan: View current plan status
 - analyze_objections: Deep dive into sales objection patterns
-- suggest_prompt_improvements: Recommend script changes
-- update_chatbot_prompt: Actually apply prompt changes
+- update_chatbot_prompt: Apply prompt changes
 - update_lead_status: Manage lead pipeline
 - get_priority_leads: Focus on highest-value opportunities
-- get_lead_details: Deep dive on specific leads
 
-## PUSHBACK GUIDELINES (CRITICAL):
-When the user suggests something questionable or suboptimal:
-1. ACKNOWLEDGE their thinking: "I see where you're going with that..."
-2. EXPLAIN the risk or flaw: "However, based on [data/experience], this typically..."
-3. SHARE what actually works: "What I've seen work is..."
-4. OFFER a better alternative with specific next steps
-5. LET THEM DECIDE: "But you know your business - want to proceed anyway or try my suggestion?"
+STOP asking questions only when user says: "That's all", "I'm done", "Thanks, bye", etc.
 
-Examples of pushback:
-- "I understand the appeal of that discount strategy, but HVAC customers who negotiate too hard often cancel. Instead, let's add value without cutting price - want me to show you how?"
-- "That's a common instinct, but the data says otherwise. 73% of contractors who tried that approach saw lower margins. Here's what top performers do instead..."
-
-## CONVERSATION CONTINUATION (MANDATORY):
-EVERY response MUST end with a follow-up question UNLESS the user explicitly says they're done.
-
-Guidelines:
-1. Ask questions that move toward completing their goal
-2. Offer 2-3 specific options when relevant ("Would you like to A, B, or C?")
-3. If you gave a recommendation, ask "Want me to implement this now?"
-4. If you completed an action, ask "What's next?" or offer related tasks
-5. NEVER ask generic "Is there anything else?" - be SPECIFIC based on context
-
-Example endings:
-- "I've updated the lead status. Should I also draft a follow-up email, or would you like to see their conversation history first?"
-- "Based on this data, I recommend focusing on Google Ads. Want me to create a campaign outline, or should we dig into why Facebook is underperforming?"
-- "That sequence is now active. Would you like to set up an A/B test for the subject line, or check on your other pending sequences?"
-
-STOP asking questions only when user says: "That's all", "I'm done", "Thanks, bye", "No more questions", etc.
-
-## YOUR APPROACH:
-1. Lead with the most important number
-2. Connect insights to dollar impact
-3. Recommend ONE clear action
-4. Provide context only when asked
-5. Be direct - you're talking to a CEO
-6. ALWAYS end with a follow-up question
-
-## RESPONSE STYLE:
-- Concise, not verbose
-- Numbers first, narrative second
-- Action-oriented recommendations
-- Use markdown for formatting
-- No fluff or filler
-- End with a question to keep conversation moving
-
-You're the CEO's trusted strategic partner who tells it like it is. Every interaction should move the business forward AND lead to the next action.`;
+You're the CEO's trusted co-pilot. Every interaction moves the business forward.`;
 
 const analysisTools = [
   {
@@ -333,6 +337,81 @@ const analysisTools = [
         },
         required: ["service_key"]
       }
+    }
+  },
+  // Strategic Planning Tools
+  {
+    type: "function",
+    function: {
+      name: "update_strategic_plan",
+      description: "Update the 2-week rolling strategic plan with objectives, focus areas, and milestones",
+      parameters: {
+        type: "object",
+        properties: {
+          current_phase: { type: "string", enum: ["foundation", "growth", "optimization", "expansion"], description: "Current business phase" },
+          weekly_objectives: { 
+            type: "array", 
+            items: { 
+              type: "object",
+              properties: {
+                week: { type: "number" },
+                objectives: { type: "array", items: { type: "string" } },
+                assigned_agents: { type: "array", items: { type: "string" } }
+              }
+            },
+            description: "Objectives for week 1 and 2" 
+          },
+          milestones: { 
+            type: "array", 
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                due_date: { type: "string" },
+                status: { type: "string", enum: ["pending", "in_progress", "completed"] }
+              }
+            },
+            description: "Key milestones" 
+          },
+          blockers: { 
+            type: "array", 
+            items: {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                severity: { type: "string", enum: ["low", "medium", "high"] }
+              }
+            },
+            description: "Current blockers" 
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delegate_to_agent",
+      description: "Delegate a task to a specialized agent (content, ads, sequences, inbox, social). Always show delegation in response.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent: { type: "string", enum: ["content", "ads", "sequences", "inbox", "social"], description: "Agent to delegate to" },
+          task: { type: "string", description: "Task description" },
+          priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Task priority" },
+          context: { type: "object", description: "Additional context for the agent" }
+        },
+        required: ["agent", "task"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_current_plan",
+      description: "Get the current 2-week strategic plan status including objectives, milestones, and agent workloads",
+      parameters: { type: "object", properties: {}, required: [] }
     }
   }
 ];
@@ -833,6 +912,81 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
       filtered.sort((a: any, b: any) => (b.lead_score || 0) - (a.lead_score || 0));
       
       return { success: true, leads: filtered.slice(0, count) };
+    }
+    
+    // Strategic Planning Tools
+    case "update_strategic_plan": {
+      const { current_phase, weekly_objectives, milestones, blockers } = args;
+      
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (current_phase) updateData.current_phase = current_phase;
+      if (weekly_objectives) updateData.weekly_objectives = weekly_objectives;
+      if (milestones) updateData.milestones = milestones;
+      if (blockers) updateData.blockers = blockers;
+      
+      // Upsert the plan
+      const { data: existing } = await supabase.from('ceo_strategic_plan').select('id').limit(1).single();
+      
+      if (existing) {
+        await supabase.from('ceo_strategic_plan').update(updateData).eq('id', existing.id);
+      } else {
+        await supabase.from('ceo_strategic_plan').insert({ ...updateData, plan_horizon_days: 14 });
+      }
+      
+      return { success: true, message: `✅ Strategic plan updated! Phase: ${current_phase || 'unchanged'}` };
+    }
+    
+    case "delegate_to_agent": {
+      const { agent, task, priority = 'medium', context } = args;
+      
+      // Log the delegation
+      await supabase.from('ceo_agent_delegations').insert({
+        delegated_to: agent,
+        task_description: task,
+        priority,
+        input_context: context || {},
+        status: 'in_progress'
+      });
+      
+      // Update agent workload in strategic plan
+      const { data: plan } = await supabase.from('ceo_strategic_plan').select('agent_workloads').limit(1).single();
+      const workloads = (plan?.agent_workloads as any) || {};
+      workloads[agent] = workloads[agent] || { active_tasks: 0, completed_today: 0, pending: 0 };
+      workloads[agent].active_tasks += 1;
+      
+      await supabase.from('ceo_strategic_plan').update({ agent_workloads: workloads }).not('id', 'is', null);
+      
+      return { success: true, message: `🤖 **Delegating to ${agent.charAt(0).toUpperCase() + agent.slice(1)} Agent**: ${task}` };
+    }
+    
+    case "get_current_plan": {
+      const { data: plan } = await supabase.from('ceo_strategic_plan').select('*').limit(1).single();
+      
+      if (!plan) {
+        return { success: true, message: "No strategic plan created yet. Want me to create a 2-week plan based on your current business data?" };
+      }
+      
+      const objectives = (plan.weekly_objectives as any[]) || [];
+      const milestones = (plan.milestones as any[]) || [];
+      const blockers = (plan.blockers as any[]) || [];
+      
+      let msg = `📋 **2-Week Strategic Plan** (Phase: ${plan.current_phase})\n\n`;
+      
+      if (objectives.length > 0) {
+        msg += `**This Week:**\n`;
+        objectives[0]?.objectives?.forEach((o: string) => { msg += `• ${o}\n`; });
+      }
+      
+      if (milestones.length > 0) {
+        const completed = milestones.filter((m: any) => m.status === 'completed').length;
+        msg += `\n**Milestones:** ${completed}/${milestones.length} complete\n`;
+      }
+      
+      if (blockers.length > 0) {
+        msg += `\n⚠️ **Blockers:** ${blockers.length}\n`;
+      }
+      
+      return { success: true, message: msg, plan };
     }
     
     // Integration Management Tools

@@ -1676,6 +1676,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ceo_agent_delegations: {
+        Row: {
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string | null
+          delegated_to: string
+          id: string
+          input_context: Json | null
+          output_result: Json | null
+          priority: string | null
+          started_at: string | null
+          status: string | null
+          task_description: string
+          tenant_id: string | null
+          visible_in_chat: boolean | null
+        }
+        Insert: {
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          delegated_to: string
+          id?: string
+          input_context?: Json | null
+          output_result?: Json | null
+          priority?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_description: string
+          tenant_id?: string | null
+          visible_in_chat?: boolean | null
+        }
+        Update: {
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          delegated_to?: string
+          id?: string
+          input_context?: Json | null
+          output_result?: Json | null
+          priority?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_description?: string
+          tenant_id?: string | null
+          visible_in_chat?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_agent_delegations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ceo_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ceo_agent_delegations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ceo_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -1812,6 +1875,53 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      ceo_conversations: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_message_at: string | null
+          messages: Json | null
+          tenant_id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_message_at?: string | null
+          messages?: Json | null
+          tenant_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_message_at?: string | null
+          messages?: Json | null
+          tenant_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ceo_decision_feedback: {
         Row: {
@@ -1970,6 +2080,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ceo_strategic_plan: {
+        Row: {
+          agent_workloads: Json | null
+          auto_adjust: boolean | null
+          blockers: Json | null
+          created_at: string | null
+          current_phase: string | null
+          daily_focus: Json | null
+          id: string
+          milestones: Json | null
+          next_review_at: string | null
+          plan_horizon_days: number | null
+          tenant_id: string | null
+          updated_at: string | null
+          weekly_objectives: Json | null
+        }
+        Insert: {
+          agent_workloads?: Json | null
+          auto_adjust?: boolean | null
+          blockers?: Json | null
+          created_at?: string | null
+          current_phase?: string | null
+          daily_focus?: Json | null
+          id?: string
+          milestones?: Json | null
+          next_review_at?: string | null
+          plan_horizon_days?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          weekly_objectives?: Json | null
+        }
+        Update: {
+          agent_workloads?: Json | null
+          auto_adjust?: boolean | null
+          blockers?: Json | null
+          created_at?: string | null
+          current_phase?: string | null
+          daily_focus?: Json | null
+          id?: string
+          milestones?: Json | null
+          next_review_at?: string | null
+          plan_horizon_days?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          weekly_objectives?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_strategic_plan_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ceo_style_profile: {
         Row: {
