@@ -117,6 +117,19 @@ const App = () => (
                 <Route path="/app/command-center/system-health" element={<ProtectedRoute requireAdmin><AdminSystemHealth /></ProtectedRoute>} />
                 <Route path="/app/command-center/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
                 <Route path="/app/command-center/analytics" element={<ProtectedRoute requireAdmin><AdminAnalytics /></ProtectedRoute>} />
+                <Route path="/app/command-center/billing" element={<ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>} />
+                <Route path="/app/command-center/prospecting" element={<ProtectedRoute requireAdmin><AdminProspecting /></ProtectedRoute>} />
+                <Route path="/app/command-center/retention" element={<ProtectedRoute requireAdmin><AdminRetention /></ProtectedRoute>} />
+                <Route path="/app/command-center/outreach" element={<ProtectedRoute requireAdmin><AdminOutreach /></ProtectedRoute>} />
+                <Route path="/app/command-center/sms" element={<ProtectedRoute requireAdmin><AdminSMSBlast /></ProtectedRoute>} />
+                <Route path="/app/command-center/dialer" element={<ProtectedRoute requireAdmin><AdminDialer /></ProtectedRoute>} />
+                <Route path="/app/command-center/social" element={<ProtectedRoute requireAdmin><AdminSocial /></ProtectedRoute>} />
+                <Route path="/app/command-center/automation" element={<ProtectedRoute requireAdmin><AdminAutomation /></ProtectedRoute>} />
+                <Route path="/app/command-center/onboarding" element={<ProtectedRoute requireAdmin><AdminOnboarding /></ProtectedRoute>} />
+                <Route path="/app/command-center/inbox" element={<ProtectedRoute requireAdmin><AdminInbox /></ProtectedRoute>} />
+                <Route path="/app/command-center/contacts" element={<ProtectedRoute requireAdmin><AdminContacts /></ProtectedRoute>} />
+                <Route path="/app/command-center/leads" element={<ProtectedRoute requireAdmin><AdminLeads /></ProtectedRoute>} />
+                <Route path="/app/command-center/help" element={<ProtectedRoute requireAdmin><AdminHelp /></ProtectedRoute>} />
                 
                 {/* Legacy Admin Routes */}
                 <Route path="/admin/analytics" element={<ProtectedRoute requireAdmin><AdminAnalytics /></ProtectedRoute>} />

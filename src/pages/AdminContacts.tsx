@@ -94,7 +94,7 @@ export default function AdminContacts() {
       <header className="border-b bg-card px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AdminBackButton to="/admin/hub" showHome />
+            <AdminBackButton to="/app" showHome />
             <div className="h-6 w-px bg-border" />
             <h1 className="text-xl font-semibold">Contacts</h1>
             <Badge variant="secondary">{contacts.length} total</Badge>

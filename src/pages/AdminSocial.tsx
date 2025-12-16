@@ -151,7 +151,7 @@ const AdminSocial = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link to="/admin/ceo" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/app" className="text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               <div className="flex items-center gap-3">

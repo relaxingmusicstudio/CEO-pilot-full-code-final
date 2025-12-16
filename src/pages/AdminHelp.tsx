@@ -401,7 +401,7 @@ const AdminHelp = () => {
                         Get instant answers by asking questions in the CEO Console. The AI can help with analytics, strategy, and platform usage.
                       </p>
                       <Button variant="outline" size="sm" asChild>
-                        <a href="/admin/ceo">Open CEO Console</a>
+                        <a href="/app/ceo">Open CEO Console</a>
                       </Button>
                     </div>
 

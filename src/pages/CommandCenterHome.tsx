@@ -16,6 +16,16 @@ import {
   Star,
   ChevronRight,
   Loader2,
+  CreditCard,
+  Phone,
+  MessageSquare,
+  Mail,
+  Search,
+  Share2,
+  Bot,
+  Inbox,
+  UserPlus,
+  HelpCircle,
 } from "lucide-react";
 import { useClickThrough } from "@/hooks/useClickThrough";
 
@@ -108,7 +118,66 @@ export default function CommandCenterHome() {
       label: "Approvals",
       icon: CheckCircle2,
       path: "approvals",
-      count: stats.pendingContent,
+    },
+    {
+      label: "Clients",
+      icon: UserPlus,
+      path: "clients",
+    },
+    {
+      label: "Billing",
+      icon: CreditCard,
+      path: "billing",
+    },
+    {
+      label: "Inbox",
+      icon: Inbox,
+      path: "inbox",
+    },
+    {
+      label: "Contacts",
+      icon: Users,
+      path: "contacts",
+    },
+    {
+      label: "Dialer",
+      icon: Phone,
+      path: "dialer",
+    },
+    {
+      label: "Outreach",
+      icon: Mail,
+      path: "outreach",
+    },
+    {
+      label: "SMS Campaigns",
+      icon: MessageSquare,
+      path: "sms",
+    },
+    {
+      label: "Prospecting",
+      icon: Search,
+      path: "prospecting",
+    },
+    {
+      label: "Retention",
+      icon: TrendingUp,
+      path: "retention",
+    },
+    {
+      label: "Social Media",
+      icon: Share2,
+      path: "social",
+    },
+    {
+      label: "Automation",
+      icon: Bot,
+      path: "automation",
+    },
+    {
+      label: "Sequences",
+      icon: Zap,
+      path: "sequences",
     },
     {
       label: "Knowledge Vault",
@@ -122,9 +191,19 @@ export default function CommandCenterHome() {
       path: "system-health",
     },
     {
+      label: "Analytics",
+      icon: TrendingUp,
+      path: "analytics",
+    },
+    {
       label: "Settings",
       icon: Settings,
       path: "settings",
+    },
+    {
+      label: "Help",
+      icon: HelpCircle,
+      path: "help",
     },
   ];
 

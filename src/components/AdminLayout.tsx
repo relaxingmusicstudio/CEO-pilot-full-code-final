@@ -75,11 +75,11 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
           </div>
           
           <div className="flex items-center gap-4 mb-2">
-            {location.pathname !== "/admin/ceo" && (
+          {location.pathname !== "/app" && (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/admin/ceo")}
+                onClick={() => navigate("/app")}
                 className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
               >
                 <ChevronLeft className="h-5 w-5" />
