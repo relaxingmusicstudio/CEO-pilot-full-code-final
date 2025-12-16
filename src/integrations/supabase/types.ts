@@ -1879,6 +1879,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ceo_autopilot_settings: {
+        Row: {
+          allowed_action_types: string[] | null
+          confidence_threshold: number | null
+          created_at: string | null
+          daily_budget_cents: number | null
+          id: string
+          is_active: boolean | null
+          max_actions_per_hour: number | null
+          mode: string | null
+          notify_on_action: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_action_types?: string[] | null
+          confidence_threshold?: number | null
+          created_at?: string | null
+          daily_budget_cents?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_actions_per_hour?: number | null
+          mode?: string | null
+          notify_on_action?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_action_types?: string[] | null
+          confidence_threshold?: number | null
+          created_at?: string | null
+          daily_budget_cents?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_actions_per_hour?: number | null
+          mode?: string | null
+          notify_on_action?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ceo_conversations: {
         Row: {
           context: Json | null
@@ -7381,6 +7420,36 @@ export type Database = {
           status?: string | null
           threshold_critical?: number | null
           threshold_warning?: number | null
+        }
+        Relationships: []
+      }
+      system_health_metrics: {
+        Row: {
+          component: string
+          details: Json | null
+          id: string
+          metric_name: string
+          metric_value: number
+          recorded_at: string | null
+          status: string | null
+        }
+        Insert: {
+          component: string
+          details?: Json | null
+          id?: string
+          metric_name: string
+          metric_value: number
+          recorded_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          component?: string
+          details?: Json | null
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          recorded_at?: string | null
+          status?: string | null
         }
         Relationships: []
       }
