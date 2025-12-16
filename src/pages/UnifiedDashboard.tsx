@@ -71,6 +71,21 @@ export default function UnifiedDashboard() {
         )}
       </div>
 
+      {/* Footer Navigation */}
+      <footer className="border-t px-4 py-2 bg-card">
+        <div className="container flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/app/command-center")}
+            className="gap-2"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Command Center
+          </Button>
+        </div>
+      </footer>
+
       {/* Detail Panel Sheet */}
       <Sheet open={!!detailPanel} onOpenChange={() => setDetailPanel(null)}>
         <SheetContent side="right" className="w-[600px] sm:max-w-[600px]">
