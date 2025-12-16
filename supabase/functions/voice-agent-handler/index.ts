@@ -212,7 +212,7 @@ serve(async (req) => {
           .from('follow_up_tasks')
           .select(`
             *,
-            call_logs(transcription, duration_seconds),
+            call_logs!follow_up_tasks_call_log_id_fkey(transcription, duration_seconds),
             leads(name, email, phone, company, notes)
           `)
           .eq('id', task_id)
@@ -442,7 +442,7 @@ Generate a professional but friendly SMS (under 160 characters).`;
           .from('follow_up_tasks')
           .select(`
             *,
-            call_logs(transcription, duration_seconds, from_number),
+            call_logs!follow_up_tasks_call_log_id_fkey(transcription, duration_seconds, from_number),
             leads(name, email, phone, company)
           `)
           .in('status', ['pending', 'in_progress'])
