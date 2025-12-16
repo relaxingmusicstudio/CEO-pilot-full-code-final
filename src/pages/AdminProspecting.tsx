@@ -22,8 +22,7 @@ import {
   Filter,
   CheckCircle2,
   XCircle,
-  Building2,
-  Sparkles
+  Building2
 } from "lucide-react";
 import { PageChatHeader } from "@/components/PageChatHeader";
 import { StatCardWithTooltip } from "@/components/StatCardWithTooltip";
@@ -40,7 +39,6 @@ interface Prospect {
   review_count: number | null;
   categories: string[] | null;
   status: string;
-  priority_score: number | null;
   converted_to_lead_id: string | null;
   source_query: string | null;
   source_location: string | null;
@@ -158,9 +156,9 @@ export default function AdminProspecting() {
   const totalProspects = prospects.length;
   const smsCapable = prospects.filter(p => p.sms_capable).length;
   const converted = prospects.filter(p => p.converted_to_lead_id).length;
-  const avgPriority = prospects.length > 0 
-    ? Math.round(prospects.reduce((sum, p) => sum + (p.priority_score || 0), 0) / prospects.length)
-    : 0;
+  const avgRating = prospects.length > 0 
+    ? (prospects.reduce((sum, p) => sum + (p.rating || 0), 0) / prospects.length).toFixed(1)
+    : "0";
 
   return (
     <AdminLayout title="Prospecting" subtitle="Find and convert local business prospects">
@@ -199,10 +197,10 @@ export default function AdminProspecting() {
             variant="primary"
           />
           <StatCardWithTooltip
-            title="Avg Priority Score"
-            value={avgPriority}
-            icon={<Sparkles className="h-5 w-5" />}
-            tooltip="Average priority score based on business signals (0-100)"
+            title="Avg Rating"
+            value={avgRating}
+            icon={<Star className="h-5 w-5" />}
+            tooltip="Average Google rating of scraped businesses"
             variant="primary"
           />
         </div>
@@ -393,9 +391,9 @@ export default function AdminProspecting() {
                                 )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
-                                {prospect.priority_score && (
-                                  <Badge variant={prospect.priority_score >= 70 ? "default" : "secondary"}>
-                                    {prospect.priority_score} pts
+                                {prospect.rating && prospect.rating >= 4.5 && (
+                                  <Badge variant="default">
+                                    Top Rated
                                   </Badge>
                                 )}
                                 {prospect.converted_to_lead_id && (
