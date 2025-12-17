@@ -55,6 +55,20 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     // Queue for CEO approval instead of auto-enrolling
     console.log(`[ColdAgentEnroller] MANUAL mode - queuing for CEO approval`);
     
+    // IDEMPOTENCY GUARD: Check if pending/approved approval already exists for this lead
+    const { data: existingAction } = await supabase
+      .from('ceo_action_queue')
+      .select('id, status')
+      .eq('action_type', 'approve_cold_enrollment')
+      .eq('target_id', leadId)
+      .in('status', ['pending', 'approved'])
+      .maybeSingle();
+    
+    if (existingAction) {
+      console.log(`[ColdAgentEnroller] Approval already exists for lead ${leadId} (id=${existingAction.id}, status=${existingAction.status}) - skipping duplicate`);
+      return;
+    }
+    
     const queuePayload: Record<string, unknown> = {
       lead_id: leadId,
       source: payload.source,
