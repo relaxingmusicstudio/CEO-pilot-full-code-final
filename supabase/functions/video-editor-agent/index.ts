@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,23 +39,14 @@ serve(async (req) => {
         }
 
         // Use AI to parse script into scenes
-        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        
         let scenes: Scene[] = [];
 
-        if (LOVABLE_API_KEY) {
-          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are a video editor breaking scripts into scenes. For each scene, provide:
+        try {
+          const aiResponse = await aiChat({
+            messages: [
+              {
+                role: "system",
+                content: `You are a video editor breaking scripts into scenes. For each scene, provide:
 - index: scene number (0-based)
 - content: the text/dialogue for that scene
 - duration_ms: estimated duration in milliseconds (average reading speed is 150 words/minute)
@@ -63,27 +55,24 @@ serve(async (req) => {
 
 Target total duration: ${target_duration_seconds} seconds.
 
-Respond with a JSON array of scenes.`,
-                },
-                {
-                  role: "user",
-                  content: `Parse this script into scenes:\n\n${script}`,
-                },
-              ],
-              response_format: { type: "json_object" },
-            }),
+Respond with a JSON object containing a "scenes" array.`,
+              },
+              {
+                role: "user",
+                content: `Parse this script into scenes:\n\n${script}`,
+              },
+            ],
+            purpose: 'video_editing',
           });
 
-          if (response.ok) {
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content;
-            try {
-              const parsed = JSON.parse(content);
-              scenes = parsed.scenes || parsed;
-            } catch {
-              console.log("[Video Editor] Failed to parse AI response, using fallback");
-            }
+          try {
+            const parsed = JSON.parse(aiResponse.text);
+            scenes = parsed.scenes || parsed;
+          } catch {
+            console.log("[Video Editor] Failed to parse AI response, using fallback");
           }
+        } catch (e) {
+          console.log("[Video Editor] AI call failed, using fallback:", e);
         }
 
         // Fallback: simple sentence-based parsing

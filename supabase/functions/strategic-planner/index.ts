@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +15,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action, data } = await req.json();
@@ -123,8 +123,7 @@ serve(async (req) => {
         const avgLeadScore = leads.length > 0 ? leads.reduce((sum, l) => sum + (l.lead_score || 0), 0) / leads.length : 0;
 
         // Generate AI recommendations
-        if (lovableApiKey) {
-          const prompt = `As a strategic business advisor, analyze this data and provide 3-5 actionable recommendations:
+        const prompt = `As a strategic business advisor, analyze this data and provide 3-5 actionable recommendations:
 
 Current Metrics:
 - MRR: $${totalMRR}
@@ -140,56 +139,45 @@ ${goals.map(g => `- ${g.title}: ${g.current_value || 0}/${g.target_value} ${g.un
 Provide recommendations in JSON format:
 [{"type": "optimization|expansion|cost_reduction|risk_mitigation|experiment", "title": "...", "description": "...", "expected_impact": {"metric": "...", "change": "...%"}, "confidence": 0.0-1.0, "priority": "low|medium|high|critical"}]`;
 
-          try {
-            const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${lovableApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-2.5-flash',
-                messages: [
-                  { role: 'system', content: 'You are a strategic business advisor specializing in SaaS and AI-powered businesses. Provide actionable, data-driven recommendations.' },
-                  { role: 'user', content: prompt }
-                ],
-              }),
-            });
+        try {
+          const aiResponse = await aiChat({
+            messages: [
+              { role: 'system', content: 'You are a strategic business advisor specializing in SaaS and AI-powered businesses. Provide actionable, data-driven recommendations.' },
+              { role: 'user', content: prompt }
+            ],
+            purpose: 'ceo_strategy',
+          });
 
-            if (aiResponse.ok) {
-              const aiData = await aiResponse.json();
-              const content = aiData.choices?.[0]?.message?.content || '';
-              
-              // Parse recommendations
-              const jsonMatch = content.match(/\[[\s\S]*\]/);
-              if (jsonMatch) {
-                const recommendations = JSON.parse(jsonMatch[0]);
-                
-                // Store recommendations
-                for (const rec of recommendations) {
-                  await supabase.from('strategic_recommendations').insert({
-                    recommendation_type: rec.type,
-                    title: rec.title,
-                    description: rec.description,
-                    expected_impact: rec.expected_impact,
-                    confidence_score: rec.confidence * 100,
-                    priority: rec.priority,
-                    source_analysis: `Generated from ${leads.length} leads, ${clients.length} clients, $${totalMRR} MRR`,
-                  });
-                }
-
-                return new Response(JSON.stringify({
-                  success: true,
-                  recommendations,
-                  metrics: { totalMRR, totalCosts, conversionRate, avgLeadScore },
-                }), {
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
-              }
+          const content = aiResponse.text || '';
+          
+          // Parse recommendations
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const recommendations = JSON.parse(jsonMatch[0]);
+            
+            // Store recommendations
+            for (const rec of recommendations) {
+              await supabase.from('strategic_recommendations').insert({
+                recommendation_type: rec.type,
+                title: rec.title,
+                description: rec.description,
+                expected_impact: rec.expected_impact,
+                confidence_score: rec.confidence * 100,
+                priority: rec.priority,
+                source_analysis: `Generated from ${leads.length} leads, ${clients.length} clients, $${totalMRR} MRR`,
+              });
             }
-          } catch (aiError) {
-            console.error('AI generation error:', aiError);
+
+            return new Response(JSON.stringify({
+              success: true,
+              recommendations,
+              metrics: { totalMRR, totalCosts, conversionRate, avgLeadScore },
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
           }
+        } catch (aiError) {
+          console.error('AI generation error:', aiError);
         }
 
         // Fallback: rule-based recommendations

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
 };
 
 // CEO Training Mode - Capture and learn from CEO decisions
-// Uses Claude for deep analysis and pattern extraction
+// Uses AI for deep analysis and pattern extraction
 
 interface TrainingSession {
   session_id: string;
@@ -139,10 +140,8 @@ async function processDecision(supabase: any, params: {
   decision_type?: string;
 }) {
   const { transcript, context, decision_type } = params;
-  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-  // Use Claude for deep decision analysis if available, otherwise use Lovable AI
+  // Use AI for decision analysis with premium routing for CEO training
   let analysisResult: DecisionRecord;
 
   const analysisPrompt = `You are analyzing a CEO's decision-making process to help an AI learn to mimic their style.
@@ -173,67 +172,26 @@ Focus on capturing:
 
 Return ONLY the JSON, no other text.`;
 
-  if (ANTHROPIC_API_KEY) {
-    // Use Claude for deep analysis
-    console.log('[CEO Training] Using Claude for decision analysis');
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: analysisPrompt }]
-      })
+  console.log('[CEO Training] Using AI for decision analysis');
+  
+  try {
+    const aiResponse = await aiChat({
+      messages: [{ role: 'user', content: analysisPrompt }],
+      purpose: 'ceo_strategy', // Premium routing for CEO analysis
+      max_tokens: 1024,
     });
 
-    if (!claudeResponse.ok) {
-      console.error('[CEO Training] Claude API error:', await claudeResponse.text());
-      throw new Error('Claude analysis failed');
-    }
-
-    const claudeData = await claudeResponse.json();
-    const responseText = claudeData.content?.[0]?.text || '';
+    const responseText = aiResponse.text || '';
     
     try {
       analysisResult = JSON.parse(responseText);
     } catch {
-      console.error('[CEO Training] Failed to parse Claude response:', responseText);
+      console.error('[CEO Training] Failed to parse AI response:', responseText);
       throw new Error('Failed to parse decision analysis');
     }
-  } else if (LOVABLE_API_KEY) {
-    // Fallback to Lovable AI
-    console.log('[CEO Training] Using Lovable AI for decision analysis');
-    const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: analysisPrompt }]
-      })
-    });
-
-    if (!lovableResponse.ok) {
-      throw new Error('Lovable AI analysis failed');
-    }
-
-    const lovableData = await lovableResponse.json();
-    const responseText = lovableData.choices?.[0]?.message?.content || '';
-    
-    try {
-      analysisResult = JSON.parse(responseText);
-    } catch {
-      console.error('[CEO Training] Failed to parse Lovable response:', responseText);
-      throw new Error('Failed to parse decision analysis');
-    }
-  } else {
-    throw new Error('No AI API key configured');
+  } catch (e) {
+    console.error('[CEO Training] AI analysis failed:', e);
+    throw new Error('AI analysis failed');
   }
 
   // Generate embedding for the decision

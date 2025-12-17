@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const GHL_WEBHOOK_URL = Deno.env.get("GHL_WEBHOOK_URL");
@@ -374,8 +375,6 @@ ${notes || "None"}
     // REAL AI-POWERED LEAD SCORING
     // ============================================
     const analyzeLeadWithAI = async () => {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      
       // Fallback scoring if AI unavailable
       const fallbackScoring = () => {
         let baseScore = 40;
@@ -417,11 +416,6 @@ ${notes || "None"}
         };
       };
       
-      if (!LOVABLE_API_KEY) {
-        console.log("LOVABLE_API_KEY not configured, using fallback scoring");
-        return fallbackScoring();
-      }
-      
       try {
         console.log("=== CALLING AI FOR LEAD ANALYSIS ===");
         
@@ -445,18 +439,11 @@ BEHAVIORAL DATA:
 - Time on Site: ${timeOnSite || "Unknown"}
 `;
         
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              {
-                role: "system",
-                content: `You are an expert B2B sales lead qualification AI for an AI voice agent company targeting HVAC, plumbing, electrical, and home service contractors.
+        const aiResponse = await aiChat({
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert B2B sales lead qualification AI for an AI voice agent company targeting HVAC, plumbing, electrical, and home service contractors.
 
 Analyze leads and return a JSON object with EXACTLY these fields:
 {
@@ -483,25 +470,18 @@ SCORING GUIDELINES:
 - Solo operators rarely convert unless ASAP timeline
 
 ALWAYS respond with valid JSON only. No markdown, no explanations.`
-              },
-              {
-                role: "user",
-                content: `Analyze this lead and provide qualification scoring:\n${leadContext}`
-              }
-            ],
-            max_tokens: 1000,
-            temperature: 0.3,
-          }),
+            },
+            {
+              role: "user",
+              content: `Analyze this lead and provide qualification scoring:\n${leadContext}`
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.3,
+          purpose: 'lead_scoring',
         });
         
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("AI Gateway error:", response.status, errorText);
-          return fallbackScoring();
-        }
-        
-        const data = await response.json();
-        const aiContent = data.choices?.[0]?.message?.content;
+        const aiContent = aiResponse.text;
         
         if (!aiContent) {
           console.error("No AI response content");

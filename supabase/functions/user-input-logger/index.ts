@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,26 +29,12 @@ async function classifyIntent(content: string): Promise<{
   priority: string;
   related_entity_type?: string;
 }> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
-  
-  if (!apiKey) {
-    console.log('No LOVABLE_API_KEY, using keyword-based classification');
-    return keywordClassify(content);
-  }
-
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-5-nano',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an intent classifier for a business AI system. Classify user inputs into one of these intents:
+    const aiResponse = await aiChat({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an intent classifier for a business AI system. Classify user inputs into one of these intents:
 - approval: User is approving, confirming, or saying yes to something
 - pause: User wants to stop, pause, or halt an operation
 - resume: User wants to resume or continue a paused operation
@@ -64,21 +51,15 @@ Also determine:
 - related_entity_type: lead, client, content, campaign, invoice, or null
 
 Respond ONLY with valid JSON: {"intent": "...", "action_required": boolean, "priority": "...", "related_entity_type": "..." or null}`
-          },
-          { role: 'user', content: content }
-        ],
-        max_tokens: 100,
-        temperature: 0.1,
-      }),
+        },
+        { role: 'user', content: content }
+      ],
+      max_tokens: 100,
+      temperature: 0.1,
+      purpose: 'intent_classification',
     });
 
-    if (!response.ok) {
-      console.error('AI classification failed:', await response.text());
-      return keywordClassify(content);
-    }
-
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
+    const result = JSON.parse(aiResponse.text);
     return result;
   } catch (error) {
     console.error('Intent classification error:', error);

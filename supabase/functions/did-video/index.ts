@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,33 +46,24 @@ serve(async (req) => {
     // Generate script if not provided
     let videoScript = script;
     if (!videoScript && topic) {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY) {
-        const scriptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { 
-                role: "system", 
-                content: "You are a video script writer. Write concise, engaging scripts for AI avatar videos. Keep scripts under 60 seconds when read aloud. Be conversational and professional." 
-              },
-              { 
-                role: "user", 
-                content: `Write a short video script about: ${topic}. Make it engaging and suitable for a professional AI avatar presentation.` 
-              }
-            ]
-          })
+      try {
+        const aiResponse = await aiChat({
+          messages: [
+            { 
+              role: "system", 
+              content: "You are a video script writer. Write concise, engaging scripts for AI avatar videos. Keep scripts under 60 seconds when read aloud. Be conversational and professional." 
+            },
+            { 
+              role: "user", 
+              content: `Write a short video script about: ${topic}. Make it engaging and suitable for a professional AI avatar presentation.` 
+            }
+          ],
+          purpose: 'video_script',
         });
-
-        if (scriptResponse.ok) {
-          const scriptData = await scriptResponse.json();
-          videoScript = scriptData.choices?.[0]?.message?.content || "";
-        }
+        videoScript = aiResponse.text || "";
+      } catch (e) {
+        console.log("[did-video] AI script generation failed, using topic as script");
+        videoScript = topic;
       }
     }
 

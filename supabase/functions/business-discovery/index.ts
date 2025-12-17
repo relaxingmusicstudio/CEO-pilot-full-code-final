@@ -169,11 +169,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
-
     const { messages, currentData } = await req.json();
 
     // Build context with any extracted data so far
@@ -188,43 +183,17 @@ serve(async (req) => {
       }
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: contextPrompt },
-          ...messages
-        ],
-        tools: [responseTool],
-        tool_choice: { type: "function", function: { name: "configure_business" } }
-      }),
+    const aiResponse = await aiChat({
+      messages: [
+        { role: 'system', content: contextPrompt },
+        ...messages
+      ],
+      tools: [responseTool],
+      tool_choice: { type: "function", function: { name: "configure_business" } },
+      purpose: 'business_discovery',
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      throw new Error(`AI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = aiResponse.raw;
     console.log('AI response:', JSON.stringify(data, null, 2));
 
     // Extract tool call response
