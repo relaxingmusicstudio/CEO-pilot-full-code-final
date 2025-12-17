@@ -139,6 +139,10 @@ const CLIENT_NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// Mobile nav - 5 most important items per role
+const OWNER_MOBILE_NAV = OWNER_NAV_ITEMS.slice(0, 5);
+const CLIENT_MOBILE_NAV = CLIENT_NAV_ITEMS.slice(0, 5);
+
 export function useRoleNavigation() {
   const { isOwner, isClient, isLoading } = useUserRole();
 
@@ -149,6 +153,13 @@ export function useRoleNavigation() {
     return [];
   }, [isOwner, isClient, isLoading]);
 
+  const mobileNavItems = useMemo(() => {
+    if (isLoading) return [];
+    if (isClient) return CLIENT_MOBILE_NAV;
+    if (isOwner) return OWNER_MOBILE_NAV;
+    return [];
+  }, [isOwner, isClient, isLoading]);
+
   const homeRoute = useMemo(() => {
     if (isClient) return "/app/portal";
     return "/app";
@@ -156,6 +167,7 @@ export function useRoleNavigation() {
 
   return {
     navItems,
+    mobileNavItems,
     homeRoute,
     isOwner,
     isClient,

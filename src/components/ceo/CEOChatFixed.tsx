@@ -10,9 +10,20 @@ import CEOVoiceAssistant from "@/components/CEOVoiceAssistant";
 import { cn } from "@/lib/utils";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
+}
+
+interface CEOChatFixedProps {
+  /** System prompt to inject (used for onboarding) */
+  systemPrompt?: string;
+  /** Callback when agent responds */
+  onAgentResponse?: (response: string) => void;
+  /** Auto-expand on mount */
+  autoExpand?: boolean;
+  /** Auto-send a message on mount (only once) */
+  initialMessage?: string;
 }
 
 const QUICK_PROMPTS = [
@@ -21,20 +32,38 @@ const QUICK_PROMPTS = [
   { label: "What's pending?", query: "What needs my attention?" },
 ];
 
-export function CEOChatFixed() {
+export function CEOChatFixed({
+  systemPrompt,
+  onAgentResponse,
+  autoExpand = false,
+  initialMessage,
+}: CEOChatFixedProps = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(autoExpand);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadConversation();
   }, []);
+
+  // Handle initial message (for onboarding)
+  useEffect(() => {
+    if (initialMessage && !hasInitialized && !isLoading) {
+      setHasInitialized(true);
+      setIsExpanded(true);
+      // Send the initial message after a short delay
+      setTimeout(() => {
+        sendMessageWithSystemPrompt(initialMessage, systemPrompt);
+      }, 500);
+    }
+  }, [initialMessage, hasInitialized, isLoading]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -100,7 +129,7 @@ export function CEOChatFixed() {
     }
   }, [conversationId]);
 
-  const sendMessage = async (query: string) => {
+  const sendMessageWithSystemPrompt = async (query: string, sysPrompt?: string) => {
     if (!query.trim() || isLoading) return;
     
     const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
@@ -112,6 +141,9 @@ export function CEOChatFixed() {
     setIsExpanded(true);
 
     try {
+      // Build conversation history, optionally prepending system prompt
+      const historyForRequest = messages.slice(-5).map(m => ({ role: m.role, content: m.content }));
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-agent`, {
         method: "POST",
         headers: {
@@ -121,7 +153,8 @@ export function CEOChatFixed() {
         body: JSON.stringify({
           query,
           timeRange: "7d",
-          conversationHistory: messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
+          conversationHistory: historyForRequest,
+          systemPrompt: sysPrompt || systemPrompt,
           stream: true,
         }),
       });
@@ -175,12 +208,19 @@ export function CEOChatFixed() {
       setMessages(finalMessages);
       setStreamingContent("");
       saveConversation(finalMessages);
+      
+      // Notify parent of response (for onboarding completion detection)
+      onAgentResponse?.(fullContent);
     } catch (error) {
       console.error("CEO Chat error:", error);
       toast.error("Failed to get AI response");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendMessage = async (query: string) => {
+    await sendMessageWithSystemPrompt(query);
   };
 
   const formatContent = (content: string) => {

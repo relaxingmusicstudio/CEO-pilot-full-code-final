@@ -2,14 +2,19 @@
  * CEO Home - Unified Command Center
  * 
  * THE single landing page after login.
- * Layout: Status Bar (48px) + Intelligence Grid (scrollable) + Chat (fixed bottom)
+ * - Shows onboarding card if onboarding_complete=false
+ * - Shows intelligence grid if onboarding complete
+ * - CEO chat is always visible at bottom
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { CEOChatFixed } from "@/components/ceo/CEOChatFixed";
 import { IntelligenceCard, CardState } from "@/components/ceo/IntelligenceCard";
+import { OnboardingCard } from "@/components/OnboardingCard";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
+import { useOnboardingOrchestrator } from "@/hooks/useOnboardingOrchestrator";
 import { 
   Target, 
   MessageSquare, 
@@ -28,26 +33,48 @@ interface GridMetrics {
   decisions: { pending: number; urgent: number; state: CardState };
 }
 
+const ONBOARDING_SYSTEM_PROMPT = `You are helping a new user set up their AI CEO Command Center. Have a friendly, conversational exchange to gather their business information.
+
+Ask these questions one at a time (wait for their response before the next):
+1. "What's your business name?"
+2. "What industry are you in? (e.g., HVAC, plumbing, landscaping, etc.)"
+3. "What's your biggest challenge right now? (e.g., getting more leads, managing time, following up with customers)"
+4. "What's your primary goal - generating more leads, improving customer retention, creating content, or streamlining operations?"
+
+After they answer all questions, summarize what you learned and tell them their Command Center is ready.
+
+When you have all the information, include this exact tag in your response:
+[ONBOARDING_COMPLETE:{"businessName":"NAME","industry":"INDUSTRY","biggestChallenge":"CHALLENGE","primaryGoal":"GOAL"}]
+
+Be warm, encouraging, and keep responses brief. Start by warmly greeting them and asking for their business name.`;
+
 export default function CEOHome() {
+  const { isOnboardingComplete, isLoading: onboardingLoading } = useOnboardingStatus();
+  const { currentStep, totalSteps, processAgentResponse, completeOnboarding } = useOnboardingOrchestrator();
+  
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
+  const [showOnboardingChat, setShowOnboardingChat] = useState(false);
+  const [onboardingMessage, setOnboardingMessage] = useState<string | undefined>();
 
   useEffect(() => {
-    fetchMetrics();
-    
-    // Set up realtime subscriptions for key tables
-    const channel = supabase
-      .channel("ceo-home-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, fetchMetrics)
-      .on("postgres_changes", { event: "*", schema: "public", table: "content" }, fetchMetrics)
-      .on("postgres_changes", { event: "*", schema: "public", table: "action_queue" }, fetchMetrics)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ceo_action_queue" }, fetchMetrics)
-      .subscribe();
+    if (isOnboardingComplete) {
+      fetchMetrics();
+      
+      // Set up realtime subscriptions for key tables
+      const channel = supabase
+        .channel("ceo-home-updates")
+        .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, fetchMetrics)
+        .on("postgres_changes", { event: "*", schema: "public", table: "content" }, fetchMetrics)
+        .on("postgres_changes", { event: "*", schema: "public", table: "action_queue" }, fetchMetrics)
+        .on("postgres_changes", { event: "*", schema: "public", table: "ceo_action_queue" }, fetchMetrics)
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isOnboardingComplete]);
 
   const fetchMetrics = async () => {
     try {
@@ -137,9 +164,32 @@ export default function CEOHome() {
     } catch (error) {
       console.error("Error fetching metrics:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingMetrics(false);
     }
   };
+
+  const handleStartOnboarding = useCallback(() => {
+    setShowOnboardingChat(true);
+    setOnboardingMessage("Hi! I'm excited to get started with my new AI CEO Command Center.");
+  }, []);
+
+  const handleAgentResponse = useCallback((response: string) => {
+    processAgentResponse(response);
+    
+    // Check for completion tag
+    const completionMatch = response.match(/\[ONBOARDING_COMPLETE:(.*?)\]/);
+    if (completionMatch) {
+      try {
+        const data = JSON.parse(completionMatch[1]);
+        completeOnboarding(data);
+      } catch (e) {
+        console.error("Failed to parse onboarding data:", e);
+      }
+    }
+  }, [processAgentResponse, completeOnboarding]);
+
+  const isLoading = onboardingLoading || (isOnboardingComplete && isLoadingMetrics);
+  const showOnboarding = !isOnboardingComplete && !onboardingLoading;
 
   return (
     <>
@@ -152,95 +202,117 @@ export default function CEOHome() {
         {/* Intelligence Grid - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 pb-64 md:pb-4">
           <div className="max-w-5xl mx-auto">
-            <div className="mb-4">
-              <h1 className="text-lg font-semibold text-foreground">Good {getTimeOfDay()}</h1>
-              <p className="text-sm text-muted-foreground">Here's what needs your attention</p>
-            </div>
+            {/* Onboarding Card - Only shown when onboarding incomplete */}
+            {showOnboarding && (
+              <div className="mb-6">
+                <OnboardingCard
+                  currentStep={currentStep}
+                  totalSteps={totalSteps}
+                  onContinue={handleStartOnboarding}
+                  isLoading={showOnboardingChat}
+                />
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Pipeline Card */}
-              <IntelligenceCard
-                title="Pipeline"
-                icon={Target}
-                primaryMetric={metrics?.pipeline.leads ?? 0}
-                primaryLabel="hot leads"
-                secondaryMetric={metrics?.pipeline.stalled ? `${metrics.pipeline.stalled} stalled` : undefined}
-                cta="Review pipeline"
-                state={metrics?.pipeline.state ?? "inactive"}
-                navigateTo="/app/pipeline"
-                isLoading={isLoading}
-              />
+            {/* Normal Dashboard Content */}
+            {isOnboardingComplete && (
+              <>
+                <div className="mb-4">
+                  <h1 className="text-lg font-semibold text-foreground">Good {getTimeOfDay()}</h1>
+                  <p className="text-sm text-muted-foreground">Here's what needs your attention</p>
+                </div>
 
-              {/* Communications Card */}
-              <IntelligenceCard
-                title="Communications"
-                icon={MessageSquare}
-                primaryMetric={metrics?.communications.missed ?? 0}
-                primaryLabel="missed calls today"
-                secondaryMetric={metrics?.communications.unread ? `${metrics.communications.unread} unread` : undefined}
-                cta="Check inbox"
-                state={metrics?.communications.state ?? "inactive"}
-                navigateTo="/app/inbox"
-                isLoading={isLoading}
-              />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Pipeline Card */}
+                  <IntelligenceCard
+                    title="Pipeline"
+                    icon={Target}
+                    primaryMetric={metrics?.pipeline.leads ?? 0}
+                    primaryLabel="hot leads"
+                    secondaryMetric={metrics?.pipeline.stalled ? `${metrics.pipeline.stalled} stalled` : undefined}
+                    cta="Review pipeline"
+                    state={metrics?.pipeline.state ?? "inactive"}
+                    navigateTo="/app/pipeline"
+                    isLoading={isLoading}
+                  />
 
-              {/* Growth Card */}
-              <IntelligenceCard
-                title="Growth"
-                icon={TrendingUp}
-                primaryMetric={metrics?.growth.visitors ?? 0}
-                primaryLabel="new visitors"
-                secondaryMetric={metrics?.growth.delta !== "—" ? `Funnel ${metrics?.growth.delta}` : undefined}
-                cta="See insights"
-                state={metrics?.growth.state ?? "inactive"}
-                navigateTo="/app/analytics"
-                isLoading={isLoading}
-              />
+                  {/* Communications Card */}
+                  <IntelligenceCard
+                    title="Communications"
+                    icon={MessageSquare}
+                    primaryMetric={metrics?.communications.missed ?? 0}
+                    primaryLabel="missed calls today"
+                    secondaryMetric={metrics?.communications.unread ? `${metrics.communications.unread} unread` : undefined}
+                    cta="Check inbox"
+                    state={metrics?.communications.state ?? "inactive"}
+                    navigateTo="/app/inbox"
+                    isLoading={isLoading}
+                  />
 
-              {/* Finance Card */}
-              <IntelligenceCard
-                title="Finance"
-                icon={DollarSign}
-                primaryMetric={metrics?.finance.overdue ?? 0}
-                primaryLabel="overdue invoices"
-                secondaryMetric={metrics?.finance.mrr ? `MRR: $${metrics.finance.mrr.toLocaleString()}` : undefined}
-                cta="View finances"
-                state={metrics?.finance.state ?? "inactive"}
-                navigateTo="/app/billing"
-                isLoading={isLoading}
-              />
+                  {/* Growth Card */}
+                  <IntelligenceCard
+                    title="Growth"
+                    icon={TrendingUp}
+                    primaryMetric={metrics?.growth.visitors ?? 0}
+                    primaryLabel="new visitors"
+                    secondaryMetric={metrics?.growth.delta !== "—" ? `Funnel ${metrics?.growth.delta}` : undefined}
+                    cta="See insights"
+                    state={metrics?.growth.state ?? "inactive"}
+                    navigateTo="/app/analytics"
+                    isLoading={isLoading}
+                  />
 
-              {/* Content Card */}
-              <IntelligenceCard
-                title="Content"
-                icon={FileText}
-                primaryMetric={metrics?.content.pending ?? 0}
-                primaryLabel="pending review"
-                secondaryMetric={metrics?.content.published ? `${metrics.content.published} published` : undefined}
-                cta="Review queue"
-                state={metrics?.content.state ?? "inactive"}
-                navigateTo="/app/content"
-                isLoading={isLoading}
-              />
+                  {/* Finance Card */}
+                  <IntelligenceCard
+                    title="Finance"
+                    icon={DollarSign}
+                    primaryMetric={metrics?.finance.overdue ?? 0}
+                    primaryLabel="overdue invoices"
+                    secondaryMetric={metrics?.finance.mrr ? `MRR: $${metrics.finance.mrr.toLocaleString()}` : undefined}
+                    cta="View finances"
+                    state={metrics?.finance.state ?? "inactive"}
+                    navigateTo="/app/billing"
+                    isLoading={isLoading}
+                  />
 
-              {/* Decisions Card */}
-              <IntelligenceCard
-                title="Decisions"
-                icon={CheckCircle2}
-                primaryMetric={metrics?.decisions.pending ?? 0}
-                primaryLabel="pending approval"
-                secondaryMetric={metrics?.decisions.urgent ? `${metrics.decisions.urgent} urgent` : undefined}
-                cta="Review all"
-                state={metrics?.decisions.state ?? "inactive"}
-                navigateTo="/app/decisions"
-                isLoading={isLoading}
-              />
-            </div>
+                  {/* Content Card */}
+                  <IntelligenceCard
+                    title="Content"
+                    icon={FileText}
+                    primaryMetric={metrics?.content.pending ?? 0}
+                    primaryLabel="pending review"
+                    secondaryMetric={metrics?.content.published ? `${metrics.content.published} published` : undefined}
+                    cta="Review queue"
+                    state={metrics?.content.state ?? "inactive"}
+                    navigateTo="/app/content"
+                    isLoading={isLoading}
+                  />
+
+                  {/* Decisions Card */}
+                  <IntelligenceCard
+                    title="Decisions"
+                    icon={CheckCircle2}
+                    primaryMetric={metrics?.decisions.pending ?? 0}
+                    primaryLabel="pending approval"
+                    secondaryMetric={metrics?.decisions.urgent ? `${metrics.decisions.urgent} urgent` : undefined}
+                    cta="Review all"
+                    state={metrics?.decisions.state ?? "inactive"}
+                    navigateTo="/app/decisions"
+                    isLoading={isLoading}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* CEO Chat - Fixed Bottom */}
-        <CEOChatFixed />
+        <CEOChatFixed
+          systemPrompt={showOnboardingChat ? ONBOARDING_SYSTEM_PROMPT : undefined}
+          onAgentResponse={showOnboardingChat ? handleAgentResponse : undefined}
+          autoExpand={showOnboardingChat}
+          initialMessage={onboardingMessage}
+        />
       </div>
     </>
   );

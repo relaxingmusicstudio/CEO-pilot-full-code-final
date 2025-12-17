@@ -5,10 +5,16 @@
  * - Owner: Full CEO nav (Dashboard, Pipeline, Inbox, Analytics, etc.)
  * - Client: Portal-only nav (Portal, Messages, Deliverables, etc.)
  * 
+ * Layout:
+ * - Fixed top AppHeader
+ * - Left sidebar nav on desktop
+ * - Bottom nav on mobile (5 key items)
+ * 
  * TEST CHECKLIST:
  * - Owner sees full navigation
  * - Client sees portal-only navigation
  * - Navigation items highlight correctly on active route
+ * - No horizontal scroll on any screen size
  */
 
 import { Outlet, Link, useLocation } from "react-router-dom";
@@ -19,7 +25,7 @@ import { Loader2 } from "lucide-react";
 
 export function AppLayout() {
   const location = useLocation();
-  const { navItems, isLoading } = useRoleNavigation();
+  const { navItems, mobileNavItems, isLoading } = useRoleNavigation();
 
   if (isLoading) {
     return (
@@ -64,15 +70,15 @@ export function AppLayout() {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 md:ml-56">
+        <main className="flex-1 md:ml-56 pb-20 md:pb-0">
           <Outlet />
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40">
-        <div className="flex items-center justify-around h-16 px-2">
-          {navItems.slice(0, 5).map((item) => {
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40 safe-area-inset-bottom">
+        <div className="flex items-center justify-around h-16 px-1">
+          {mobileNavItems.map((item) => {
             const isActive = location.pathname === item.href || 
               (item.href !== "/app" && item.href !== "/app/portal" && location.pathname.startsWith(item.href));
             const Icon = item.icon;
@@ -82,14 +88,14 @@ export function AppLayout() {
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg min-w-0 flex-1",
+                  "flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-lg min-w-0 flex-1 max-w-[72px]",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground"
                 )}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-xs truncate">{item.label}</span>
+                <span className="text-[10px] font-medium truncate w-full text-center">{item.label}</span>
               </Link>
             );
           })}

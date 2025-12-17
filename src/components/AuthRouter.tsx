@@ -7,16 +7,19 @@
  * 3. User role (owner/client)
  * 
  * ROUTING RULES:
- * - !isAuthenticated -> /auth
- * - authenticated + onboarding_complete=false -> /app/onboarding
+ * - !isAuthenticated -> /login
+ * - authenticated + onboarding_complete=false -> /app (onboarding happens inside dashboard)
  * - authenticated + onboarding_complete=true + role=client -> /app/portal
  * - authenticated + onboarding_complete=true + role=owner/admin -> /app
  * 
+ * LEGACY REDIRECTS:
+ * - /app/onboarding -> /app (onboarding is now in-dashboard)
+ * 
  * TEST CHECKLIST:
- * - New user -> auth -> onboarding -> complete -> refresh -> stays on /app (owner) or /app/portal (client)
+ * - New user -> auth -> /app (shows onboarding card) -> completes -> dashboard appears
  * - Client visiting /app/* -> redirected to /app/portal with no flash
  * - Owner visiting /app/portal -> redirected to /app
- * - Unauthenticated user visiting /app/* -> redirected to /auth
+ * - Unauthenticated user visiting /app/* -> redirected to /login
  */
 
 import { useEffect, useMemo } from "react";
@@ -31,13 +34,15 @@ interface AuthRouterProps {
 }
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/", "/auth", "/login", "/blog", "/privacy", "/terms", "/cookies"];
-
-// Routes allowed during onboarding
-const ONBOARDING_ROUTES = ["/app/onboarding"];
+const PUBLIC_ROUTES = ["/", "/login", "/auth", "/blog", "/privacy", "/terms", "/cookies"];
 
 // Routes for clients only
 const CLIENT_ROUTES = ["/app/portal"];
+
+// Legacy routes that redirect
+const LEGACY_REDIRECTS: Record<string, string> = {
+  "/app/onboarding": "/app",
+};
 
 // Check if path starts with any of the given prefixes
 function matchesAnyRoute(path: string, routes: string[]): boolean {
@@ -59,21 +64,20 @@ export function AuthRouter({ children }: AuthRouterProps) {
     // Still loading - no redirect
     if (isLoading) return null;
 
+    // Handle legacy redirects first
+    if (LEGACY_REDIRECTS[currentPath]) {
+      return LEGACY_REDIRECTS[currentPath];
+    }
+
     // Public routes - no redirect needed
     if (matchesAnyRoute(currentPath, PUBLIC_ROUTES)) return null;
 
     // Rule 1: Not authenticated -> /login
     if (!isAuthenticated) return "/login";
 
-    // Rule 2: Onboarding not complete -> /app/onboarding
-    if (isOnboardingComplete === false) {
-      if (!matchesAnyRoute(currentPath, ONBOARDING_ROUTES)) {
-        return "/app/onboarding";
-      }
-      return null;
-    }
-
-    // Rule 3: Onboarding complete - route by role
+    // Rule 2: Authenticated - determine proper destination based on role
+    // Note: Onboarding now happens inside /app, so no separate route needed
+    
     if (isOnboardingComplete === true) {
       // Client role
       if (isClient) {
@@ -86,10 +90,6 @@ export function AuthRouter({ children }: AuthRouterProps) {
 
       // Owner/Admin role
       if (isOwner) {
-        // Owner on onboarding -> redirect to home
-        if (matchesAnyRoute(currentPath, ONBOARDING_ROUTES)) {
-          return "/app";
-        }
         // Owner on client portal -> redirect to home
         if (matchesAnyRoute(currentPath, CLIENT_ROUTES)) {
           return "/app";
@@ -99,6 +99,19 @@ export function AuthRouter({ children }: AuthRouterProps) {
 
       // Role not determined yet (null) - wait for role to load
       if (role === null) {
+        return null;
+      }
+    }
+
+    // Authenticated but onboarding not complete - allow access to /app
+    // (onboarding happens inside the dashboard now)
+    if (isOnboardingComplete === false) {
+      // If trying to access any /app route, allow it (onboarding is in-dashboard)
+      if (currentPath.startsWith("/app")) {
+        // But clients should still go to portal
+        if (isClient) {
+          return "/app/portal";
+        }
         return null;
       }
     }
