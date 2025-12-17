@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createAuditContext } from '../_shared/auditLogger.ts';
+import { 
+  assertCanContact, 
+  recordOutboundTouch, 
+  writeAudit,
+  type Channel 
+} from '../_shared/compliance-helpers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +29,7 @@ serve(async (req) => {
   const audit = createAuditContext(supabase, 'sms-blast', 'sms_outbound');
 
   try {
-    const { action, campaign_id, message, recipients, phone_number, skip_bypass_footer } = await req.json();
+    const { action, campaign_id, message, recipients, phone_number, contact_id, skip_bypass_footer, skip_compliance } = await req.json();
 
     // Check if Twilio is configured
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
@@ -259,11 +265,52 @@ serve(async (req) => {
       });
 
     } else if (action === 'send_single') {
+      // ========================================
+      // COMPLIANCE CHECK (System Contract v1.1.1)
+      // ========================================
+      if (!skip_compliance && contact_id) {
+        const complianceCheck = await assertCanContact(contact_id, 'sms' as Channel, {
+          requireConsent: true,
+        });
+
+        if (!complianceCheck.allowed) {
+          await recordOutboundTouch({
+            contactId: contact_id,
+            channel: 'sms',
+            status: 'blocked',
+            blockReason: complianceCheck.reason ?? undefined,
+          });
+
+          await writeAudit({
+            actorType: 'module',
+            actorModule: 'sms-blast',
+            actionType: 'outbound_blocked',
+            entityType: 'sms',
+            entityId: contact_id,
+            payload: { reason: complianceCheck.reason, phone: phone_number?.slice(-4) },
+          });
+
+          return new Response(JSON.stringify({
+            success: false,
+            blocked: true,
+            reason: complianceCheck.reason,
+            message: complianceCheck.message,
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       // Send single SMS - also add footer unless skipped
       const messageWithFooter = skip_bypass_footer ? message : message + SMS_BYPASS_FOOTER;
       
       if (!twilioConfigured) {
         console.log('[MOCK] Single SMS to:', phone_number, '- Message:', messageWithFooter);
+        
+        if (contact_id) {
+          await recordOutboundTouch({ contactId: contact_id, channel: 'sms', status: 'sent' });
+        }
         
         await audit.logSuccess('Single SMS sent (mock)', 'sms', undefined, { phone: phone_number?.slice(-4), mock: true });
         
@@ -297,8 +344,15 @@ serve(async (req) => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (contact_id) {
+          await recordOutboundTouch({ contactId: contact_id, channel: 'sms', status: 'failed', blockReason: data.message });
+        }
         await audit.logError('SMS send failed', new Error(data.message), { phone: phone_number?.slice(-4) });
         throw new Error(data.message || 'Failed to send SMS');
+      }
+
+      if (contact_id) {
+        await recordOutboundTouch({ contactId: contact_id, channel: 'sms', messageId: data.sid, status: 'sent' });
       }
 
       await audit.logSuccess('Single SMS sent', 'sms', data.sid, { phone: phone_number?.slice(-4) });

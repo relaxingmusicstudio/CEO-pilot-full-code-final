@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createAuditContext } from '../_shared/auditLogger.ts';
+import { 
+  assertCanContact, 
+  recordOutboundTouch, 
+  writeAudit,
+  type Channel 
+} from '../_shared/compliance-helpers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -223,6 +229,7 @@ serve(async (req) => {
 
       let processed = 0;
       let errors = 0;
+      let blocked = 0;
 
       for (const contact of contacts) {
         const currentStep = contact.current_step;
@@ -234,6 +241,39 @@ serve(async (req) => {
             .from('cold_outreach_contacts')
             .update({ status: 'contacted' })
             .eq('id', contact.id);
+          continue;
+        }
+
+        // ========================================
+        // COMPLIANCE CHECK (System Contract v1.1.1)
+        // ========================================
+        const channel = (sequence.channel === 'sms' || sequence.channel === 'email' || sequence.channel === 'voice') 
+          ? sequence.channel as Channel 
+          : 'email' as Channel;
+        
+        const complianceCheck = await assertCanContact(contact.id, channel, {
+          requireConsent: true,
+        });
+
+        if (!complianceCheck.allowed) {
+          await recordOutboundTouch({
+            contactId: contact.id,
+            channel,
+            templateId: sequence.id,
+            status: 'blocked',
+            blockReason: complianceCheck.reason ?? undefined,
+          });
+
+          await writeAudit({
+            actorType: 'module',
+            actorModule: 'cold-outreach-send',
+            actionType: 'outbound_blocked',
+            entityType: 'cold_outreach',
+            entityId: contact.id,
+            payload: { reason: complianceCheck.reason, campaign_id, sequence_id: sequence.id },
+          });
+
+          blocked++;
           continue;
         }
 

@@ -280,11 +280,14 @@ export type Database = {
           action_id: string
           action_table: string
           action_type: string
+          actor_module: string | null
+          actor_type: string | null
           created_at: string
           executed_at: string
           executed_by: string | null
           id: string
           new_state: Json | null
+          override: boolean | null
           previous_state: Json | null
           rolled_back: boolean | null
           rolled_back_at: string | null
@@ -296,11 +299,14 @@ export type Database = {
           action_id: string
           action_table: string
           action_type: string
+          actor_module?: string | null
+          actor_type?: string | null
           created_at?: string
           executed_at?: string
           executed_by?: string | null
           id?: string
           new_state?: Json | null
+          override?: boolean | null
           previous_state?: Json | null
           rolled_back?: boolean | null
           rolled_back_at?: string | null
@@ -312,11 +318,14 @@ export type Database = {
           action_id?: string
           action_table?: string
           action_type?: string
+          actor_module?: string | null
+          actor_type?: string | null
           created_at?: string
           executed_at?: string
           executed_by?: string | null
           id?: string
           new_state?: Json | null
+          override?: boolean | null
           previous_state?: Json | null
           rolled_back?: boolean | null
           rolled_back_at?: string | null
@@ -3549,6 +3558,78 @@ export type Database = {
           },
         ]
       }
+      contact_consent: {
+        Row: {
+          channel: string
+          consent_text: string | null
+          consent_type: string
+          contact_id: string
+          created_at: string
+          form_url: string | null
+          id: string
+          ip_address: string | null
+          revoked_at: string | null
+          revoked_channel: string | null
+          source: string
+        }
+        Insert: {
+          channel: string
+          consent_text?: string | null
+          consent_type: string
+          contact_id: string
+          created_at?: string
+          form_url?: string | null
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          revoked_channel?: string | null
+          source: string
+        }
+        Update: {
+          channel?: string
+          consent_text?: string | null
+          consent_type?: string
+          contact_id?: string
+          created_at?: string
+          form_url?: string | null
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          revoked_channel?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      contact_suppression: {
+        Row: {
+          channel: string
+          contact_id: string
+          created_at: string
+          id: string
+          reactivated_at: string | null
+          reason: string
+          suppressed_at: string
+        }
+        Insert: {
+          channel: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          reactivated_at?: string | null
+          reason: string
+          suppressed_at?: string
+        }
+        Update: {
+          channel?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          reactivated_at?: string | null
+          reason?: string
+          suppressed_at?: string
+        }
+        Relationships: []
+      }
       contacts_unified: {
         Row: {
           created_at: string | null
@@ -6146,6 +6227,48 @@ export type Database = {
           tenant_id?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      outbound_touch_log: {
+        Row: {
+          block_reason: string | null
+          call_id: string | null
+          channel: string
+          contact_id: string
+          created_at: string
+          direction: string
+          id: string
+          idempotency_key: string
+          message_id: string | null
+          status: string
+          template_id: string | null
+        }
+        Insert: {
+          block_reason?: string | null
+          call_id?: string | null
+          channel: string
+          contact_id: string
+          created_at?: string
+          direction?: string
+          id?: string
+          idempotency_key: string
+          message_id?: string | null
+          status?: string
+          template_id?: string | null
+        }
+        Update: {
+          block_reason?: string | null
+          call_id?: string | null
+          channel?: string
+          contact_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          idempotency_key?: string
+          message_id?: string | null
+          status?: string
+          template_id?: string | null
         }
         Relationships: []
       }
