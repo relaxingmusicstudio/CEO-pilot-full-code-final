@@ -8,7 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  claimNextEvents,
+  claimEvents,
   markProcessed,
   markFailed,
   emitEvent,
@@ -194,7 +194,7 @@ async function processEvents(consumerName: string, eventType: string): Promise<{
   const results = { processed: 0, failed: 0, errors: [] as string[] };
 
   // Claim events
-  const { events, error: claimError } = await claimNextEvents({
+  const { events, error: claimError } = await claimEvents({
     consumerName,
     eventType,
     limit: 10,
