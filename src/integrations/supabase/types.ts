@@ -1273,6 +1273,69 @@ export type Database = {
           },
         ]
       }
+      budget_caps: {
+        Row: {
+          cap_cents: number
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          period_type: string
+          updated_at: string
+        }
+        Insert: {
+          cap_cents: number
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          period_type: string
+          updated_at?: string
+        }
+        Update: {
+          cap_cents?: number
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          period_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      budget_usage_log: {
+        Row: {
+          amount_cents: number
+          category: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          module_source: string | null
+          period_start: string
+          period_type: string
+        }
+        Insert: {
+          amount_cents?: number
+          category: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          module_source?: string | null
+          period_start: string
+          period_type: string
+        }
+        Update: {
+          amount_cents?: number
+          category?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          module_source?: string | null
+          period_start?: string
+          period_type?: string
+        }
+        Relationships: []
+      }
       business_context: {
         Row: {
           auto_mode: string | null
@@ -1426,6 +1489,9 @@ export type Database = {
           business_name: string | null
           created_at: string | null
           email: string | null
+          emergency_stop_active: boolean | null
+          emergency_stop_at: string | null
+          emergency_stop_reason: string | null
           id: string
           industry: string | null
           main_competitors: string[] | null
@@ -1453,6 +1519,9 @@ export type Database = {
           business_name?: string | null
           created_at?: string | null
           email?: string | null
+          emergency_stop_active?: boolean | null
+          emergency_stop_at?: string | null
+          emergency_stop_reason?: string | null
           id?: string
           industry?: string | null
           main_competitors?: string[] | null
@@ -1480,6 +1549,9 @@ export type Database = {
           business_name?: string | null
           created_at?: string | null
           email?: string | null
+          emergency_stop_active?: boolean | null
+          emergency_stop_at?: string | null
+          emergency_stop_reason?: string | null
           id?: string
           industry?: string | null
           main_competitors?: string[] | null
@@ -8964,15 +9036,44 @@ export type Database = {
         }
         Returns: string
       }
+      check_budget_cap: {
+        Args: { p_amount_cents?: number; p_category: string }
+        Returns: Json
+      }
       check_feature_access: {
         Args: { check_tenant_id: string; feature: string }
         Returns: boolean
+      }
+      check_outbound_compliance: {
+        Args: {
+          p_channel: string
+          p_consent_type?: string
+          p_contact_id: string
+        }
+        Returns: Json
       }
       clone_template_to_tenant: {
         Args: { p_template_key: string; p_tenant_id: string }
         Returns: boolean
       }
+      cold_update_lead_fields: {
+        Args: {
+          p_engagement_score?: number
+          p_last_contacted?: string
+          p_lead_id: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       ensure_user_role: { Args: { _user_id: string }; Returns: string }
+      get_budget_usage: {
+        Args: {
+          p_category: string
+          p_period_start?: string
+          p_period_type: string
+        }
+        Returns: number
+      }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       get_user_tenant_id: { Args: never; Returns: string }
       get_user_tenant_status: { Args: never; Returns: string }
@@ -8983,6 +9084,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_emergency_stop_active: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       provision_tenant: {
         Args: {
@@ -8992,6 +9094,24 @@ export type Database = {
           p_template_key?: string
         }
         Returns: string
+      }
+      record_budget_usage: {
+        Args: {
+          p_amount_cents: number
+          p_category: string
+          p_metadata?: Json
+          p_module_source?: string
+        }
+        Returns: string
+      }
+      sales_update_lead_fields: {
+        Args: {
+          p_assigned_to?: string
+          p_lead_id: string
+          p_qualification_data?: Json
+          p_status?: string
+        }
+        Returns: Json
       }
       user_belongs_to_tenant: {
         Args: { check_tenant_id: string }

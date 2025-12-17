@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createAuditContext } from '../_shared/auditLogger.ts';
+import { 
+  assertCanContact, 
+  recordOutboundTouch, 
+  writeAudit,
+  isEmergencyStopActive,
+  type Channel 
+} from '../_shared/compliance-helpers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,7 +58,7 @@ function isWithinCallHours(timezone: string): { allowed: boolean; reason?: strin
     }
     return { allowed: true };
   } catch {
-    return { allowed: true }; // Default to allowed if timezone detection fails
+    return { allowed: true };
   }
 }
 
@@ -65,6 +73,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    const audit = createAuditContext(supabase, 'outbound-dialer', 'voice_outbound');
     const { action, queue_item_id, phone_number, contact_id, lead_id, disposition, notes, call_type = 'human' } = await req.json();
 
     // Check if Twilio is configured
@@ -73,6 +82,25 @@ serve(async (req) => {
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
     const twilioConfigured = twilioAccountSid && twilioAuthToken && twilioPhoneNumber;
+
+    // ========================================
+    // EMERGENCY STOP CHECK (System Contract v1.1.1)
+    // ========================================
+    if (action === 'initiate_call' || action === 'add_to_queue') {
+      const emergencyStop = await isEmergencyStopActive();
+      if (emergencyStop) {
+        console.log('[outbound-dialer] BLOCKED: Emergency stop is active');
+        await audit.logError('Blocked by emergency stop', new Error('Emergency stop active'), { action, contact_id });
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'System emergency stop is active - all outbound blocked',
+          reason: 'EMERGENCY_STOP',
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     if (action === 'check_call_time') {
       // Check if call is within permitted TCPA hours
@@ -95,6 +123,7 @@ serve(async (req) => {
       
       if (!callTimeCheck.allowed) {
         console.log('[BLOCKED] Call time restriction:', callTimeCheck.reason);
+        await audit.logError('Call time restriction', new Error(callTimeCheck.reason || 'Call time blocked'), { phone_number, timezone });
         return new Response(JSON.stringify({
           success: false,
           error: callTimeCheck.reason,
@@ -105,12 +134,49 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      // TCPA COMPLIANCE: Verify consent before any call
+
+      // ========================================
+      // CENTRAL COMPLIANCE CHECK (System Contract v1.1.1)
+      // ========================================
+      if (contact_id) {
+        const complianceCheck = await assertCanContact(contact_id, 'voice' as Channel, {
+          requireConsent: call_type === 'ai', // AI calls require consent
+        });
+
+        if (!complianceCheck.allowed) {
+          await recordOutboundTouch({
+            contactId: contact_id,
+            channel: 'voice',
+            status: 'blocked',
+            blockReason: complianceCheck.reason ?? undefined,
+          });
+
+          await writeAudit({
+            actorType: 'module',
+            actorModule: 'outbound-dialer',
+            actionType: 'outbound_blocked',
+            entityType: 'voice',
+            entityId: contact_id,
+            payload: { reason: complianceCheck.reason, phone: phone_number?.slice(-4), call_type },
+          });
+
+          console.log(`[BLOCKED] Compliance check failed: ${complianceCheck.reason}`);
+          return new Response(JSON.stringify({
+            success: false,
+            error: complianceCheck.message,
+            reason: complianceCheck.reason,
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Legacy consent checks for leads without contact_id
       let hasConsent = false;
       let consentSource = null;
       let isDNC = false;
       
-      // Check lead consent if lead_id provided
       if (lead_id) {
         const { data: lead } = await supabase
           .from('leads')
@@ -125,7 +191,6 @@ serve(async (req) => {
         }
       }
       
-      // Check dialer queue consent if queue_item_id provided
       if (queue_item_id) {
         const { data: queueItem } = await supabase
           .from('dialer_queue')
@@ -134,7 +199,6 @@ serve(async (req) => {
           .single();
         
         if (queueItem) {
-          // Check if queue item has verified consent or linked lead has consent
           const linkedLead = queueItem.lead as any;
           hasConsent = queueItem.consent_verified === true || 
                        linkedLead?.consent_to_call === true || 
@@ -144,7 +208,6 @@ serve(async (req) => {
         }
       }
       
-      // BLOCK: Do Not Call check
       if (isDNC) {
         console.log('[BLOCKED] DNC - Cannot call:', phone_number);
         return new Response(JSON.stringify({
@@ -157,7 +220,6 @@ serve(async (req) => {
         });
       }
       
-      // BLOCK: AI calls require prior written consent (TCPA)
       if (call_type === 'ai' && !hasConsent) {
         console.log('[BLOCKED] AI call without consent:', phone_number);
         return new Response(JSON.stringify({
@@ -170,16 +232,18 @@ serve(async (req) => {
         });
       }
       
-      // WARNING: Human calls without consent (allowed but logged)
       if (!hasConsent && call_type === 'human') {
         console.log('[WARNING] Human call without verified consent:', phone_number);
-        // Log consent audit
-        await supabase.from('consent_audit_log').insert({
-          lead_id,
-          action: 'call_without_consent',
-          channel: 'phone',
-          source: 'manual_dial',
-        });
+        try {
+          await supabase.from('consent_audit_log').insert({
+            lead_id,
+            action: 'call_without_consent',
+            channel: 'phone',
+            source: 'manual_dial',
+          });
+        } catch (e) {
+          console.log('[outbound-dialer] Could not log consent audit');
+        }
       }
 
       // Create call log entry
@@ -199,6 +263,25 @@ serve(async (req) => {
         .single();
 
       if (logError) throw logError;
+
+      // Record outbound touch for compliance tracking (System Contract v1.1.1)
+      if (contact_id) {
+        await recordOutboundTouch({
+          contactId: contact_id,
+          channel: 'voice',
+          callId: callLog.id,
+          status: 'sent',
+        });
+
+        await writeAudit({
+          actorType: 'module',
+          actorModule: 'outbound-dialer',
+          actionType: 'call_initiated',
+          entityType: 'voice',
+          entityId: contact_id,
+          payload: { call_log_id: callLog.id, call_type, phone: phone_number?.slice(-4) },
+        });
+      }
       
       // Log activity
       if (lead_id) {

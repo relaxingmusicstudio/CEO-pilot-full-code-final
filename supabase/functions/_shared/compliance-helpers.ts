@@ -172,6 +172,22 @@ export async function getTouchCount(
 }
 
 /**
+ * Check if emergency stop is active
+ */
+export async function isEmergencyStopActive(): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase.rpc('is_emergency_stop_active');
+  
+  if (error) {
+    console.error('[Compliance] Emergency stop check error:', error);
+    return true; // Fail safe
+  }
+  
+  return data === true;
+}
+
+/**
  * Master compliance check - call before any outbound send
  */
 export async function assertCanContact(
@@ -183,6 +199,16 @@ export async function assertCanContact(
   } = {}
 ): Promise<ComplianceCheckResult> {
   const { consentType, requireConsent = true } = options;
+
+  // 0. Check emergency stop FIRST (System Contract v1.1.1)
+  const emergencyStop = await isEmergencyStopActive();
+  if (emergencyStop) {
+    return {
+      allowed: false,
+      reason: 'EMERGENCY_STOP',
+      message: 'System emergency stop is active - all outbound blocked',
+    };
+  }
 
   // 1. Check suppression (DNC)
   const suppressed = await isContactSuppressed(contactId, channel);
