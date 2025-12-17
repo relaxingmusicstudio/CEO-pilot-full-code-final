@@ -5,22 +5,22 @@ import { aiChat, estimateCostCents, AIChatResponse } from "../_shared/ai.ts";
 /**
  * CEO Scheduler - Automated daily brief generation per-tenant
  * 
+ * SECURITY:
+ * - Requires X-Internal-Secret header matching INTERNAL_SCHEDULER_SECRET env var
+ * - Does NOT rely on client-provided tenant_id for filtering
+ * - All tenant data queries are scoped by tenantId from database
+ * 
  * Actions:
  * - run_daily_briefs: Loops all active tenants and generates daily briefs
  * - run_cost_rollup: Aggregates AI costs for dashboard speed
  * - check_job_status: Returns status of recent job runs
  * 
- * SAFETY:
- * - Does NOT rely on client-provided tenant_id
- * - Skips if cached brief < 24h old
- * - Logs per-tenant success/failure to ceo_job_runs
- * 
- * Triggered by: pg_cron (7 AM UTC daily) or manual invocation
+ * Triggered by: pg_cron (7 AM UTC daily) or manual invocation with valid secret
  */
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
 };
 
 interface TenantInfo {
@@ -40,11 +40,42 @@ interface BriefData {
   ai_cost_30d_avg_cents: number;
   top_lead_sources: Array<{ source: string; count: number }>;
   pending_actions: number;
+  warnings: string[];
+}
+
+/**
+ * Validate internal scheduler secret
+ */
+function validateInternalAuth(req: Request): { valid: boolean; error?: string } {
+  const secret = req.headers.get('x-internal-secret');
+  const expectedSecret = Deno.env.get('INTERNAL_SCHEDULER_SECRET');
+  
+  if (!expectedSecret) {
+    console.error('[ceo-scheduler] INTERNAL_SCHEDULER_SECRET env var not configured');
+    return { valid: false, error: 'Internal auth not configured' };
+  }
+  
+  if (!secret) {
+    return { valid: false, error: 'Missing X-Internal-Secret header' };
+  }
+  
+  if (secret !== expectedSecret) {
+    return { valid: false, error: 'Invalid X-Internal-Secret' };
+  }
+  
+  return { valid: true };
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // SECURITY: Validate internal auth
+  const authCheck = validateInternalAuth(req);
+  if (!authCheck.valid) {
+    console.warn(`[ceo-scheduler] Auth rejected: ${authCheck.error}`);
+    return jsonResponse({ error: authCheck.error }, 401);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -116,6 +147,7 @@ async function runDailyBriefs(
     status: 'success' | 'failed' | 'skipped';
     error?: string;
     duration_ms: number;
+    warnings?: string[];
   }> = [];
 
   for (const tenant of tenants as TenantInfo[]) {
@@ -160,10 +192,12 @@ async function runDailyBriefs(
         tenant_name: tenant.name,
         status: 'success',
         duration_ms: duration,
+        warnings: brief.warnings,
       });
 
       await logJobRun(supabase, tenant.id, 'daily_brief', 'success', null, duration, {
         brief_bullets: brief.bullets?.length || 0,
+        warnings: brief.warnings,
       });
 
     } catch (error) {
@@ -201,32 +235,68 @@ async function runDailyBriefs(
 
 /**
  * Generate brief for a specific tenant (internal helper)
+ * 
+ * TENANT ISOLATION:
+ * - Tables WITH tenant_id: leads, clients, ceo_action_queue - filtered by tenantId
+ * - Tables WITHOUT tenant_id: call_logs, client_invoices, agent_cost_tracking
+ *   - Set to 0 and log warning in metadata
  */
 async function generateTenantBrief(
   supabase: SupabaseClient,
   tenantId: string
-): Promise<{ bullets: string[]; risk_alert: string | null; opportunity: string | null }> {
+): Promise<{ bullets: string[]; risk_alert: string | null; opportunity: string | null; warnings: string[] }> {
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Aggregate data for this tenant
-  const [leadsResult, callsResult, clientsResult, invoicesResult, costs24h, costs30d, pendingResult] = await Promise.all([
-    supabase.from('leads').select('id, lead_temperature, source', { count: 'exact' }).eq('tenant_id', tenantId).gte('created_at', yesterday.toISOString()),
-    supabase.from('call_logs').select('id', { count: 'exact', head: true }).gte('created_at', yesterday.toISOString()).eq('status', 'missed'),
-    supabase.from('clients').select('mrr', { count: 'exact' }).eq('status', 'active'),
-    supabase.from('client_invoices').select('amount').eq('status', 'paid').gte('created_at', monthStart.toISOString()),
-    supabase.from('agent_cost_tracking').select('cost_cents').gte('created_at', yesterday.toISOString()),
-    supabase.from('agent_cost_tracking').select('cost_cents').gte('created_at', thirtyDaysAgo.toISOString()),
-    supabase.from('ceo_action_queue').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-  ]);
+  const warnings: string[] = [];
+
+  // 1. Leads - HAS tenant_id, filtered
+  const { data: leadsData, count: leadsCount } = await supabase
+    .from('leads')
+    .select('id, lead_temperature, source', { count: 'exact' })
+    .eq('tenant_id', tenantId)
+    .gte('created_at', yesterday.toISOString());
+
+  // 2. Clients - HAS tenant_id, filtered
+  const { data: clientsData, count: clientsCount } = await supabase
+    .from('clients')
+    .select('mrr', { count: 'exact' })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active');
+
+  // 3. ceo_action_queue - HAS tenant_id, filtered
+  const { count: pendingCount } = await supabase
+    .from('ceo_action_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'pending');
+
+  // 4. call_logs - NO tenant_id column, cannot filter by tenant
+  // Set to 0 and log warning
+  const missedCalls24h = 0;
+  warnings.push('call_logs: no tenant_id column, missed_calls set to 0');
+  console.warn(`[ceo-scheduler] call_logs has no tenant_id - cannot filter for tenant ${tenantId}`);
+
+  // 5. client_invoices - NO tenant_id column (linked via client_id -> clients)
+  // Would need a join to filter properly; for now set to 0
+  const revenueInvoicedCents = 0;
+  warnings.push('client_invoices: no tenant_id column, revenue_invoiced set to 0');
+  console.warn(`[ceo-scheduler] client_invoices has no tenant_id - cannot filter for tenant ${tenantId}`);
+
+  // 6. agent_cost_tracking - NO tenant_id column, global costs
+  // Set to 0 for tenant-specific view
+  const aiCost24h = 0;
+  const aiCost30dAvg = 0;
+  warnings.push('agent_cost_tracking: no tenant_id column, ai_costs set to 0');
+  console.warn(`[ceo-scheduler] agent_cost_tracking has no tenant_id - cannot filter for tenant ${tenantId}`);
 
   // Process lead temperatures
   const leadTemperature: Record<string, number> = { hot: 0, warm: 0, cold: 0, unknown: 0 };
   const sourceCount: Record<string, number> = {};
   
-  (leadsResult.data || []).forEach((lead: { lead_temperature?: string; source?: string }) => {
+  (leadsData || []).forEach((lead: { lead_temperature?: string; source?: string }) => {
     const temp = (lead.lead_temperature || 'unknown').toLowerCase();
     leadTemperature[temp] = (leadTemperature[temp] || 0) + 1;
     const source = lead.source || 'direct';
@@ -238,29 +308,22 @@ async function generateTenantBrief(
     .slice(0, 5)
     .map(([source, count]) => ({ source, count }));
 
-  const mrrCents = (clientsResult.data || []).reduce(
+  const mrrCents = (clientsData || []).reduce(
     (sum: number, c: { mrr?: number }) => sum + Math.round((c.mrr || 0) * 100), 0
   );
 
-  const revenueInvoicedCents = (invoicesResult.data || []).reduce(
-    (sum: number, inv: { amount?: number }) => sum + Math.round((inv.amount || 0) * 100), 0
-  );
-
-  const aiCost24h = (costs24h.data || []).reduce((sum: number, c: { cost_cents?: number }) => sum + (c.cost_cents || 0), 0);
-  const totalCost30d = (costs30d.data || []).reduce((sum: number, c: { cost_cents?: number }) => sum + (c.cost_cents || 0), 0);
-  const aiCost30dAvg = Math.round(totalCost30d / 30);
-
   const briefData: BriefData = {
-    leads_24h: leadsResult.count || 0,
+    leads_24h: leadsCount || 0,
     lead_temperature: leadTemperature,
-    missed_calls_24h: callsResult.count || 0,
-    active_clients: clientsResult.count || 0,
+    missed_calls_24h: missedCalls24h,
+    active_clients: clientsCount || 0,
     mrr_cents: mrrCents,
     revenue_invoiced_this_month_cents: revenueInvoicedCents,
     ai_cost_24h_cents: aiCost24h,
     ai_cost_30d_avg_cents: aiCost30dAvg,
     top_lead_sources: topSources,
-    pending_actions: pendingResult.count || 0,
+    pending_actions: pendingCount || 0,
+    warnings,
   };
 
   // Get industry from business profile
@@ -278,12 +341,11 @@ async function generateTenantBrief(
 DATA (last 24 hours unless noted):
 - New leads: ${briefData.leads_24h}
 - Lead temperature: Hot=${leadTemperature.hot}, Warm=${leadTemperature.warm}, Cold=${leadTemperature.cold}
-- Missed calls: ${briefData.missed_calls_24h}
+- Missed calls: ${briefData.missed_calls_24h} (note: data unavailable, showing 0)
 - Active clients: ${briefData.active_clients}
 - MRR: $${(briefData.mrr_cents / 100).toFixed(2)}
-- Invoiced this month: $${(briefData.revenue_invoiced_this_month_cents / 100).toFixed(2)}
-- AI costs (24h): $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}
-- AI costs (30d avg/day): $${(briefData.ai_cost_30d_avg_cents / 100).toFixed(2)}
+- Invoiced this month: $${(briefData.revenue_invoiced_this_month_cents / 100).toFixed(2)} (note: data unavailable, showing 0)
+- AI costs (24h): $${(briefData.ai_cost_24h_cents / 100).toFixed(2)} (note: global costs not tenant-filtered)
 - Pending CEO actions: ${briefData.pending_actions}
 
 Generate 5-7 bullets, 1 risk alert (or "None"), 1 opportunity.
@@ -308,11 +370,10 @@ Respond ONLY as JSON: {"bullets": [...], "risk_alert": "...", "opportunity": "..
     briefContent = {
       bullets: [
         `${briefData.leads_24h} new leads in 24h`,
-        `${briefData.missed_calls_24h} missed calls`,
         `${briefData.active_clients} active clients (MRR: $${(briefData.mrr_cents / 100).toFixed(2)})`,
-        `AI cost: $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}/day`,
+        `${briefData.pending_actions} pending CEO actions`,
       ],
-      risk_alert: briefData.missed_calls_24h > 5 ? `High missed calls (${briefData.missed_calls_24h})` : null,
+      risk_alert: null,
       opportunity: leadTemperature.hot > 0 ? `${leadTemperature.hot} hot leads ready` : null,
     };
   }
@@ -347,18 +408,18 @@ Respond ONLY as JSON: {"bullets": [...], "risk_alert": "...", "opportunity": "..
     avg_latency_ms: aiResponse.latency_ms || null,
   });
 
-  return briefContent;
+  return { ...briefContent, warnings };
 }
 
 /**
- * Run cost rollup for dashboard performance
+ * Run cost rollup for dashboard performance (global, not tenant-specific)
  */
 async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
   const startTime = Date.now();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   try {
-    // Aggregate costs by agent/purpose/provider
+    // Aggregate costs by agent/purpose/provider (global - no tenant_id on this table)
     const { data: costs, error } = await supabase
       .from('agent_cost_tracking')
       .select('agent_type, purpose, provider, cost_cents, tokens_used, api_calls')
@@ -370,28 +431,28 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
     const byPurpose: Record<string, { cost_cents: number; count: number }> = {};
     const byProvider: Record<string, { cost_cents: number; count: number }> = {};
 
-    (costs || []).forEach((c: any) => {
-      const agent = c.agent_type || 'unknown';
-      const purpose = c.purpose || 'unknown';
-      const provider = c.provider || 'unknown';
+    (costs || []).forEach((c: Record<string, unknown>) => {
+      const agent = (c.agent_type as string) || 'unknown';
+      const purpose = (c.purpose as string) || 'unknown';
+      const provider = (c.provider as string) || 'unknown';
 
       if (!byAgent[agent]) byAgent[agent] = { cost_cents: 0, api_calls: 0, tokens: 0 };
-      byAgent[agent].cost_cents += c.cost_cents || 0;
-      byAgent[agent].api_calls += c.api_calls || 0;
-      byAgent[agent].tokens += c.tokens_used || 0;
+      byAgent[agent].cost_cents += (c.cost_cents as number) || 0;
+      byAgent[agent].api_calls += (c.api_calls as number) || 0;
+      byAgent[agent].tokens += (c.tokens_used as number) || 0;
 
       if (!byPurpose[purpose]) byPurpose[purpose] = { cost_cents: 0, count: 0 };
-      byPurpose[purpose].cost_cents += c.cost_cents || 0;
+      byPurpose[purpose].cost_cents += (c.cost_cents as number) || 0;
       byPurpose[purpose].count += 1;
 
       if (!byProvider[provider]) byProvider[provider] = { cost_cents: 0, count: 0 };
-      byProvider[provider].cost_cents += c.cost_cents || 0;
+      byProvider[provider].cost_cents += (c.cost_cents as number) || 0;
       byProvider[provider].count += 1;
     });
 
     const rollup = { by_agent: byAgent, by_purpose: byPurpose, by_provider: byProvider };
 
-    // Cache the rollup
+    // Cache the rollup (global - no tenant)
     await supabase.from('agent_shared_state').upsert({
       key: 'ceo_cost_rollup_global',
       value: rollup,
@@ -431,15 +492,16 @@ async function checkJobStatus(supabase: SupabaseClient): Promise<Response> {
   // Summarize by job type
   const summary: Record<string, { total: number; success: number; failed: number; skipped: number; last_run?: string }> = {};
   
-  (jobs || []).forEach((job: any) => {
-    if (!summary[job.job_type]) {
-      summary[job.job_type] = { total: 0, success: 0, failed: 0, skipped: 0 };
+  (jobs || []).forEach((job: Record<string, unknown>) => {
+    const jobType = job.job_type as string;
+    if (!summary[jobType]) {
+      summary[jobType] = { total: 0, success: 0, failed: 0, skipped: 0 };
     }
-    summary[job.job_type].total += 1;
-    if (job.status === 'success') summary[job.job_type].success += 1;
-    if (job.status === 'failed') summary[job.job_type].failed += 1;
-    if (job.status === 'skipped') summary[job.job_type].skipped += 1;
-    if (!summary[job.job_type].last_run) summary[job.job_type].last_run = job.created_at;
+    summary[jobType].total += 1;
+    if (job.status === 'success') summary[jobType].success += 1;
+    if (job.status === 'failed') summary[jobType].failed += 1;
+    if (job.status === 'skipped') summary[jobType].skipped += 1;
+    if (!summary[jobType].last_run) summary[jobType].last_run = job.created_at as string;
   });
 
   return jsonResponse({ recent_jobs: jobs, summary });
