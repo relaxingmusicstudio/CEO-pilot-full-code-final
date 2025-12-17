@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  ArrowLeft, Search, TrendingUp, Youtube, Lightbulb, Wand2, 
+  Search, TrendingUp, Youtube, Lightbulb, Wand2, 
   Image, Video, FileText, Calendar, Check, X, Loader2,
   ThumbsUp, ThumbsDown, Send, Clock, Sparkles
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { PageShell } from "@/components/PageShell";
+import { AssistantStrip } from "@/components/AssistantStrip";
 
 interface ContentIdea {
   id: string;
@@ -162,31 +163,26 @@ const AdminContent = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/admin/ceo" className="text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Content Studio</h1>
-                  <p className="text-sm text-muted-foreground">Discover, create, and manage content</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+  const CONTENT_PROMPTS = [
+    { label: "Trending ideas", prompt: "What content topics are trending right now?" },
+    { label: "Best time to post", prompt: "When should I publish for maximum engagement?" },
+    { label: "Content strategy", prompt: "Help me plan this week's content calendar" },
+  ];
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  const assistantStrip = (
+    <AssistantStrip
+      pageContext="Content Studio - content discovery, creation, and publishing"
+      quickPrompts={CONTENT_PROMPTS}
+      placeholder="Ask about content strategy or get publishing tips..."
+    />
+  );
+
+  return (
+    <PageShell
+      title="Content Studio"
+      subtitle="Discover, create, and manage content"
+      assistantStrip={assistantStrip}
+    >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted/50">
             <TabsTrigger value="discover" className="flex items-center gap-2">
@@ -440,8 +436,7 @@ const AdminContent = () => {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+    </PageShell>
   );
 };
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, MessageSquare, Phone, Mail, RefreshCw, Database, User, Clock, CheckCheck, Check } from "lucide-react";
+import { Send, MessageSquare, Phone, Mail, RefreshCw, Database, User, Clock, CheckCheck, Check } from "lucide-react";
+import { PageShell } from "@/components/PageShell";
+import { AssistantStrip } from "@/components/AssistantStrip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,6 @@ const channelIcons: Record<string, React.ReactNode> = {
 };
 
 export default function AdminInbox() {
-  const navigate = useNavigate();
   const { fetchConversations, fetchMessages, replyToConversation, markAsRead, seedMockData, isLoading } = useMessaging();
   
   const [channelFilter, setChannelFilter] = useState("all");
@@ -111,29 +111,42 @@ export default function AdminInbox() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/app/command-center")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-semibold">Unified Inbox</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadConversations}>
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={seedMockData} disabled={isLoading}>
-            <Database className="h-4 w-4 mr-1" />
-            Seed Mock Data
-          </Button>
-        </div>
-      </header>
+  const INBOX_PROMPTS = [
+    { label: "Urgent messages", prompt: "Which messages need immediate attention?" },
+    { label: "Follow-up needed", prompt: "Who hasn't been responded to?" },
+    { label: "Response templates", prompt: "Suggest a response for the current conversation" },
+  ];
 
-      <div className="flex-1 flex overflow-hidden">
+  const assistantStrip = (
+    <AssistantStrip
+      pageContext="Unified Inbox - managing messages across SMS, WhatsApp, email"
+      quickPrompts={INBOX_PROMPTS}
+      placeholder="Ask about messages or get response suggestions..."
+    />
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={loadConversations}>
+        <RefreshCw className="h-4 w-4 mr-1" />
+        Refresh
+      </Button>
+      <Button variant="outline" size="sm" onClick={seedMockData} disabled={isLoading}>
+        <Database className="h-4 w-4 mr-1" />
+        Seed Mock Data
+      </Button>
+    </div>
+  );
+
+  return (
+    <PageShell
+      title="Unified Inbox"
+      subtitle="Messages across all channels"
+      primaryAction={headerActions}
+      assistantStrip={assistantStrip}
+      fullBleed
+    >
+      <div className="flex h-full overflow-hidden">
         {/* Sidebar - Conversation List */}
         <div className="w-80 border-r flex flex-col bg-card">
           <Tabs value={channelFilter} onValueChange={setChannelFilter} className="p-3">
@@ -293,6 +306,6 @@ export default function AdminInbox() {
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

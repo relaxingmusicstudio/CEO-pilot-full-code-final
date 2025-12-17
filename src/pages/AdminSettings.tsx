@@ -9,9 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Settings, Key, Youtube, Facebook, Video, Phone, MessageSquare, 
   TrendingUp, Search, BarChart3, CheckCircle, XCircle, Loader2,
-  ArrowLeft, Save, TestTube, Zap
+  Save, TestTube, Zap
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { PageShell } from "@/components/PageShell";
 import AIRateLimitConfig from "@/components/admin/AIRateLimitConfig";
 
 interface ApiSetting {
@@ -324,29 +324,10 @@ const AdminSettings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/app" className="text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Settings className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Integration Settings</h1>
-                  <p className="text-sm text-muted-foreground">Configure your API keys and integrations</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageShell
+      title="Integration Settings"
+      subtitle="Configure your API keys and integrations"
+    >
         <Tabs defaultValue="integrations" className="space-y-6">
           <TabsList>
             <TabsTrigger value="integrations" className="flex items-center gap-2">
@@ -454,8 +435,7 @@ const AdminSettings = () => {
             <AIRateLimitConfig />
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+    </PageShell>
   );
 };
 
