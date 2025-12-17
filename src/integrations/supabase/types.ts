@@ -7837,6 +7837,8 @@ export type Database = {
           last_error: string | null
           next_attempt_at: string | null
           payload: Json
+          processed_at: string | null
+          processed_by: string | null
           status: string
           tenant_id: string | null
         }
@@ -7853,6 +7855,8 @@ export type Database = {
           last_error?: string | null
           next_attempt_at?: string | null
           payload?: Json
+          processed_at?: string | null
+          processed_by?: string | null
           status?: string
           tenant_id?: string | null
         }
@@ -7869,6 +7873,8 @@ export type Database = {
           last_error?: string | null
           next_attempt_at?: string | null
           payload?: Json
+          processed_at?: string | null
+          processed_by?: string | null
           status?: string
           tenant_id?: string | null
         }
@@ -9194,6 +9200,8 @@ export type Database = {
           last_error: string | null
           next_attempt_at: string | null
           payload: Json
+          processed_at: string | null
+          processed_by: string | null
           status: string
           tenant_id: string | null
         }[]
