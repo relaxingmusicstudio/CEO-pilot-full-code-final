@@ -96,7 +96,13 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
       claude_reasoning: `New lead ${leadId} requires CEO approval for cold sequence enrollment (MANUAL mode).`,
     });
     
+    // DB-LEVEL IDEMPOTENCY: Handle unique constraint violation (23505) as success
     if (queueError) {
+      // Check for unique violation from partial index
+      if (queueError.code === '23505') {
+        console.log(`[ColdAgentEnroller] DB constraint caught duplicate for lead ${leadId} - treating as success`);
+        return;
+      }
       console.error(`[ColdAgentEnroller] Failed to queue CEO action:`, queueError);
       throw new Error(`Failed to queue CEO action: ${queueError.message}`);
     }
