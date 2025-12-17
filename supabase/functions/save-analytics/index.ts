@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { emitEvent } from "../_shared/event-bus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -214,7 +215,10 @@ serve(async (req) => {
       case "save_lead": {
         const leadData = data;
         
-        const { data: newLead, error } = await supabase
+        // Use admin client for lead insert (Funnels owner path)
+        const db = supabaseAdmin ?? supabase;
+        
+        const { data: newLead, error } = await db
           .from("leads")
           .insert({
             visitor_id: leadData.visitorId,
@@ -235,12 +239,52 @@ serve(async (req) => {
             objections: leadData.objections,
             ghl_contact_id: leadData.ghlContactId,
             status: "new",
+            // Funnels owns these fields at create time
+            source: leadData.source ?? "funnel",
+            utm_source: leadData.utmSource,
+            utm_medium: leadData.utmMedium,
+            utm_campaign: leadData.utmCampaign,
           })
-          .select("id")
+          .select("id, tenant_id")
           .single();
         
         if (error) throw error;
         console.log("Created lead:", newLead.id);
+        
+        // === EMIT lead_created EVENT (System Contract v1.1.1) ===
+        try {
+          const eventResult = await emitEvent({
+            eventType: "lead_created",
+            entityType: "lead",
+            entityId: newLead.id,
+            payload: {
+              lead_id: newLead.id,
+              source: leadData.source ?? "funnel",
+              utm_source: leadData.utmSource,
+              utm_medium: leadData.utmMedium,
+              utm_campaign: leadData.utmCampaign,
+              lead_score: leadData.leadScore ?? 0,
+              consent_status: {
+                call: leadData.consentToCall ?? false,
+                sms: leadData.consentToSms ?? false,
+                email: leadData.consentToEmail ?? false,
+              },
+              channel: leadData.channel ?? "web",
+            },
+            emittedBy: "funnels",
+            tenantId: newLead.tenant_id,
+            idempotencyKey: `lead_created:${newLead.id}`,
+          });
+          
+          if (eventResult.success) {
+            console.log("Emitted lead_created event:", eventResult.eventId ?? "(duplicate)");
+          } else {
+            console.error("Failed to emit lead_created event:", eventResult.error);
+          }
+        } catch (eventError) {
+          // Don't fail the lead creation if event emission fails
+          console.error("Event emission error (non-fatal):", eventError);
+        }
         
         return new Response(JSON.stringify({ success: true, leadId: newLead.id }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

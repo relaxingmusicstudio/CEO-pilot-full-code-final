@@ -7755,6 +7755,133 @@ export type Database = {
         }
         Relationships: []
       }
+      system_event_consumers: {
+        Row: {
+          consumer_name: string
+          created_at: string
+          enabled: boolean
+          event_type: string
+          id: string
+          last_event_id: string | null
+          last_processed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          consumer_name: string
+          created_at?: string
+          enabled?: boolean
+          event_type: string
+          id?: string
+          last_event_id?: string | null
+          last_processed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          consumer_name?: string
+          created_at?: string
+          enabled?: boolean
+          event_type?: string
+          id?: string
+          last_event_id?: string | null
+          last_processed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_event_dead_letter: {
+        Row: {
+          consumer_name: string
+          dead_lettered_at: string
+          id: string
+          original_event_id: string
+          payload: Json
+          reason: string
+        }
+        Insert: {
+          consumer_name: string
+          dead_lettered_at?: string
+          id?: string
+          original_event_id: string
+          payload: Json
+          reason: string
+        }
+        Update: {
+          consumer_name?: string
+          dead_lettered_at?: string
+          id?: string
+          original_event_id?: string
+          payload?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_event_dead_letter_original_event_id_fkey"
+            columns: ["original_event_id"]
+            isOneToOne: false
+            referencedRelation: "system_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          emitted_at: string
+          emitted_by: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          emitted_at?: string
+          emitted_by: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          next_attempt_at?: string | null
+          payload?: Json
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          emitted_at?: string
+          emitted_by?: string
+          entity_id?: string
+          entity_type?: string
+          event_type?: string
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          next_attempt_at?: string | null
+          payload?: Json
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_health: {
         Row: {
           id: string
@@ -9086,6 +9213,7 @@ export type Database = {
       }
       is_emergency_stop_active: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      is_rpc_context: { Args: never; Returns: boolean }
       provision_tenant: {
         Args: {
           p_name: string
