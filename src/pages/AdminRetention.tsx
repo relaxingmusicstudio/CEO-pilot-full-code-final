@@ -146,7 +146,7 @@ export default function AdminRetention() {
           target_id: clientId,
           payload: { intervention_type: 'outreach', actions: ['Schedule call', 'Send check-in email'] },
           priority: 'high',
-          status: 'pending'
+          status: 'pending_approval'
         });
 
       if (error) throw error;
