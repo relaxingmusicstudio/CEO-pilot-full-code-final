@@ -68,43 +68,30 @@ serve(async (req) => {
       case "upsert_visitor": {
         const visitorData = data as VisitorData;
         
-        // Check if visitor exists
-        const { data: existing } = await supabase
+        // Use upsert to handle race conditions atomically
+        const { error } = await supabase
           .from("visitors")
-          .select("id, total_visits")
-          .eq("visitor_id", visitorData.visitorId)
-          .maybeSingle();
+          .upsert({
+            visitor_id: visitorData.visitorId,
+            device: visitorData.device,
+            browser: visitorData.browser,
+            utm_source: visitorData.utmSource,
+            utm_medium: visitorData.utmMedium,
+            utm_campaign: visitorData.utmCampaign,
+            landing_page: visitorData.landingPage,
+            referrer: visitorData.referrer,
+            last_seen_at: new Date().toISOString(),
+          }, {
+            onConflict: 'visitor_id',
+            ignoreDuplicates: false
+          });
         
-        if (existing) {
-          // Update existing visitor
-          const { error } = await supabase
-            .from("visitors")
-            .update({
-              last_seen_at: new Date().toISOString(),
-              total_visits: (existing.total_visits || 1) + 1,
-            })
-            .eq("visitor_id", visitorData.visitorId);
-          
-          if (error) throw error;
-          console.log("Updated existing visitor:", visitorData.visitorId);
-        } else {
-          // Create new visitor
-          const { error } = await supabase
-            .from("visitors")
-            .insert({
-              visitor_id: visitorData.visitorId,
-              device: visitorData.device,
-              browser: visitorData.browser,
-              utm_source: visitorData.utmSource,
-              utm_medium: visitorData.utmMedium,
-              utm_campaign: visitorData.utmCampaign,
-              landing_page: visitorData.landingPage,
-              referrer: visitorData.referrer,
-            });
-          
-          if (error) throw error;
-          console.log("Created new visitor:", visitorData.visitorId);
+        if (error) {
+          console.error("Upsert visitor error:", error);
+          throw error;
         }
+        
+        console.log("Upserted visitor:", visitorData.visitorId);
         
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
