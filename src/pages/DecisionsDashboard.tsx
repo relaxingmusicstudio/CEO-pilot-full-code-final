@@ -15,8 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { GovernanceNavigation } from "@/components/GovernanceNavigation";
 import { DecisionCardRenderer } from "@/components/ceo/DecisionCardRenderer";
+import { PageShell } from "@/components/PageShell";
 import {
   CheckCircle2,
   XCircle,
@@ -25,7 +25,6 @@ import {
   Bot,
   ChevronRight,
   Loader2,
-  Brain,
 } from "lucide-react";
 
 interface DecisionItem {
@@ -225,6 +224,23 @@ export default function DecisionsDashboard() {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
+  const statsDisplay = (
+    <div className="flex gap-4 text-sm">
+      <div className="text-center">
+        <p className="text-2xl font-bold text-orange-500">{stats.pending}</p>
+        <p className="text-xs text-muted-foreground">Pending</p>
+      </div>
+      <div className="text-center">
+        <p className="text-2xl font-bold text-green-500">{stats.approved}</p>
+        <p className="text-xs text-muted-foreground">Approved</p>
+      </div>
+      <div className="text-center">
+        <p className="text-2xl font-bold text-red-500">{stats.rejected}</p>
+        <p className="text-xs text-muted-foreground">Rejected</p>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <Helmet>
@@ -232,45 +248,12 @@ export default function DecisionsDashboard() {
         <meta name="description" content="Review and approve AI recommendations" />
       </Helmet>
       
-      <div className="h-screen flex bg-background">
-        {/* Sidebar Navigation */}
-        <aside className="w-64 border-r bg-card p-4 hidden md:block">
-          <div className="flex items-center gap-2 mb-6">
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="font-semibold">Governance</span>
-          </div>
-          <GovernanceNavigation />
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-hidden">
-          <div className="container py-6 h-full flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold">Decisions</h1>
-                <p className="text-sm text-muted-foreground">
-                  Review AI recommendations. Approve, reject, or modify.
-                </p>
-              </div>
-              <div className="flex gap-4 text-sm">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-orange-500">{stats.pending}</p>
-                  <p className="text-xs text-muted-foreground">Pending</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-500">{stats.approved}</p>
-                  <p className="text-xs text-muted-foreground">Approved</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-red-500">{stats.rejected}</p>
-                  <p className="text-xs text-muted-foreground">Rejected</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Decision Cards */}
-            <ScrollArea className="flex-1">
+      <PageShell
+        title="Decisions"
+        subtitle="Review AI recommendations. Approve, reject, or modify."
+        secondaryActions={statsDisplay}
+      >
+        <ScrollArea className="h-[calc(100vh-200px)]">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -390,10 +373,8 @@ export default function DecisionsDashboard() {
                   ))}
                 </div>
               )}
-            </ScrollArea>
-          </div>
-        </main>
-      </div>
+        </ScrollArea>
+      </PageShell>
     </>
   );
 }
