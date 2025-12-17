@@ -51,6 +51,7 @@ import CeoDashboard from "./pages/CeoDashboard";
 
 // Platform Admin (hidden from regular users)
 import AdminTenants from "./pages/AdminTenants";
+import QATests from "./pages/QATests";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -144,6 +145,7 @@ const App = () => (
                   
                   {/* Platform Admin - Under /platform, requires admin role */}
                   <Route path="/platform/tenants" element={<ProtectedRoute requireAdmin><AdminTenants /></ProtectedRoute>} />
+                  <Route path="/platform/qa-tests" element={<ProtectedRoute requireAdmin><QATests /></ProtectedRoute>} />
                   
                   {/* Legacy /admin/* redirects to /app/* */}
                   <Route path="/admin" element={<Navigate to="/app" replace />} />
