@@ -5568,6 +5568,7 @@ export type Database = {
           annual_revenue: string | null
           assigned_to: string | null
           best_time_to_call: string | null
+          booked_at: string | null
           budget_range: string | null
           business_name: string | null
           buying_signals: string[] | null
@@ -5582,6 +5583,7 @@ export type Database = {
           conversation_id: string | null
           conversion_probability: number | null
           converted_at: string | null
+          converted_client_id: string | null
           created_at: string | null
           custom_fields: Json | null
           decision_maker: boolean | null
@@ -5605,12 +5607,15 @@ export type Database = {
           last_call_outcome: string | null
           lead_score: number | null
           lead_temperature: string | null
+          max_attempts: number | null
           name: string | null
           next_action: string | null
           next_action_date: string | null
+          next_attempt_at: string | null
           notes: string | null
           number_of_employees: number | null
           objections: string[] | null
+          outcome_reason: string | null
           pain_points: string[] | null
           phone: string | null
           preferred_contact_method: string | null
@@ -5637,6 +5642,7 @@ export type Database = {
           annual_revenue?: string | null
           assigned_to?: string | null
           best_time_to_call?: string | null
+          booked_at?: string | null
           budget_range?: string | null
           business_name?: string | null
           buying_signals?: string[] | null
@@ -5651,6 +5657,7 @@ export type Database = {
           conversation_id?: string | null
           conversion_probability?: number | null
           converted_at?: string | null
+          converted_client_id?: string | null
           created_at?: string | null
           custom_fields?: Json | null
           decision_maker?: boolean | null
@@ -5674,12 +5681,15 @@ export type Database = {
           last_call_outcome?: string | null
           lead_score?: number | null
           lead_temperature?: string | null
+          max_attempts?: number | null
           name?: string | null
           next_action?: string | null
           next_action_date?: string | null
+          next_attempt_at?: string | null
           notes?: string | null
           number_of_employees?: number | null
           objections?: string[] | null
+          outcome_reason?: string | null
           pain_points?: string[] | null
           phone?: string | null
           preferred_contact_method?: string | null
@@ -5706,6 +5716,7 @@ export type Database = {
           annual_revenue?: string | null
           assigned_to?: string | null
           best_time_to_call?: string | null
+          booked_at?: string | null
           budget_range?: string | null
           business_name?: string | null
           buying_signals?: string[] | null
@@ -5720,6 +5731,7 @@ export type Database = {
           conversation_id?: string | null
           conversion_probability?: number | null
           converted_at?: string | null
+          converted_client_id?: string | null
           created_at?: string | null
           custom_fields?: Json | null
           decision_maker?: boolean | null
@@ -5743,12 +5755,15 @@ export type Database = {
           last_call_outcome?: string | null
           lead_score?: number | null
           lead_temperature?: string | null
+          max_attempts?: number | null
           name?: string | null
           next_action?: string | null
           next_action_date?: string | null
+          next_attempt_at?: string | null
           notes?: string | null
           number_of_employees?: number | null
           objections?: string[] | null
+          outcome_reason?: string | null
           pain_points?: string[] | null
           phone?: string | null
           preferred_contact_method?: string | null
@@ -5777,6 +5792,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_client_id_fkey"
+            columns: ["converted_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {

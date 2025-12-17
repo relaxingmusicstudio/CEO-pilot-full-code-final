@@ -360,3 +360,6 @@ verify_jwt = false
 
 [functions.ceo-actionize-brief]
 verify_jwt = false
+
+[functions.lead-outreach-engine]
+verify_jwt = false

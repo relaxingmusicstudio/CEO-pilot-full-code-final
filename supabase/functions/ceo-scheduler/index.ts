@@ -31,6 +31,11 @@ interface BriefData {
   ai_cost_30d_avg_cents: number;
   top_lead_sources: Array<{ source: string; count: number }>;
   pending_actions: number;
+  // Lead lifecycle metrics
+  booked_calls_24h: number;
+  unreachable_leads_24h: number;
+  conversion_rate_7d: number;
+  lead_status_counts: Record<string, number>;
 }
 
 interface CostRollup {
@@ -265,6 +270,7 @@ async function runDailyBriefs(supabase: SupabaseClient, specificTenantIds?: stri
 async function aggregateTenantData(supabase: SupabaseClient, tenantId: string): Promise<BriefData> {
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -277,6 +283,11 @@ async function aggregateTenantData(supabase: SupabaseClient, tenantId: string): 
     invoicesResult,
     costs24hResult,
     costs30dResult,
+    bookedLeadsResult,
+    unreachableLeadsResult,
+    converted7dResult,
+    total7dLeadsResult,
+    allLeadsStatusResult,
   ] = await Promise.all([
     supabase
       .from("leads")
@@ -319,6 +330,34 @@ async function aggregateTenantData(supabase: SupabaseClient, tenantId: string): 
       .select("cost_cents")
       .eq("tenant_id", tenantId)
       .gte("created_at", thirtyDaysAgo.toISOString()),
+    // Lead lifecycle queries
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("status", "booked")
+      .gte("booked_at", yesterday.toISOString()),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("status", "unreachable")
+      .gte("updated_at", yesterday.toISOString()),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("status", "converted")
+      .gte("converted_at", sevenDaysAgo.toISOString()),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .gte("created_at", sevenDaysAgo.toISOString()),
+    supabase
+      .from("leads")
+      .select("status")
+      .eq("tenant_id", tenantId),
   ]);
 
   const leads = leadsResult.data || [];
@@ -368,6 +407,23 @@ async function aggregateTenantData(supabase: SupabaseClient, tenantId: string): 
     0,
   );
 
+  // Calculate lead status counts
+  const leadStatusCounts: Record<string, number> = {
+    new: 0, attempted: 0, contacted: 0, booked: 0,
+    completed: 0, converted: 0, disqualified: 0, unreachable: 0,
+  };
+  for (const lead of (allLeadsStatusResult.data || []) as Array<{ status?: string | null }>) {
+    const status = (lead.status || "new").toLowerCase();
+    if (leadStatusCounts[status] !== undefined) {
+      leadStatusCounts[status]++;
+    }
+  }
+
+  // Calculate conversion rate (7d)
+  const total7d = total7dLeadsResult.count || 0;
+  const converted7d = converted7dResult.count || 0;
+  const conversionRate7d = total7d > 0 ? Math.round((converted7d / total7d) * 100) : 0;
+
   return {
     leads_24h: leads.length,
     lead_temperature: leadTemperature,
@@ -380,6 +436,10 @@ async function aggregateTenantData(supabase: SupabaseClient, tenantId: string): 
     ai_cost_30d_avg_cents: Math.round(totalCost30d / 30),
     top_lead_sources: topSources,
     pending_actions: (actionsResult.count || 0) + (decisionsResult.count || 0),
+    booked_calls_24h: bookedLeadsResult.count || 0,
+    unreachable_leads_24h: unreachableLeadsResult.count || 0,
+    conversion_rate_7d: conversionRate7d,
+    lead_status_counts: leadStatusCounts,
   };
 }
 
@@ -575,6 +635,39 @@ function generateDeterministicActions(briefData: BriefData): ActionToCreate[] {
       priority: "medium",
       action_type: "lead_gen_check",
       triggering_metric: "leads_24h: 0",
+    });
+  }
+
+  // Rule 5: Too many unreachable leads -> outreach improvement action
+  if (briefData.unreachable_leads_24h > 3) {
+    actions.push({
+      title: `${briefData.unreachable_leads_24h} leads marked unreachable - review outreach strategy`,
+      description: `Multiple leads (${briefData.unreachable_leads_24h}) became unreachable in the last 24h. Consider improving call timing, contact data quality, or outreach messaging.`,
+      priority: briefData.unreachable_leads_24h > 5 ? "high" : "medium",
+      action_type: "outreach_improvement",
+      triggering_metric: `unreachable_leads_24h: ${briefData.unreachable_leads_24h}`,
+    });
+  }
+
+  // Rule 6: Bookings but low conversions -> follow-up improvement action
+  if (briefData.booked_calls_24h > 0 && briefData.conversion_rate_7d < 10) {
+    actions.push({
+      title: `Low conversion rate (${briefData.conversion_rate_7d}%) despite ${briefData.booked_calls_24h} recent bookings`,
+      description: `You're booking calls but conversion rate is only ${briefData.conversion_rate_7d}%. Review your consultation process, follow-up timing, and offer positioning.`,
+      priority: "medium",
+      action_type: "conversion_improvement",
+      triggering_metric: `conversion_rate_7d: ${briefData.conversion_rate_7d}%, booked_24h: ${briefData.booked_calls_24h}`,
+    });
+  }
+
+  // Rule 7: Celebrate bookings
+  if (briefData.booked_calls_24h > 0) {
+    actions.push({
+      title: `${briefData.booked_calls_24h} new booking(s) - prepare for appointments`,
+      description: `You have ${briefData.booked_calls_24h} new booked appointment(s). Review lead information and prepare your consultation materials.`,
+      priority: "high",
+      action_type: "booking_preparation",
+      triggering_metric: `booked_calls_24h: ${briefData.booked_calls_24h}`,
     });
   }
 
