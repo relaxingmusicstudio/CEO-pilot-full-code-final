@@ -128,33 +128,50 @@ async function runScheduledChecks(supabase: any, config: AutopilotConfig | null)
       const shouldExecute = await evaluateConditions(supabase, order);
       
       if (shouldExecute) {
-        const result = await executeAction(supabase, order, config);
+        // GOVERNANCE #10: Autopilot can ONLY enqueue actions as pending_approval
+        // It NEVER executes directly - requires human approval
+        const actionPayload = {
+          action_type: order.action_type,
+          target_type: "standing_order",
+          target_id: order.id,
+          agent_type: "ceo-autopilot",
+          action_payload: order.action_payload,
+          priority: order.priority,
+          status: "pending_approval", // ALWAYS pending - never auto-execute
+          claude_reasoning: `Autopilot triggered: ${order.rule_name}`,
+        };
+
+        // Queue for human approval instead of executing
+        const { data: queuedAction, error: queueError } = await supabase
+          .from("ceo_action_queue")
+          .insert(actionPayload)
+          .select()
+          .single();
+
+        if (queueError) {
+          console.error(`[CEO Autopilot] Failed to queue action:`, queueError);
+          throw queueError;
+        }
+
         results.push({
           order_id: order.id,
           rule_name: order.rule_name,
-          executed: true,
-          result
+          queued_for_approval: true,
+          queued_action_id: queuedAction?.id,
         });
 
-        // Log execution
+        // Log that we queued (not executed)
         await supabase.from("ceo_auto_executions").insert({
           standing_order_id: order.id,
           action_type: order.action_type,
           action_payload: order.action_payload,
-          trigger_data: { type: "scheduled_check" },
-          result,
+          trigger_data: { type: "scheduled_check", queued_action_id: queuedAction?.id },
+          result: { status: "queued_for_approval" },
           success: true,
-          notified_ceo: config?.notify_on_execution ?? true
+          notified_ceo: true, // Always notify when queuing
         });
 
-        // Update standing order stats
-        await supabase
-          .from("ceo_standing_orders")
-          .update({ 
-            last_executed_at: new Date().toISOString(),
-            executions_count: (order as any).executions_count + 1
-          })
-          .eq("id", order.id);
+        console.log(`[CEO Autopilot] Queued action for approval: ${order.rule_name} -> ${queuedAction?.id}`);
       }
     } catch (err) {
       console.error(`[CEO Autopilot] Order ${order.id} failed:`, err);
@@ -196,22 +213,39 @@ async function processEvent(supabase: any, eventType: string, eventData: any, co
       }
 
       if (shouldExecute) {
-        const result = await executeAction(supabase, order, config, eventData);
+        // GOVERNANCE #10: Queue for approval instead of executing
+        const actionPayload = {
+          action_type: order.action_type,
+          target_type: "trigger_event",
+          target_id: order.id,
+          agent_type: "ceo-autopilot",
+          action_payload: { ...order.action_payload, trigger_event: eventType, trigger_data: eventData },
+          priority: order.priority,
+          status: "pending_approval",
+          claude_reasoning: `Event trigger: ${eventType} matched ${order.rule_name}`,
+        };
+
+        const { data: queuedAction } = await supabase
+          .from("ceo_action_queue")
+          .insert(actionPayload)
+          .select()
+          .single();
+
         results.push({
           order_id: order.id,
           rule_name: order.rule_name,
-          executed: true,
-          result
+          queued_for_approval: true,
+          queued_action_id: queuedAction?.id,
         });
 
         await supabase.from("ceo_auto_executions").insert({
           standing_order_id: order.id,
           action_type: order.action_type,
           action_payload: order.action_payload,
-          trigger_data: { event: eventType, data: eventData },
-          result,
+          trigger_data: { event: eventType, data: eventData, queued_action_id: queuedAction?.id },
+          result: { status: "queued_for_approval" },
           success: true,
-          notified_ceo: config?.notify_on_execution ?? true
+          notified_ceo: true,
         });
       }
     }

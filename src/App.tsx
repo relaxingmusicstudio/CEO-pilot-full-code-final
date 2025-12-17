@@ -49,7 +49,7 @@ import AdminPipeline from "./pages/AdminPipeline";
 import AdminSystemHealth from "./pages/AdminSystemHealth";
 import AdminAccounts from "./pages/AdminAccounts";
 import AdminControlPanel from "./pages/AdminControlPanel";
-import AdminBypassQueue from "./pages/AdminBypassQueue";
+// GOVERNANCE #10: AdminBypassQueue removed - no bypass allowed
 import AdminUserSettings from "./pages/AdminUserSettings";
 import AdminBilling from "./pages/AdminBilling";
 import AdminHelp from "./pages/AdminHelp";
@@ -70,6 +70,8 @@ import UnifiedDashboard from "./pages/UnifiedDashboard";
 import AdminBusinessSetup from "./pages/AdminBusinessSetup";
 // Governance Entry Point
 import DecisionsDashboard from "./pages/DecisionsDashboard";
+// GOVERNANCE #5: Conversation-first for new users
+import OnboardingConversation from "./pages/OnboardingConversation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,7 +105,11 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 
                 {/* GOVERNANCE: /app opens to Decision Cards (human control surface) */}
+                {/* New users are automatically redirected to /app/onboarding by ProtectedRoute */}
                 <Route path="/app" element={<ProtectedRoute requireAdmin><DecisionsDashboard /></ProtectedRoute>} />
+                
+                {/* GOVERNANCE #5: Conversation-first onboarding for NEW users */}
+                <Route path="/app/onboarding" element={<ProtectedRoute requireAdmin skipOnboardingCheck><OnboardingConversation /></ProtectedRoute>} />
                 
                 {/* GOVERNANCE: /app/ceo is read-only intelligence (no execution controls) */}
                 <Route path="/app/ceo" element={<ProtectedRoute requireAdmin><AICEODashboard /></ProtectedRoute>} />
@@ -176,7 +182,7 @@ const App = () => (
                 <Route path="/admin/pipeline" element={<ProtectedRoute requireAdmin><AdminPipeline /></ProtectedRoute>} />
                 <Route path="/admin/system-health" element={<ProtectedRoute requireAdmin><AdminSystemHealth /></ProtectedRoute>} />
                 <Route path="/admin/control-panel" element={<ProtectedRoute requireAdmin><AdminControlPanel /></ProtectedRoute>} />
-                <Route path="/admin/bypass-queue" element={<ProtectedRoute requireAdmin><AdminBypassQueue /></ProtectedRoute>} />
+                {/* GOVERNANCE #10: bypass-queue route REMOVED - no uncontrolled autonomy */}
                 <Route path="/admin/user-settings" element={<ProtectedRoute requireAdmin><AdminUserSettings /></ProtectedRoute>} />
                 <Route path="/admin/billing" element={<ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>} />
                 <Route path="/admin/help" element={<ProtectedRoute requireAdmin><AdminHelp /></ProtectedRoute>} />

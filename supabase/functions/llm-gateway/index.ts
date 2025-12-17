@@ -161,6 +161,41 @@ async function logAudit(supabase: any, entry: {
   }
 }
 
+// GOVERNANCE: Premium models reserved for CEO agent only
+const CEO_ONLY_MODELS = ['google/gemini-2.5-pro', 'openai/gpt-5', 'claude-sonnet-4-20250514'];
+const MONTHLY_SPEND_CAP_USD = 100; // Default cap, can be overridden per tenant
+
+async function checkMonthlySpendCap(supabase: any, agentName: string): Promise<{ allowed: boolean; currentSpend: number; cap: number }> {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { data: spendData } = await supabase
+      .from('ai_cost_log')
+      .select('cost_usd')
+      .gte('created_at', startOfMonth.toISOString());
+
+    const currentSpend = (spendData || []).reduce((sum: number, row: any) => sum + (row.cost_usd || 0), 0);
+    
+    // Check if cap exceeded
+    const allowed = currentSpend < MONTHLY_SPEND_CAP_USD;
+    return { allowed, currentSpend, cap: MONTHLY_SPEND_CAP_USD };
+  } catch (error) {
+    console.error('[SpendCap] Error checking spend:', error);
+    return { allowed: true, currentSpend: 0, cap: MONTHLY_SPEND_CAP_USD };
+  }
+}
+
+function enforceModelGovernance(requestedModel: string, agentName: string): { model: string; degraded: boolean } {
+  // GOVERNANCE: Only CEO agent can use premium models
+  if (CEO_ONLY_MODELS.includes(requestedModel) && agentName !== 'ceo-agent') {
+    console.log(`[GOVERNANCE] Premium model ${requestedModel} denied for ${agentName} - CEO only`);
+    return { model: MODEL_TIERS.standard, degraded: true };
+  }
+  return { model: requestedModel, degraded: false };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -186,11 +221,35 @@ serve(async (req) => {
       task_type
     } = requestBody;
 
+    // GOVERNANCE #8: Check monthly spend cap BEFORE processing
+    const spendCheck = await checkMonthlySpendCap(supabase, agent_name);
+    if (!spendCheck.allowed) {
+      console.log(`[GOVERNANCE] Monthly spend cap exceeded: $${spendCheck.currentSpend.toFixed(2)} / $${spendCheck.cap}`);
+      
+      // Degrade to cheapest model with reduced tokens instead of blocking
+      const degradedModel = MODEL_TIERS.simple;
+      const degradedMaxTokens = Math.min(max_tokens || 500, 500);
+      
+      console.log(`[GOVERNANCE] Degrading to ${degradedModel} with max_tokens=${degradedMaxTokens}`);
+      
+      // Continue with degraded settings (modify the request)
+      requestBody.model = degradedModel;
+      requestBody.max_tokens = degradedMaxTokens;
+    }
+
     // Smart model selection based on task type
-    const selectedModel = selectModelForTask(task_type, explicitModel);
+    let selectedModel = selectModelForTask(task_type, explicitModel);
+    
+    // GOVERNANCE #8: Enforce premium model restriction (CEO only)
+    const governanceCheck = enforceModelGovernance(selectedModel, agent_name);
+    selectedModel = governanceCheck.model;
+    if (governanceCheck.degraded) {
+      console.log(`[GOVERNANCE] Model degraded from premium to ${selectedModel} for ${agent_name}`);
+    }
+    
     const effectiveCacheTtl = cache_ttl || (task_type === 'qa' ? EXTENDED_CACHE_TTL : DEFAULT_CACHE_TTL);
 
-    console.log(`[LLM Gateway] Request from ${agent_name}, priority: ${priority}, model: ${selectedModel}, task: ${task_type || 'unspecified'}`);
+    console.log(`[LLM Gateway] Request from ${agent_name}, priority: ${priority}, model: ${selectedModel}, task: ${task_type || 'unspecified'}, spend: $${spendCheck.currentSpend.toFixed(2)}/$${spendCheck.cap}`);
 
     // Step 1: Check rate limits
     const rateLimitResult = await checkRateLimit(supabase, agent_name, priority);

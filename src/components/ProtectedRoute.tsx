@@ -1,23 +1,39 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  skipOnboardingCheck?: boolean;
 }
 
-const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, requireAdmin = false, skipOnboardingCheck = false }: ProtectedRouteProps) => {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, isLoading, signOut } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, isAdmin, isLoading: authLoading, signOut } = useAuth();
+  const { isNewUser, isLoading: onboardingLoading } = useOnboardingStatus();
+
+  const isLoading = authLoading || onboardingLoading;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate("/auth");
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  // GOVERNANCE #5: Redirect NEW users to onboarding conversation
+  // Only for /app route, not for the onboarding page itself
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !skipOnboardingCheck) {
+      if (isNewUser && location.pathname === "/app") {
+        navigate("/app/onboarding");
+      }
+    }
+  }, [isNewUser, isLoading, isAuthenticated, skipOnboardingCheck, location.pathname, navigate]);
 
   if (isLoading) {
     return (
