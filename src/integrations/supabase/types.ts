@@ -275,6 +275,57 @@ export type Database = {
         }
         Relationships: []
       }
+      action_history: {
+        Row: {
+          action_id: string
+          action_table: string
+          action_type: string
+          created_at: string
+          executed_at: string
+          executed_by: string | null
+          id: string
+          new_state: Json | null
+          previous_state: Json | null
+          rolled_back: boolean | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action_id: string
+          action_table: string
+          action_type: string
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          rolled_back?: boolean | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action_id?: string
+          action_table?: string
+          action_type?: string
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          rolled_back?: boolean | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
       action_priority_rules: {
         Row: {
           action_type: string | null
@@ -7670,6 +7721,7 @@ export type Database = {
           features_enabled: Json | null
           id: string
           is_active: boolean | null
+          monthly_ai_spend_cap_cents: number | null
           name: string
           owner_user_id: string | null
           settings: Json | null
@@ -7684,6 +7736,7 @@ export type Database = {
           features_enabled?: Json | null
           id?: string
           is_active?: boolean | null
+          monthly_ai_spend_cap_cents?: number | null
           name: string
           owner_user_id?: string | null
           settings?: Json | null
@@ -7698,6 +7751,7 @@ export type Database = {
           features_enabled?: Json | null
           id?: string
           is_active?: boolean | null
+          monthly_ai_spend_cap_cents?: number | null
           name?: string
           owner_user_id?: string | null
           settings?: Json | null
@@ -8511,7 +8565,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      monthly_ai_spend: {
+        Row: {
+          agent_name: string | null
+          month: string | null
+          request_count: number | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_feature_access: {
