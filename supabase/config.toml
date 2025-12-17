@@ -348,3 +348,9 @@ verify_jwt = false
 
 [functions.event-processor]
 verify_jwt = false
+
+[functions.ceo-daily-brief]
+verify_jwt = false
+
+[functions.ceo-dashboard]
+verify_jwt = false

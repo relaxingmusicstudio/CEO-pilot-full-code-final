@@ -490,6 +490,9 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          model: string | null
+          provider: string | null
+          purpose: string | null
           success_rate: number | null
           tokens_used: number | null
           updated_at: string
@@ -502,6 +505,9 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          model?: string | null
+          provider?: string | null
+          purpose?: string | null
           success_rate?: number | null
           tokens_used?: number | null
           updated_at?: string
@@ -514,6 +520,9 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          model?: string | null
+          provider?: string | null
+          purpose?: string | null
           success_rate?: number | null
           tokens_used?: number | null
           updated_at?: string
@@ -2199,6 +2208,74 @@ export type Database = {
             columns: ["action_queue_id"]
             isOneToOne: false
             referencedRelation: "ceo_action_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ceo_decisions: {
+        Row: {
+          actual_outcome: Json | null
+          confidence: number | null
+          context_snapshot: Json | null
+          cost_estimated_cents: number | null
+          created_at: string
+          decision: string
+          executed_at: string | null
+          expected_impact: Json | null
+          id: string
+          model_used: string | null
+          provider_used: string | null
+          purpose: string
+          reasoning: string
+          status: string | null
+          tenant_id: string | null
+          tokens_estimated: number | null
+          updated_at: string
+        }
+        Insert: {
+          actual_outcome?: Json | null
+          confidence?: number | null
+          context_snapshot?: Json | null
+          cost_estimated_cents?: number | null
+          created_at?: string
+          decision: string
+          executed_at?: string | null
+          expected_impact?: Json | null
+          id?: string
+          model_used?: string | null
+          provider_used?: string | null
+          purpose?: string
+          reasoning: string
+          status?: string | null
+          tenant_id?: string | null
+          tokens_estimated?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actual_outcome?: Json | null
+          confidence?: number | null
+          context_snapshot?: Json | null
+          cost_estimated_cents?: number | null
+          created_at?: string
+          decision?: string
+          executed_at?: string | null
+          expected_impact?: Json | null
+          id?: string
+          model_used?: string | null
+          provider_used?: string | null
+          purpose?: string
+          reasoning?: string
+          status?: string | null
+          tenant_id?: string | null
+          tokens_estimated?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

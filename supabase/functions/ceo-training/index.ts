@@ -235,11 +235,56 @@ Return ONLY the JSON, no other text.`;
     throw error;
   }
 
+  // ─────────────────────────────────────────────────────────
+  // LOG TO ceo_decisions TABLE FOR EXECUTIVE TRACKING
+  // ─────────────────────────────────────────────────────────
+  const { data: ceoDecision, error: decisionError } = await supabase.from('ceo_decisions').insert({
+    decision: analysisResult.action_taken,
+    reasoning: analysisResult.reasoning,
+    confidence: analysisResult.confidence || 0.8,
+    expected_impact: {
+      outcome: analysisResult.expected_outcome,
+      decision_type: analysisResult.decision_type,
+    },
+    purpose: 'ceo_strategy',
+    model_used: 'gemini-2.0-flash', // From aiChat response
+    provider_used: 'gemini',
+    tokens_estimated: 1024,
+    cost_estimated_cents: 0, // Gemini free tier
+    context_snapshot: {
+      original_transcript: transcript,
+      tags: analysisResult.tags,
+      style_notes: (analysisResult as any).style_notes,
+    },
+    status: 'pending',
+  }).select().single();
+
+  if (decisionError) {
+    console.error('[CEO Training] Failed to log ceo_decision (non-fatal):', decisionError);
+    // Non-fatal - continue execution
+  } else {
+    console.log(`[CEO Training] Logged CEO decision: ${ceoDecision?.id}`);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // LOG COST TO agent_cost_tracking
+  // ─────────────────────────────────────────────────────────
+  await supabase.from('agent_cost_tracking').insert({
+    agent_type: 'ceo-training',
+    purpose: 'ceo_strategy',
+    model: 'gemini-2.0-flash',
+    provider: 'gemini',
+    api_calls: 1,
+    tokens_used: 1024,
+    cost_cents: 0,
+  }).catch((e: Error) => console.error('[CEO Training] Cost tracking failed:', e));
+
   console.log(`[CEO Training] Processed and stored decision: ${analysisResult.decision_type}`);
   return jsonResponse({ 
     success: true, 
     decision: analysisResult,
-    memory_id: memory?.id 
+    memory_id: memory?.id,
+    ceo_decision_id: ceoDecision?.id,
   });
 }
 
