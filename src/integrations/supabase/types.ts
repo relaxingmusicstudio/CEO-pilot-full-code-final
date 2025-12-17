@@ -9211,9 +9211,21 @@ export type Database = {
       cold_update_lead_fields: {
         Args: {
           p_engagement_score?: number
+          p_increment_call_attempts?: boolean
+          p_last_call_notes?: string
+          p_last_call_outcome?: string
           p_last_contacted?: string
           p_lead_id: string
           p_status?: string
+        }
+        Returns: Json
+      }
+      convert_lead: {
+        Args: {
+          p_converted_at?: string
+          p_lead_id: string
+          p_notes?: string
+          p_revenue_value?: number
         }
         Returns: Json
       }

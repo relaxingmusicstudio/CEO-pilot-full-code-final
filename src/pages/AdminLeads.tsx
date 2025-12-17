@@ -149,11 +149,13 @@ const AdminLeads = () => {
 
       if (clientError) throw clientError;
 
-      // Update lead status
-      await supabase
-        .from("leads")
-        .update({ status: "converted", converted_at: new Date().toISOString() })
-        .eq("id", selectedLead.id);
+      // Update lead status via RPC (ownership enforcement)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('convert_lead', {
+        p_lead_id: selectedLead.id,
+        p_converted_at: new Date().toISOString(),
+      });
+      
+      if (rpcError) throw rpcError;
 
       toast.success(`${selectedLead.name || "Lead"} converted to client!`);
       setIsConvertOpen(false);
