@@ -76,7 +76,7 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
       target_id: leadId,
       tenant_id: event.tenant_id,
       payload: queuePayload,
-      priority: 'medium',
+      priority: 'normal',  // Must match constraint: low, normal, high, critical
       status: 'pending',
       source: 'event_processor',
       claude_reasoning: `New lead ${leadId} requires CEO approval for cold sequence enrollment (MANUAL mode).`,
