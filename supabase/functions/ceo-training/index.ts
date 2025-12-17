@@ -1,14 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { aiChat } from "../_shared/ai.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat, estimateCostCents, AIChatResponse, AITokenUsage } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// CEO Training Mode - Capture and learn from CEO decisions
-// Uses AI for deep analysis and pattern extraction
+/**
+ * CEO Training Mode - Capture and learn from CEO decisions
+ * Uses AI for deep analysis and pattern extraction
+ * 
+ * TENANT SAFETY: Derives tenant_id from JWT auth context.
+ * COST TRACKING: Uses real token usage from aiChat() response.
+ */
 
 interface TrainingSession {
   session_id: string;
@@ -31,6 +36,32 @@ interface DecisionRecord {
   expected_outcome: string;
   confidence: number;
   tags: string[];
+  style_notes?: string;
+}
+
+/**
+ * Get tenant_id from JWT via database function
+ */
+async function getTenantIdFromAuth(authHeader: string | null): Promise<string | null> {
+  if (!authHeader) return null;
+  
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const token = authHeader.replace('Bearer ', '');
+    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    
+    const { data, error } = await userClient.rpc('get_user_tenant_id');
+    if (error) {
+      console.error('[ceo-training] Failed to get tenant_id from auth:', error);
+      return null;
+    }
+    return data as string | null;
+  } catch (e) {
+    console.error('[ceo-training] Auth tenant lookup error:', e);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -43,8 +74,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    const authHeader = req.headers.get('authorization');
+    const tenantId = await getTenantIdFromAuth(authHeader);
+    
     const { action, ...params } = await req.json();
-    console.log(`[CEO Training] Action: ${action}`);
+    console.log(`[CEO Training] Action: ${action} tenant=${tenantId || 'global'}`);
 
     switch (action) {
       case 'start_session':
@@ -54,10 +88,10 @@ serve(async (req) => {
         return await addTranscript(supabase, params);
 
       case 'process_decision':
-        return await processDecision(supabase, params);
+        return await processDecision(supabase, params, tenantId);
 
       case 'end_session':
-        return await endSession(supabase, params);
+        return await endSession(supabase, params, tenantId);
 
       case 'get_training_stats':
         return await getTrainingStats(supabase);
@@ -75,14 +109,14 @@ serve(async (req) => {
   }
 });
 
-function jsonResponse(data: unknown, status = 200) {
+function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
 
-async function startSession(supabase: any) {
+async function startSession(supabase: SupabaseClient): Promise<Response> {
   const sessionId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
 
@@ -98,7 +132,10 @@ async function startSession(supabase: any) {
   return jsonResponse({ session_id: sessionId, started_at: startedAt });
 }
 
-async function addTranscript(supabase: any, params: { session_id: string; transcript: string; type?: string; context?: Record<string, unknown> }) {
+async function addTranscript(
+  supabase: SupabaseClient, 
+  params: { session_id: string; transcript: string; type?: string; context?: Record<string, unknown> }
+): Promise<Response> {
   const { session_id, transcript, type = 'voice', context } = params;
 
   // Get current session
@@ -133,17 +170,19 @@ async function addTranscript(supabase: any, params: { session_id: string; transc
   return jsonResponse({ success: true, transcript_count: session.transcripts.length });
 }
 
-async function processDecision(supabase: any, params: { 
-  session_id?: string; 
-  transcript: string; 
-  context?: Record<string, unknown>;
-  decision_type?: string;
-}) {
+async function processDecision(
+  supabase: SupabaseClient, 
+  params: { 
+    session_id?: string; 
+    transcript: string; 
+    context?: Record<string, unknown>;
+    decision_type?: string;
+  },
+  tenantId: string | null
+): Promise<Response> {
   const { transcript, context, decision_type } = params;
 
   // Use AI for decision analysis with premium routing for CEO training
-  let analysisResult: DecisionRecord;
-
   const analysisPrompt = `You are analyzing a CEO's decision-making process to help an AI learn to mimic their style.
 
 The CEO just made this decision or statement:
@@ -174,8 +213,11 @@ Return ONLY the JSON, no other text.`;
 
   console.log('[CEO Training] Using AI for decision analysis');
   
+  let aiResponse: AIChatResponse;
+  let analysisResult: DecisionRecord;
+  
   try {
-    const aiResponse = await aiChat({
+    aiResponse = await aiChat({
       messages: [{ role: 'user', content: analysisPrompt }],
       purpose: 'ceo_strategy', // Premium routing for CEO analysis
       max_tokens: 1024,
@@ -184,7 +226,12 @@ Return ONLY the JSON, no other text.`;
     const responseText = aiResponse.text || '';
     
     try {
-      analysisResult = JSON.parse(responseText);
+      // Strip markdown if present
+      let jsonText = responseText.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+      }
+      analysisResult = JSON.parse(jsonText);
     } catch {
       console.error('[CEO Training] Failed to parse AI response:', responseText);
       throw new Error('Failed to parse decision analysis');
@@ -194,7 +241,7 @@ Return ONLY the JSON, no other text.`;
     throw new Error('AI analysis failed');
   }
 
-  // Generate embedding for the decision
+  // Generate embedding for the decision (non-blocking, optional)
   let embedding: number[] | null = null;
   try {
     const embeddingResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/embedding-service`, {
@@ -226,7 +273,7 @@ Return ONLY the JSON, no other text.`;
       decision_type: analysisResult.decision_type,
       tags: analysisResult.tags,
       context,
-      style_notes: (analysisResult as any).style_notes
+      style_notes: analysisResult.style_notes
     }
   }).select().single();
 
@@ -236,8 +283,12 @@ Return ONLY the JSON, no other text.`;
   }
 
   // ─────────────────────────────────────────────────────────
-  // LOG TO ceo_decisions TABLE FOR EXECUTIVE TRACKING
+  // LOG TO ceo_decisions TABLE WITH REAL COST DATA
   // ─────────────────────────────────────────────────────────
+  
+  const tokensUsed = aiResponse.usage?.total_tokens || 0;
+  const costCents = estimateCostCents(aiResponse.provider, aiResponse.model, aiResponse.usage);
+
   const { data: ceoDecision, error: decisionError } = await supabase.from('ceo_decisions').insert({
     decision: analysisResult.action_taken,
     reasoning: analysisResult.reasoning,
@@ -247,16 +298,17 @@ Return ONLY the JSON, no other text.`;
       decision_type: analysisResult.decision_type,
     },
     purpose: 'ceo_strategy',
-    model_used: 'gemini-2.0-flash', // From aiChat response
-    provider_used: 'gemini',
-    tokens_estimated: 1024,
-    cost_estimated_cents: 0, // Gemini free tier
+    model_used: aiResponse.model,
+    provider_used: aiResponse.provider,
+    tokens_estimated: tokensUsed,
+    cost_estimated_cents: costCents,
     context_snapshot: {
       original_transcript: transcript,
       tags: analysisResult.tags,
-      style_notes: (analysisResult as any).style_notes,
+      style_notes: analysisResult.style_notes,
     },
     status: 'pending',
+    tenant_id: tenantId,
   }).select().single();
 
   if (decisionError) {
@@ -267,28 +319,41 @@ Return ONLY the JSON, no other text.`;
   }
 
   // ─────────────────────────────────────────────────────────
-  // LOG COST TO agent_cost_tracking
+  // LOG COST TO agent_cost_tracking WITH REAL VALUES
   // ─────────────────────────────────────────────────────────
-  await supabase.from('agent_cost_tracking').insert({
+  const { error: costError } = await supabase.from('agent_cost_tracking').insert({
     agent_type: 'ceo-training',
     purpose: 'ceo_strategy',
-    model: 'gemini-2.0-flash',
-    provider: 'gemini',
+    model: aiResponse.model,
+    provider: aiResponse.provider,
     api_calls: 1,
-    tokens_used: 1024,
-    cost_cents: 0,
-  }).catch((e: Error) => console.error('[CEO Training] Cost tracking failed:', e));
+    tokens_used: tokensUsed,
+    cost_cents: costCents,
+    avg_latency_ms: aiResponse.latency_ms || null,
+  });
+  if (costError) console.error('[CEO Training] Cost tracking failed:', costError);
 
-  console.log(`[CEO Training] Processed and stored decision: ${analysisResult.decision_type}`);
+  console.log(`[CEO Training] Processed decision. provider=${aiResponse.provider} model=${aiResponse.model} tokens=${tokensUsed} cost_cents=${costCents}`);
+  
   return jsonResponse({ 
     success: true, 
     decision: analysisResult,
     memory_id: memory?.id,
     ceo_decision_id: ceoDecision?.id,
+    cost_info: {
+      provider: aiResponse.provider,
+      model: aiResponse.model,
+      tokens_used: tokensUsed,
+      cost_cents: costCents,
+    },
   });
 }
 
-async function endSession(supabase: any, params: { session_id: string }) {
+async function endSession(
+  supabase: SupabaseClient, 
+  params: { session_id: string },
+  tenantId: string | null
+): Promise<Response> {
   const { session_id } = params;
 
   // Get session data
@@ -309,7 +374,7 @@ async function endSession(supabase: any, params: { session_id: string }) {
   const decisions: DecisionRecord[] = [];
   for (const entry of session.transcripts.filter(t => t.type === 'decision')) {
     try {
-      const result = await processDecisionInternal(supabase, entry.content, entry.context);
+      const result = await processDecisionInternal(supabase, entry.content, entry.context, tenantId);
       if (result) decisions.push(result);
     } catch (e) {
       console.error('[CEO Training] Failed to process entry:', e);
@@ -344,10 +409,15 @@ async function endSession(supabase: any, params: { session_id: string }) {
   });
 }
 
-async function processDecisionInternal(supabase: any, transcript: string, context?: Record<string, unknown>): Promise<DecisionRecord | null> {
+async function processDecisionInternal(
+  supabase: SupabaseClient, 
+  transcript: string, 
+  context?: Record<string, unknown>,
+  tenantId?: string | null
+): Promise<DecisionRecord | null> {
   // Simplified internal processing
   try {
-    const result = await processDecision(supabase, { transcript, context });
+    const result = await processDecision(supabase, { transcript, context }, tenantId || null);
     const body = await result.json();
     return body.decision;
   } catch {
@@ -355,7 +425,7 @@ async function processDecisionInternal(supabase: any, transcript: string, contex
   }
 }
 
-async function getTrainingStats(supabase: any) {
+async function getTrainingStats(supabase: SupabaseClient): Promise<Response> {
   // Get training statistics
   const [memoriesResult, patternsResult, sessionsResult] = await Promise.all([
     supabase
@@ -381,14 +451,23 @@ async function getTrainingStats(supabase: any) {
     .limit(10);
 
   // Calculate average confidence
-  const avgConfidence = recentDecisions?.reduce((sum: number, d: any) => sum + (d.success_score || 0), 0) / (recentDecisions?.length || 1);
+  const avgConfidence = recentDecisions 
+    ? recentDecisions.reduce((sum: number, d: { success_score?: number }) => sum + (d.success_score || 0), 0) / (recentDecisions.length || 1)
+    : 0;
+
+  interface MemoryRecord {
+    id: string;
+    created_at: string;
+    success_score?: number;
+    metadata?: { decision_type?: string };
+  }
 
   return jsonResponse({
     total_decisions: memoriesResult.count || 0,
     patterns_detected: patternsResult.count || 0,
     sessions_completed: sessionsResult.count || 0,
     average_confidence: avgConfidence,
-    recent_decisions: recentDecisions?.map((d: any) => ({
+    recent_decisions: recentDecisions?.map((d: MemoryRecord) => ({
       id: d.id,
       created_at: d.created_at,
       decision_type: d.metadata?.decision_type,
@@ -397,7 +476,10 @@ async function getTrainingStats(supabase: any) {
   });
 }
 
-async function getLearnedPatterns(supabase: any, params: { limit?: number }) {
+async function getLearnedPatterns(
+  supabase: SupabaseClient, 
+  params: { limit?: number }
+): Promise<Response> {
   const limit = params.limit || 20;
 
   // Get high-confidence decisions grouped by type
@@ -409,8 +491,17 @@ async function getLearnedPatterns(supabase: any, params: { limit?: number }) {
     .order('usage_count', { ascending: false })
     .limit(limit);
 
+  interface MemoryRecord {
+    id: string;
+    query: string;
+    response: string;
+    success_score?: number;
+    usage_count?: number;
+    metadata?: { decision_type?: string; tags?: string[] };
+  }
+
   // Group by decision type
-  const patternsByType = (decisions || []).reduce((acc: Record<string, any[]>, d: any) => {
+  const patternsByType = (decisions || []).reduce((acc: Record<string, unknown[]>, d: MemoryRecord) => {
     const type = d.metadata?.decision_type || 'general';
     if (!acc[type]) acc[type] = [];
     acc[type].push({
@@ -422,7 +513,7 @@ async function getLearnedPatterns(supabase: any, params: { limit?: number }) {
       tags: d.metadata?.tags
     });
     return acc;
-  }, {});
+  }, {} as Record<string, unknown[]>);
 
   return jsonResponse({
     patterns_by_type: patternsByType,

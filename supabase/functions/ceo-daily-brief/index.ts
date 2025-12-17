@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { aiChat } from "../_shared/ai.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat, estimateCostCents, AIChatResponse } from "../_shared/ai.ts";
 
 /**
  * CEO Daily Brief Generator
@@ -8,11 +8,14 @@ import { aiChat } from "../_shared/ai.ts";
  * Aggregates real business data and generates executive-level insights.
  * Uses purpose: "ceo_daily_brief" for premium AI routing.
  * 
+ * TENANT SAFETY: Derives tenant_id from JWT auth context, NOT from request body.
+ * COST TRACKING: Uses real token usage from aiChat() response.
+ * 
  * Data sources:
  * - Last 24h leads + temperature distribution
  * - Missed calls count
  * - Active clients
- * - Revenue (MRR from client_invoices)
+ * - Revenue (from client_invoices)
  * - AI/API costs (24h + 30d avg)
  */
 
@@ -26,7 +29,7 @@ interface BriefData {
   lead_temperature: Record<string, number>;
   missed_calls_24h: number;
   active_clients: number;
-  mrr_cents: number;
+  revenue_this_month_cents: number;
   ai_cost_24h_cents: number;
   ai_cost_30d_avg_cents: number;
   top_lead_sources: Array<{ source: string; count: number }>;
@@ -41,6 +44,47 @@ interface DailyBrief {
   data_snapshot: BriefData;
 }
 
+/**
+ * Get tenant_id from JWT via database function
+ */
+async function getTenantIdFromAuth(supabase: SupabaseClient, authHeader: string | null): Promise<string | null> {
+  if (!authHeader) return null;
+  
+  try {
+    // Create a user-context client to get tenant
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const token = authHeader.replace('Bearer ', '');
+    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    
+    const { data, error } = await userClient.rpc('get_user_tenant_id');
+    if (error) {
+      console.error('[ceo-daily-brief] Failed to get tenant_id from auth:', error);
+      return null;
+    }
+    return data as string | null;
+  } catch (e) {
+    console.error('[ceo-daily-brief] Auth tenant lookup error:', e);
+    return null;
+  }
+}
+
+/**
+ * Fetch business industry from business_profile
+ */
+async function getBusinessIndustry(supabase: SupabaseClient, tenantId: string | null): Promise<string> {
+  if (!tenantId) return 'service';
+  
+  const { data } = await supabase
+    .from('business_profile')
+    .select('industry')
+    .eq('tenant_id', tenantId)
+    .single();
+  
+  return data?.industry || 'service';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -51,24 +95,28 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { tenant_id, force_refresh = false } = await req.json().catch(() => ({}));
+    const authHeader = req.headers.get('authorization');
+    const { force_refresh = false } = await req.json().catch(() => ({}));
     
-    console.log(`[ceo-daily-brief] Generating brief for tenant=${tenant_id || 'all'}`);
+    // TENANT SAFETY: Get tenant_id from auth, not request body
+    const tenantId = await getTenantIdFromAuth(supabase, authHeader);
+    const cacheKey = `ceo_daily_brief_${tenantId || 'global'}`;
+    
+    console.log(`[ceo-daily-brief] Generating brief for tenant=${tenantId || 'global'}`);
 
-    // Check for cached brief (TTL 24h)
+    // Check for cached brief (TTL based on expires_at)
     if (!force_refresh) {
-      const cacheKey = `ceo_daily_brief_${tenant_id || 'global'}`;
       const { data: cached } = await supabase
         .from('agent_shared_state')
-        .select('value, updated_at')
+        .select('value, updated_at, expires_at')
         .eq('key', cacheKey)
         .single();
 
-      if (cached) {
-        const cacheAge = Date.now() - new Date(cached.updated_at).getTime();
-        const ttlMs = 24 * 60 * 60 * 1000; // 24 hours
+      if (cached && cached.expires_at) {
+        const expiresAt = new Date(cached.expires_at).getTime();
         
-        if (cacheAge < ttlMs) {
+        if (Date.now() < expiresAt) {
+          const cacheAge = Date.now() - new Date(cached.updated_at).getTime();
           console.log(`[ceo-daily-brief] Returning cached brief (age=${Math.round(cacheAge / 3600000)}h)`);
           return jsonResponse({ ...cached.value, from_cache: true });
         }
@@ -76,24 +124,37 @@ serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────
-    // AGGREGATE REAL DATA
+    // AGGREGATE REAL DATA (with tenant filtering if available)
     // ─────────────────────────────────────────────────────────
 
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 1. Leads in last 24h + temperature distribution
-    const { data: recentLeads, count: leadsCount } = await supabase
+    // Build base queries with optional tenant filter
+    const buildQuery = (table: string) => {
+      let query = supabase.from(table);
+      return query;
+    };
+
+    // 1. Leads in last 24h + temperature distribution (using lead_temperature, not temperature)
+    let leadsQuery = supabase
       .from('leads')
-      .select('id, status, temperature, source', { count: 'exact' })
+      .select('id, status, lead_temperature, source', { count: 'exact' })
       .gte('created_at', yesterday.toISOString());
+    
+    if (tenantId) {
+      leadsQuery = leadsQuery.eq('tenant_id', tenantId);
+    }
+    
+    const { data: recentLeads, count: leadsCount } = await leadsQuery;
 
     const leadTemperature: Record<string, number> = { hot: 0, warm: 0, cold: 0, unknown: 0 };
     const sourceCount: Record<string, number> = {};
     
-    (recentLeads || []).forEach((lead: any) => {
-      const temp = (lead.temperature || 'unknown').toLowerCase();
+    (recentLeads || []).forEach((lead: { lead_temperature?: string; source?: string }) => {
+      const temp = (lead.lead_temperature || 'unknown').toLowerCase();
       leadTemperature[temp] = (leadTemperature[temp] || 0) + 1;
       
       const source = lead.source || 'direct';
@@ -118,15 +179,18 @@ serve(async (req) => {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'active');
 
-    // 4. MRR from recent invoices (sum of paid invoices this month)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    // 4. Revenue from recent invoices (using 'amount' not 'amount_cents')
     const { data: invoices } = await supabase
       .from('client_invoices')
-      .select('amount_cents')
+      .select('amount')
       .eq('status', 'paid')
       .gte('created_at', monthStart.toISOString());
 
-    const mrrCents = (invoices || []).reduce((sum: number, inv: any) => sum + (inv.amount_cents || 0), 0);
+    // amount is in dollars, convert to cents for consistency
+    const revenueThisMonthCents = (invoices || []).reduce(
+      (sum: number, inv: { amount?: number }) => sum + Math.round((inv.amount || 0) * 100), 
+      0
+    );
 
     // 5. AI costs - last 24h
     const { data: costs24h } = await supabase
@@ -134,7 +198,7 @@ serve(async (req) => {
       .select('cost_cents')
       .gte('created_at', yesterday.toISOString());
 
-    const aiCost24h = (costs24h || []).reduce((sum: number, c: any) => sum + (c.cost_cents || 0), 0);
+    const aiCost24h = (costs24h || []).reduce((sum: number, c: { cost_cents?: number }) => sum + (c.cost_cents || 0), 0);
 
     // 6. AI costs - 30d average
     const { data: costs30d } = await supabase
@@ -142,7 +206,7 @@ serve(async (req) => {
       .select('cost_cents')
       .gte('created_at', thirtyDaysAgo.toISOString());
 
-    const totalCost30d = (costs30d || []).reduce((sum: number, c: any) => sum + (c.cost_cents || 0), 0);
+    const totalCost30d = (costs30d || []).reduce((sum: number, c: { cost_cents?: number }) => sum + (c.cost_cents || 0), 0);
     const aiCost30dAvg = Math.round(totalCost30d / 30);
 
     // 7. Pending CEO actions
@@ -156,7 +220,7 @@ serve(async (req) => {
       lead_temperature: leadTemperature,
       missed_calls_24h: missedCalls || 0,
       active_clients: activeClients || 0,
-      mrr_cents: mrrCents,
+      revenue_this_month_cents: revenueThisMonthCents,
       ai_cost_24h_cents: aiCost24h,
       ai_cost_30d_avg_cents: aiCost30dAvg,
       top_lead_sources: topSources,
@@ -166,17 +230,19 @@ serve(async (req) => {
     console.log(`[ceo-daily-brief] Data aggregated:`, JSON.stringify(briefData));
 
     // ─────────────────────────────────────────────────────────
-    // GENERATE EXECUTIVE BRIEF VIA AI
+    // GENERATE EXECUTIVE BRIEF VIA AI (industry-agnostic)
     // ─────────────────────────────────────────────────────────
 
-    const prompt = `You are the AI Chief of Staff for an HVAC service business. Generate a crisp executive daily brief.
+    const industry = await getBusinessIndustry(supabase, tenantId);
+
+    const prompt = `You are the AI Chief of Staff for a ${industry} business. Generate a crisp executive daily brief.
 
 DATA (last 24 hours unless noted):
 - New leads: ${briefData.leads_24h}
 - Lead temperature: Hot=${leadTemperature.hot}, Warm=${leadTemperature.warm}, Cold=${leadTemperature.cold}
 - Missed calls: ${briefData.missed_calls_24h}
 - Active clients: ${briefData.active_clients}
-- MRR this month: $${(briefData.mrr_cents / 100).toFixed(2)}
+- Revenue this month: $${(briefData.revenue_this_month_cents / 100).toFixed(2)}
 - AI costs (24h): $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}
 - AI costs (30d avg/day): $${(briefData.ai_cost_30d_avg_cents / 100).toFixed(2)}
 - Top lead sources: ${topSources.map(s => `${s.source}(${s.count})`).join(', ') || 'none'}
@@ -196,7 +262,7 @@ Respond in this exact JSON format:
   "opportunity": "..."
 }`;
 
-    const aiResponse = await aiChat({
+    const aiResponse: AIChatResponse = await aiChat({
       messages: [{ role: 'user', content: prompt }],
       purpose: 'ceo_daily_brief',
       max_tokens: 800,
@@ -219,7 +285,7 @@ Respond in this exact JSON format:
           `${briefData.leads_24h} new leads captured in last 24h`,
           `${briefData.missed_calls_24h} missed calls require follow-up`,
           `${briefData.active_clients} active clients on roster`,
-          `MRR at $${(briefData.mrr_cents / 100).toFixed(2)} this month`,
+          `Revenue at $${(briefData.revenue_this_month_cents / 100).toFixed(2)} this month`,
           `AI operations costing $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}/day`,
         ],
         risk_alert: briefData.missed_calls_24h > 5 ? `High missed call rate (${briefData.missed_calls_24h}) may indicate staffing gap` : null,
@@ -236,10 +302,9 @@ Respond in this exact JSON format:
     };
 
     // ─────────────────────────────────────────────────────────
-    // CACHE THE BRIEF (24h TTL)
+    // CACHE THE BRIEF (24h TTL via expires_at)
     // ─────────────────────────────────────────────────────────
 
-    const cacheKey = `ceo_daily_brief_${tenant_id || 'global'}`;
     await supabase.from('agent_shared_state').upsert({
       key: cacheKey,
       value: dailyBrief,
@@ -247,18 +312,25 @@ Respond in this exact JSON format:
       expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     });
 
-    // Log cost for this brief generation
+    // ─────────────────────────────────────────────────────────
+    // LOG COST USING REAL VALUES FROM aiChat() RESPONSE
+    // ─────────────────────────────────────────────────────────
+    
+    const tokensUsed = aiResponse.usage?.total_tokens || 0;
+    const costCents = estimateCostCents(aiResponse.provider, aiResponse.model, aiResponse.usage);
+
     await supabase.from('agent_cost_tracking').insert({
       agent_type: 'ceo-daily-brief',
       purpose: 'ceo_daily_brief',
       model: aiResponse.model,
       provider: aiResponse.provider,
       api_calls: 1,
-      tokens_used: 800, // Estimate
-      cost_cents: aiResponse.provider === 'openai' ? 2 : 0, // Rough estimate
+      tokens_used: tokensUsed,
+      cost_cents: costCents,
+      avg_latency_ms: aiResponse.latency_ms || null,
     });
 
-    console.log(`[ceo-daily-brief] Brief generated and cached`);
+    console.log(`[ceo-daily-brief] Brief generated. provider=${aiResponse.provider} model=${aiResponse.model} tokens=${tokensUsed} cost_cents=${costCents}`);
     
     return jsonResponse(dailyBrief);
 
@@ -269,7 +341,7 @@ Respond in this exact JSON format:
   }
 });
 
-function jsonResponse(data: unknown, status = 200) {
+function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

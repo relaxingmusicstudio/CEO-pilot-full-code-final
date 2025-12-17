@@ -18,6 +18,7 @@
  * - Quota-safe: Retry with backoff, structured error codes
  * - In-memory caching for identical requests
  * - Structured logging: provider, model, purpose, latency_ms
+ * - Token usage tracking for cost estimation
  */
 
 export type AIProvider = "gemini" | "openai" | "anthropic";
@@ -54,11 +55,25 @@ export interface AIImageOptions {
   size?: string;
 }
 
+/**
+ * Token usage info returned from API calls
+ */
+export interface AITokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+/**
+ * Enhanced response with token usage for cost tracking
+ */
 export interface AIChatResponse {
   text: string;
   raw: any;
   provider: AIProvider;
   model: string;
+  usage?: AITokenUsage;
+  latency_ms?: number;
 }
 
 export interface AIError {
@@ -207,13 +222,78 @@ function safeBase64Encode(buffer: ArrayBuffer): string {
 }
 
 /**
+ * Extract token usage from Gemini response
+ */
+function extractGeminiUsage(data: any): AITokenUsage | undefined {
+  const usageMetadata = data?.usageMetadata;
+  if (usageMetadata) {
+    return {
+      input_tokens: usageMetadata.promptTokenCount || 0,
+      output_tokens: usageMetadata.candidatesTokenCount || 0,
+      total_tokens: usageMetadata.totalTokenCount || 0,
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Extract token usage from OpenAI response
+ */
+function extractOpenAIUsage(data: any): AITokenUsage | undefined {
+  const usage = data?.usage;
+  if (usage) {
+    return {
+      input_tokens: usage.prompt_tokens || 0,
+      output_tokens: usage.completion_tokens || 0,
+      total_tokens: usage.total_tokens || 0,
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Estimate cost in cents based on provider, model, and tokens
+ * These are approximate rates as of Dec 2024
+ */
+export function estimateCostCents(
+  provider: AIProvider,
+  model: string,
+  usage: AITokenUsage | undefined
+): number {
+  if (!usage) return 0;
+  
+  // Gemini pricing (free tier has limits, then ~$0.075/1M input, $0.30/1M output for Flash)
+  if (provider === "gemini") {
+    // Gemini 2.0 Flash is mostly free tier, estimate minimal cost
+    const inputCost = (usage.input_tokens / 1_000_000) * 7.5; // $0.075 per 1M
+    const outputCost = (usage.output_tokens / 1_000_000) * 30; // $0.30 per 1M
+    return Math.round((inputCost + outputCost) * 100) / 100; // Round to 2 decimals in cents
+  }
+  
+  // OpenAI pricing (GPT-4o-mini: $0.15/1M input, $0.60/1M output)
+  if (provider === "openai") {
+    if (model.includes("gpt-4o-mini")) {
+      const inputCost = (usage.input_tokens / 1_000_000) * 15; // $0.15 per 1M in cents
+      const outputCost = (usage.output_tokens / 1_000_000) * 60; // $0.60 per 1M in cents
+      return Math.round((inputCost + outputCost) * 100) / 100;
+    }
+    // GPT-4o: $2.50/1M input, $10/1M output
+    const inputCost = (usage.input_tokens / 1_000_000) * 250;
+    const outputCost = (usage.output_tokens / 1_000_000) * 1000;
+    return Math.round((inputCost + outputCost) * 100) / 100;
+  }
+  
+  return 0;
+}
+
+/**
  * Calls Google Gemini API with retry logic
  */
 async function callGeminiWithRetry(
   requestBody: any,
   model: string,
   maxRetries: number = 2
-): Promise<{ data: any; error?: AIError }> {
+): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   
   if (!apiKey || apiKey.length === 0) {
@@ -238,7 +318,7 @@ async function callGeminiWithRetry(
       if (response.ok) {
         const data = await response.json();
         console.log(`[ai] success provider=gemini model=${model} latency_ms=${latencyMs}`);
-        return { data };
+        return { data, latency_ms: latencyMs };
       }
 
       const errorText = await response.text();
@@ -311,7 +391,7 @@ async function callOpenAIWithRetry(
   model: string,
   options: { temperature?: number; max_tokens?: number; tools?: any[]; tool_choice?: any } = {},
   maxRetries: number = 2
-): Promise<{ data: any; error?: AIError }> {
+): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   
   if (!apiKey || apiKey.length === 0) {
@@ -351,7 +431,7 @@ async function callOpenAIWithRetry(
       if (response.ok) {
         const data = await response.json();
         console.log(`[ai] success provider=openai model=${model} latency_ms=${latencyMs}`);
-        return { data };
+        return { data, latency_ms: latencyMs };
       }
 
       const errorText = await response.text();
@@ -418,6 +498,7 @@ async function callOpenAIWithRetry(
 
 /**
  * Main AI chat function with purpose-based routing
+ * Returns token usage for cost tracking
  */
 export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
   const config = getConfig();
@@ -462,7 +543,7 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       content: m.content,
     }));
 
-    const { data, error } = await callOpenAIWithRetry(
+    const { data, error, latency_ms } = await callOpenAIWithRetry(
       openAIMessages,
       model || DEFAULT_OPENAI_MODEL,
       {
@@ -478,11 +559,19 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
     }
 
     const text = data.choices?.[0]?.message?.content || "";
-    const latencyMs = Date.now() - startTime;
+    const usage = extractOpenAIUsage(data);
+    const latencyMs = latency_ms || (Date.now() - startTime);
     
-    console.log(`[ai] complete provider=openai model=${model} purpose=${options.purpose || 'default'} latency_ms=${latencyMs}`);
+    console.log(`[ai] complete provider=openai model=${model} purpose=${options.purpose || 'default'} latency_ms=${latencyMs} tokens=${usage?.total_tokens || 'unknown'}`);
     
-    response = { text, raw: data, provider: "openai", model: model || DEFAULT_OPENAI_MODEL };
+    response = { 
+      text, 
+      raw: data, 
+      provider: "openai", 
+      model: model || DEFAULT_OPENAI_MODEL,
+      usage,
+      latency_ms: latencyMs,
+    };
 
   } else if (provider === "gemini") {
     // Gemini path
@@ -515,16 +604,17 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       requestBody.systemInstruction = { parts: [{ text: enhancedSystemMessage }] };
     }
 
-    const { data, error } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
+    const { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
     
     if (error) {
       throw new Error(JSON.stringify(error));
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const latencyMs = Date.now() - startTime;
+    const usage = extractGeminiUsage(data);
+    const latencyMs = latency_ms || (Date.now() - startTime);
     
-    console.log(`[ai] complete provider=gemini model=${model} purpose=${options.purpose || 'default'} latency_ms=${latencyMs}`);
+    console.log(`[ai] complete provider=gemini model=${model} purpose=${options.purpose || 'default'} latency_ms=${latencyMs} tokens=${usage?.total_tokens || 'unknown'}`);
 
     // Wrap tool responses in OpenAI-compatible format
     let responseData = data;
@@ -555,7 +645,14 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       }
     }
 
-    response = { text, raw: responseData, provider: "gemini", model: model || DEFAULT_MODEL };
+    response = { 
+      text, 
+      raw: responseData, 
+      provider: "gemini", 
+      model: model || DEFAULT_MODEL,
+      usage,
+      latency_ms: latencyMs,
+    };
 
   } else {
     // Unknown provider - return CONFIG_ERROR
@@ -648,18 +745,19 @@ export async function aiVision(options: AIVisionOptions): Promise<AIChatResponse
     requestBody.systemInstruction = { parts: [{ text: options.system }] };
   }
 
-  const { data, error } = await callGeminiWithRetry(requestBody, model);
+  const { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model);
   
   if (error) {
     throw new Error(JSON.stringify(error));
   }
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const latencyMs = Date.now() - startTime;
+  const usage = extractGeminiUsage(data);
+  const latencyMs = latency_ms || (Date.now() - startTime);
   
   console.log(`[ai] vision_complete provider=gemini model=${model} latency_ms=${latencyMs} response_length=${text.length}`);
   
-  return { text, raw: data, provider: "gemini", model };
+  return { text, raw: data, provider: "gemini", model, usage, latency_ms: latencyMs };
 }
 
 /**
