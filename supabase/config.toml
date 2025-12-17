@@ -372,3 +372,6 @@ verify_jwt = false
 
 [functions.scheduler-webhook]
 verify_jwt = false
+
+[functions.admin-scheduler-status]
+verify_jwt = true

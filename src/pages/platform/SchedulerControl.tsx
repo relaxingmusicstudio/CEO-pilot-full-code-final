@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Play, RefreshCw, Clock, CheckCircle2, XCircle, AlertTriangle, 
-  Loader2, ShieldX, Calendar, Zap, Activity, Settings
+  Loader2, ShieldX, CalendarClock, Coins, Send, Timer, Activity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,8 +28,14 @@ interface AuditLog {
   entity_id: string;
   description: string;
   success: boolean;
-  timestamp: string;
+  created_at: string;
   duration_ms: number | null;
+}
+
+interface SchedulerStatusResponse {
+  secret_configured: boolean;
+  jobs: SchedulerJob[];
+  audit_logs: AuditLog[];
 }
 
 export default function SchedulerControl() {
@@ -39,6 +46,7 @@ export default function SchedulerControl() {
   const [loading, setLoading] = useState(true);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [healthStatus, setHealthStatus] = useState<"unknown" | "healthy" | "error">("unknown");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -48,49 +56,64 @@ export default function SchedulerControl() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Check secret status via direct query (function may not exist yet)
-      try {
-        const { data: secretData } = await supabase.rpc("check_scheduler_secret_configured" as any);
-        setSecretConfigured(Boolean(secretData));
-      } catch {
-        // Function doesn't exist yet, assume not configured
-        setSecretConfigured(false);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        setError("Not authenticated");
+        setLoading(false);
+        return;
       }
 
-      // Get scheduler jobs via RPC
-      try {
-        const { data: jobsData, error: jobsError } = await supabase.rpc("get_scheduler_jobs" as any);
-        if (!jobsError && jobsData) {
-          setJobs(jobsData as unknown as SchedulerJob[]);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        setError("Supabase URL not configured");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/admin-scheduler-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
-      } catch {
-        // Function doesn't exist, fall back to empty
-        setJobs([]);
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Get recent audit logs for scheduler
-      const { data: logsData } = await supabase
-        .from("platform_audit_log")
-        .select("id, action_type, entity_id, description, success, timestamp, duration_ms")
-        .eq("entity_type", "scheduler")
-        .order("timestamp", { ascending: false })
-        .limit(20);
+      const data: SchedulerStatusResponse = await response.json();
       
-      if (logsData) {
-        setAuditLogs(logsData as AuditLog[]);
-      }
+      setSecretConfigured(data.secret_configured);
+      setJobs(data.jobs || []);
+      setAuditLogs(data.audit_logs || []);
     } catch (err) {
       console.error("Failed to load scheduler data", err);
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
   };
 
   const runHealthCheck = async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      toast.error("Supabase URL not configured");
+      return;
+    }
+
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-scheduler`,
+        `${supabaseUrl}/functions/v1/ceo-scheduler`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,8 +145,14 @@ export default function SchedulerControl() {
         return;
       }
 
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        toast.error("Supabase URL not configured");
+        return;
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-run-scheduler`,
+        `${supabaseUrl}/functions/v1/admin-run-scheduler`,
         {
           method: "POST",
           headers: {
@@ -150,15 +179,21 @@ export default function SchedulerControl() {
   };
 
   const getJobIcon = (jobname: string) => {
-    if (jobname.includes("daily-briefs")) return <Calendar className="h-5 w-5" />;
-    if (jobname.includes("cost-rollup")) return <Activity className="h-5 w-5" />;
-    if (jobname.includes("outreach")) return <Zap className="h-5 w-5" />;
-    return <Settings className="h-5 w-5" />;
+    if (jobname.includes("daily") || jobname.includes("brief")) {
+      return <CalendarClock className="h-4 w-4" />;
+    }
+    if (jobname.includes("cost") || jobname.includes("rollup")) {
+      return <Coins className="h-4 w-4" />;
+    }
+    if (jobname.includes("outreach")) {
+      return <Send className="h-4 w-4" />;
+    }
+    return <Timer className="h-4 w-4" />;
   };
 
   const getActionFromJobname = (jobname: string): string => {
-    if (jobname.includes("daily-briefs")) return "run_daily_briefs";
-    if (jobname.includes("cost-rollup")) return "run_cost_rollup";
+    if (jobname.includes("daily") || jobname.includes("brief")) return "run_daily_briefs";
+    if (jobname.includes("cost") || jobname.includes("rollup")) return "run_cost_rollup";
     if (jobname.includes("outreach")) return "run_outreach_queue";
     return "";
   };
@@ -168,6 +203,14 @@ export default function SchedulerControl() {
     if (schedule === "0 */6 * * *") return "Every 6 hours";
     if (schedule === "*/15 * * * *") return "Every 15 minutes";
     return schedule;
+  };
+
+  const formatJobName = (jobname: string): string => {
+    return jobname
+      .replace("ceo-scheduler-", "")
+      .replace("ceo-", "")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, l => l.toUpperCase());
   };
 
   if (roleLoading) {
@@ -207,6 +250,14 @@ export default function SchedulerControl() {
         </Button>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-5 w-5" />
+          <AlertTitle>Error Loading Data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {secretConfigured === false && (
         <Alert variant="destructive">
           <AlertTriangle className="h-5 w-5" />
@@ -232,7 +283,9 @@ export default function SchedulerControl() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Secret:</span>
-              {secretConfigured ? (
+              {loading ? (
+                <Skeleton className="h-5 w-20" />
+              ) : secretConfigured ? (
                 <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
                   <CheckCircle2 className="mr-1 h-3 w-3" /> Configured
                 </Badge>
@@ -264,60 +317,66 @@ export default function SchedulerControl() {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {jobs.map((job) => (
-          <Card key={job.jobid}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {getJobIcon(job.jobname)}
-                  <CardTitle className="text-base capitalize">
-                    {job.jobname.replace("ceo-scheduler-", "").replace(/-/g, " ")}
-                  </CardTitle>
+        {loading ? (
+          <>
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+          </>
+        ) : jobs.length > 0 ? (
+          jobs.map((job) => (
+            <Card key={job.jobid}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {getJobIcon(job.jobname)}
+                    <CardTitle className="text-base">
+                      {formatJobName(job.jobname)}
+                    </CardTitle>
+                  </div>
+                  {job.active ? (
+                    <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Active</Badge>
+                  ) : (
+                    <Badge variant="secondary">Inactive</Badge>
+                  )}
                 </div>
-                {job.active ? (
-                  <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Active</Badge>
-                ) : (
-                  <Badge variant="secondary">Inactive</Badge>
-                )}
-              </div>
-              <CardDescription>{formatSchedule(job.schedule)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Last Run:</span>
-                  <span>{job.last_run ? new Date(job.last_run).toLocaleString() : "Never"}</span>
+                <CardDescription>{formatSchedule(job.schedule)}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Last Run:</span>
+                    <span>{job.last_run ? new Date(job.last_run).toLocaleString() : "Never"}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Status:</span>
+                    <span className={job.last_status === "succeeded" ? "text-green-600" : job.last_status === "failed" ? "text-red-600" : ""}>
+                      {job.last_status || "N/A"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Status:</span>
-                  <span className={job.last_status === "succeeded" ? "text-green-600" : job.last_status === "failed" ? "text-red-600" : ""}>
-                    {job.last_status || "N/A"}
-                  </span>
-                </div>
-              </div>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => runSchedulerAction(getActionFromJobname(job.jobname))}
-                disabled={runningAction !== null || !secretConfigured}
-              >
-                {runningAction === getActionFromJobname(job.jobname) ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Run Now
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-
-        {jobs.length === 0 && !loading && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => runSchedulerAction(getActionFromJobname(job.jobname))}
+                  disabled={runningAction !== null || !secretConfigured}
+                >
+                  {runningAction === getActionFromJobname(job.jobname) ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-4 w-4" />
+                      Run Now
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
           <Card className="md:col-span-3">
             <CardContent className="py-8 text-center text-muted-foreground">
               No scheduler jobs found. Ensure pg_cron is enabled and jobs are configured.
@@ -335,7 +394,13 @@ export default function SchedulerControl() {
           <CardDescription>Last 20 scheduler triggers from audit log</CardDescription>
         </CardHeader>
         <CardContent>
-          {auditLogs.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12" />
+              <Skeleton className="h-12" />
+              <Skeleton className="h-12" />
+            </div>
+          ) : auditLogs.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">No recent activity</p>
           ) : (
             <div className="space-y-2">
@@ -357,7 +422,7 @@ export default function SchedulerControl() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">
-                      {new Date(log.timestamp).toLocaleString()}
+                      {new Date(log.created_at).toLocaleString()}
                     </p>
                     {log.duration_ms && (
                       <p className="text-xs text-muted-foreground">{log.duration_ms}ms</p>

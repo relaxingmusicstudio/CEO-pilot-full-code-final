@@ -2,17 +2,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ShieldX, Loader2, Github, Cloud, Server, Copy, CheckCircle2 } from "lucide-react";
+import { ShieldX, Loader2, Github, Cloud, Server, Copy, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { useState } from "react";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
 export default function SchedulerDocs() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -37,7 +37,7 @@ export default function SchedulerDocs() {
         onClick={() => copyToClipboard(code, id)}
       >
         {copiedId === id ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <Check className="h-4 w-4 text-green-600" />
         ) : (
           <Copy className="h-4 w-4" />
         )}
@@ -62,6 +62,20 @@ export default function SchedulerDocs() {
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
             This page is restricted to platform administrators only.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!SUPABASE_URL) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-5 w-5" />
+          <AlertTitle>Configuration Missing</AlertTitle>
+          <AlertDescription>
+            VITE_SUPABASE_URL is not configured. Please check your environment variables.
           </AlertDescription>
         </Alert>
       </div>
