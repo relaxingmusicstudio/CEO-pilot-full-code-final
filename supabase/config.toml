@@ -345,3 +345,6 @@ verify_jwt = false
 
 [functions.provision-new-business]
 verify_jwt = false
+
+[functions.event-processor]
+verify_jwt = false
