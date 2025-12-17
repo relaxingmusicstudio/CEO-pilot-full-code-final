@@ -29,7 +29,8 @@ interface BriefData {
   lead_temperature: Record<string, number>;
   missed_calls_24h: number;
   active_clients: number;
-  revenue_this_month_cents: number;
+  mrr_cents: number;  // Use actual MRR from clients table
+  revenue_invoiced_this_month_cents: number;
   ai_cost_24h_cents: number;
   ai_cost_30d_avg_cents: number;
   top_lead_sources: Array<{ source: string; count: number }>;
@@ -173,13 +174,19 @@ serve(async (req) => {
       .gte('created_at', yesterday.toISOString())
       .eq('status', 'missed');
 
-    // 3. Active clients
-    const { count: activeClients } = await supabase
+    // 3. Active clients + MRR (use actual mrr column from clients table)
+    const { data: clientsData, count: activeClients } = await supabase
       .from('clients')
-      .select('id', { count: 'exact', head: true })
+      .select('mrr', { count: 'exact' })
       .eq('status', 'active');
 
-    // 4. Revenue from recent invoices (using 'amount' not 'amount_cents')
+    // Sum actual MRR from active clients (mrr is in dollars, convert to cents)
+    const mrrCents = (clientsData || []).reduce(
+      (sum: number, c: { mrr?: number }) => sum + Math.round((c.mrr || 0) * 100),
+      0
+    );
+
+    // 4. Revenue from recent invoices (using 'amount' which is DECIMAL in dollars)
     const { data: invoices } = await supabase
       .from('client_invoices')
       .select('amount')
@@ -187,7 +194,7 @@ serve(async (req) => {
       .gte('created_at', monthStart.toISOString());
 
     // amount is in dollars, convert to cents for consistency
-    const revenueThisMonthCents = (invoices || []).reduce(
+    const revenueInvoicedThisMonthCents = (invoices || []).reduce(
       (sum: number, inv: { amount?: number }) => sum + Math.round((inv.amount || 0) * 100), 
       0
     );
@@ -220,7 +227,8 @@ serve(async (req) => {
       lead_temperature: leadTemperature,
       missed_calls_24h: missedCalls || 0,
       active_clients: activeClients || 0,
-      revenue_this_month_cents: revenueThisMonthCents,
+      mrr_cents: mrrCents,
+      revenue_invoiced_this_month_cents: revenueInvoicedThisMonthCents,
       ai_cost_24h_cents: aiCost24h,
       ai_cost_30d_avg_cents: aiCost30dAvg,
       top_lead_sources: topSources,
@@ -242,7 +250,8 @@ DATA (last 24 hours unless noted):
 - Lead temperature: Hot=${leadTemperature.hot}, Warm=${leadTemperature.warm}, Cold=${leadTemperature.cold}
 - Missed calls: ${briefData.missed_calls_24h}
 - Active clients: ${briefData.active_clients}
-- Revenue this month: $${(briefData.revenue_this_month_cents / 100).toFixed(2)}
+- MRR (Monthly Recurring Revenue): $${(briefData.mrr_cents / 100).toFixed(2)}
+- Invoiced revenue this month: $${(briefData.revenue_invoiced_this_month_cents / 100).toFixed(2)}
 - AI costs (24h): $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}
 - AI costs (30d avg/day): $${(briefData.ai_cost_30d_avg_cents / 100).toFixed(2)}
 - Top lead sources: ${topSources.map(s => `${s.source}(${s.count})`).join(', ') || 'none'}
@@ -284,8 +293,8 @@ Respond in this exact JSON format:
         bullets: [
           `${briefData.leads_24h} new leads captured in last 24h`,
           `${briefData.missed_calls_24h} missed calls require follow-up`,
-          `${briefData.active_clients} active clients on roster`,
-          `Revenue at $${(briefData.revenue_this_month_cents / 100).toFixed(2)} this month`,
+          `${briefData.active_clients} active clients on roster (MRR: $${(briefData.mrr_cents / 100).toFixed(2)})`,
+          `Invoiced $${(briefData.revenue_invoiced_this_month_cents / 100).toFixed(2)} this month`,
           `AI operations costing $${(briefData.ai_cost_24h_cents / 100).toFixed(2)}/day`,
         ],
         risk_alert: briefData.missed_calls_24h > 5 ? `High missed call rate (${briefData.missed_calls_24h}) may indicate staffing gap` : null,
