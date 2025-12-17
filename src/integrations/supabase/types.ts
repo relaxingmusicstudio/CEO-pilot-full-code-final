@@ -9230,6 +9230,18 @@ export type Database = {
         Returns: Json
       }
       ensure_user_role: { Args: { _user_id: string }; Returns: string }
+      funnels_update_lead_fields: {
+        Args: {
+          p_lead_id: string
+          p_source?: string
+          p_utm_campaign?: string
+          p_utm_content?: string
+          p_utm_medium?: string
+          p_utm_source?: string
+          p_utm_term?: string
+        }
+        Returns: Json
+      }
       get_budget_usage: {
         Args: {
           p_category: string
