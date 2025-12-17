@@ -1,18 +1,18 @@
 /**
- * Event Processor - System Contract v1.1.1
+ * Event Processor - System Contract v1.1.1 Phase 2D
  * 
  * Processes canonical events from the event bus.
  * Currently implements: cold_agent_enroller consumer for lead_created events.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   claimEvents,
   markProcessed,
   markFailed,
   emitEvent,
   getAutopilotMode,
+  getSupabaseAdmin,
   type SystemEvent,
 } from "../_shared/event-bus.ts";
 
@@ -22,25 +22,20 @@ const corsHeaders = {
 };
 
 // ============================================
-// SUPABASE CLIENT
-// ============================================
-
-function getSupabaseAdmin() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  return createClient(supabaseUrl, supabaseKey);
-}
-
-// ============================================
 // CONSUMER: COLD AGENT ENROLLER
 // ============================================
 
 async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const leadId = event.entity_id;
+  const leadId = event.payload?.lead_id ?? event.entity_id;
   const payload = event.payload as {
-    lead_id: string;
+    lead_id?: string;
     source?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_term?: string;
+    utm_content?: string;
     consent_status?: {
       call: boolean;
       sms: boolean;
@@ -52,7 +47,7 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
 
   console.log(`[ColdAgentEnroller] Processing lead_created: ${leadId}`);
 
-  // 1. Check autopilot mode
+  // 1. Check autopilot mode (fail-safe to MANUAL if missing/error)
   const autopilotMode = await getAutopilotMode(event.tenant_id ?? undefined);
   console.log(`[ColdAgentEnroller] Autopilot mode: ${autopilotMode}`);
 
@@ -60,36 +55,46 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     // Queue for CEO approval instead of auto-enrolling
     console.log(`[ColdAgentEnroller] MANUAL mode - queuing for CEO approval`);
     
-    await supabase.from('ceo_action_queue').insert({
+    const queuePayload: Record<string, unknown> = {
+      lead_id: leadId,
+      source: payload.source,
+      recommended_sequence: 'default_cold',
+    };
+    
+    // Include UTM fields only if present
+    if (payload.utm_source) queuePayload.utm_source = payload.utm_source;
+    if (payload.utm_medium) queuePayload.utm_medium = payload.utm_medium;
+    if (payload.utm_campaign) queuePayload.utm_campaign = payload.utm_campaign;
+    if (payload.utm_term) queuePayload.utm_term = payload.utm_term;
+    if (payload.utm_content) queuePayload.utm_content = payload.utm_content;
+    if (payload.consent_status) queuePayload.consent_status = payload.consent_status;
+    if (payload.lead_score !== undefined) queuePayload.lead_score = payload.lead_score;
+    
+    const { error: queueError } = await supabase.from('ceo_action_queue').insert({
       action_type: 'approve_cold_enrollment',
       target_type: 'lead',
       target_id: leadId,
       tenant_id: event.tenant_id,
-      payload: {
-        lead_id: leadId,
-        source: payload.source,
-        consent_status: payload.consent_status,
-        recommended_sequence: 'default_cold',
-      },
+      payload: queuePayload,
       priority: 'medium',
       status: 'pending',
-      source: 'cold_agent_enroller',
+      source: 'event_processor',
       claude_reasoning: `New lead ${leadId} requires CEO approval for cold sequence enrollment (MANUAL mode).`,
     });
     
+    if (queueError) {
+      console.error(`[ColdAgentEnroller] Failed to queue CEO action:`, queueError);
+      throw new Error(`Failed to queue CEO action: ${queueError.message}`);
+    }
+    
+    console.log(`[ColdAgentEnroller] Queued CEO approval for lead ${leadId}`);
     return;
   }
 
   // 2. ASSISTED or FULL mode - proceed with auto-enrollment
   const leadScore = payload.lead_score ?? 0;
 
-  // Only enroll leads with score < 50 in cold sequence (per contract)
-  if (leadScore >= 50) {
-    console.log(`[ColdAgentEnroller] Lead score ${leadScore} >= 50, skipping cold sequence`);
-    return;
-  }
-
-  // 3. Get default cold sequence
+  // 3. Get first active cold_outreach sequence
   const { data: sequence, error: seqError } = await supabase
     .from('sequences')
     .select('id, name')
@@ -100,8 +105,9 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     .maybeSingle();
 
   if (seqError || !sequence) {
-    console.log(`[ColdAgentEnroller] No active cold sequence found, creating placeholder enrollment`);
-    // Still record the intent to enroll
+    console.log(`[ColdAgentEnroller] No active cold sequence found, recording skip`);
+    
+    // Record the skipped enrollment in action_history
     await supabase.from('action_history').insert({
       action_table: 'sequence_enrollments',
       action_id: crypto.randomUUID(),
@@ -110,7 +116,11 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
       target_id: leadId,
       actor_type: 'module',
       actor_module: 'cold_agent_enroller',
-      new_state: { reason: 'no_active_sequence', lead_score: leadScore },
+      new_state: { 
+        reason: 'no_active_sequence', 
+        lead_score: leadScore,
+        autopilot_mode: autopilotMode,
+      },
     });
     return;
   }
@@ -124,7 +134,7 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     .maybeSingle();
 
   if (existingEnrollment) {
-    console.log(`[ColdAgentEnroller] Lead already enrolled in sequence ${sequence.id}`);
+    console.log(`[ColdAgentEnroller] Lead ${leadId} already enrolled in sequence ${sequence.id}`);
     return;
   }
 
@@ -146,9 +156,9 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     throw new Error(`Failed to enroll lead: ${enrollError.message}`);
   }
 
-  console.log(`[ColdAgentEnroller] Enrolled lead ${leadId} in sequence ${sequence.name}`);
+  console.log(`[ColdAgentEnroller] Enrolled lead ${leadId} in sequence ${sequence.name} (${sequence.id})`);
 
-  // 6. Audit the enrollment
+  // 6. Audit the enrollment in action_history
   await supabase.from('action_history').insert({
     action_table: 'sequence_enrollments',
     action_id: enrollment.id,
@@ -165,7 +175,7 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
     },
   });
 
-  // 7. Emit cold_sequence_enrolled event
+  // 7. Emit cold_sequence_enrolled event for downstream consumers
   await emitEvent({
     eventType: 'cold_sequence_enrolled',
     entityType: 'sequence_enrollment',
@@ -186,22 +196,27 @@ async function processLeadCreatedForColdAgent(event: SystemEvent): Promise<void>
 // MAIN PROCESSOR
 // ============================================
 
-async function processEvents(consumerName: string, eventType: string): Promise<{
+async function processEvents(
+  consumerName: string, 
+  eventType: string,
+  limit: number
+): Promise<{
   processed: number;
   failed: number;
   errors: string[];
 }> {
   const results = { processed: 0, failed: 0, errors: [] as string[] };
 
-  // Claim events
+  // Claim events atomically using claim_system_events RPC
   const { events, error: claimError } = await claimEvents({
     consumerName,
     eventType,
-    limit: 10,
+    limit,
   });
 
   if (claimError) {
     console.error(`[EventProcessor] Claim error:`, claimError);
+    results.errors.push(`claim: ${claimError}`);
     return results;
   }
 
@@ -212,32 +227,34 @@ async function processEvents(consumerName: string, eventType: string): Promise<{
 
   console.log(`[EventProcessor] Processing ${events.length} events`);
 
-  // Process each event
+  // Process each claimed event
   for (const event of events) {
     try {
-      // Route to appropriate handler
+      // Route to appropriate handler based on consumer
       switch (consumerName) {
         case 'cold_agent_enroller':
           await processLeadCreatedForColdAgent(event);
           break;
         default:
-          console.log(`[EventProcessor] Unknown consumer: ${consumerName}`);
+          console.log(`[EventProcessor] Unknown consumer: ${consumerName}, skipping`);
       }
 
-      // Mark as processed
+      // Mark as processed via mark_event_processed RPC
       await markProcessed(event.id, consumerName);
       results.processed++;
+      console.log(`[EventProcessor] Processed event ${event.id}`);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[EventProcessor] Error processing event ${event.id}:`, errorMessage);
       
+      // Mark failed via mark_event_failed RPC (handles backoff + dead-lettering)
       const result = await markFailed(event.id, consumerName, errorMessage);
       results.failed++;
       results.errors.push(`${event.id}: ${errorMessage}`);
       
       if (result.deadLettered) {
-        console.log(`[EventProcessor] Event ${event.id} dead-lettered`);
+        console.log(`[EventProcessor] Event ${event.id} moved to dead-letter queue`);
       }
     }
   }
@@ -258,10 +275,11 @@ serve(async (req) => {
     const url = new URL(req.url);
     const consumer = url.searchParams.get('consumer') ?? 'cold_agent_enroller';
     const eventType = url.searchParams.get('event_type') ?? 'lead_created';
+    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10);
 
-    console.log(`[EventProcessor] Starting processor for ${consumer}:${eventType}`);
+    console.log(`[EventProcessor] Starting processor for ${consumer}:${eventType} (limit=${limit})`);
 
-    const results = await processEvents(consumer, eventType);
+    const results = await processEvents(consumer, eventType, limit);
 
     console.log(`[EventProcessor] Complete - Processed: ${results.processed}, Failed: ${results.failed}`);
 
@@ -269,7 +287,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         consumer,
-        eventType,
+        event_type: eventType,
         ...results,
       }),
       {
