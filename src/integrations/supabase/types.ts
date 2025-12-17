@@ -9179,6 +9179,31 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_system_events: {
+        Args: { p_event_type: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          emitted_at: string
+          emitted_by: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          status: string
+          tenant_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "system_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       clone_template_to_tenant: {
         Args: { p_template_key: string; p_tenant_id: string }
         Returns: boolean
@@ -9214,6 +9239,14 @@ export type Database = {
       is_emergency_stop_active: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_rpc_context: { Args: never; Returns: boolean }
+      mark_event_failed: {
+        Args: { p_consumer_name: string; p_error: string; p_event_id: string }
+        Returns: undefined
+      }
+      mark_event_processed: {
+        Args: { p_consumer_name: string; p_event_id: string }
+        Returns: undefined
+      }
       provision_tenant: {
         Args: {
           p_name: string
