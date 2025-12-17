@@ -7731,6 +7731,176 @@ export type Database = {
         }
         Relationships: []
       }
+      template_content_blocks: {
+        Row: {
+          block_key: string
+          content: Json
+          created_at: string | null
+          display_order: number | null
+          id: string
+          page_key: string
+          template_key: string
+        }
+        Insert: {
+          block_key: string
+          content?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          page_key: string
+          template_key: string
+        }
+        Update: {
+          block_key?: string
+          content?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          page_key?: string
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_content_blocks_template_key_fkey"
+            columns: ["template_key"]
+            isOneToOne: false
+            referencedRelation: "tenant_templates"
+            referencedColumns: ["template_key"]
+          },
+        ]
+      }
+      template_knowledge_seeds: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          id: string
+          priority: number | null
+          template_key: string
+          title: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          template_key: string
+          title: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          template_key?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_knowledge_seeds_template_key_fkey"
+            columns: ["template_key"]
+            isOneToOne: false
+            referencedRelation: "tenant_templates"
+            referencedColumns: ["template_key"]
+          },
+        ]
+      }
+      tenant_content_blocks: {
+        Row: {
+          block_key: string
+          content: Json
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          page_key: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          block_key: string
+          content?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          page_key: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          block_key?: string
+          content?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          page_key?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_content_blocks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_knowledge: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          priority: number | null
+          source: string | null
+          tenant_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          priority?: number | null
+          source?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          priority?: number | null
+          source?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_knowledge_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_templates: {
         Row: {
           created_at: string | null
@@ -8662,8 +8832,21 @@ export type Database = {
     }
     Functions: {
       activate_tenant: { Args: { p_tenant_id: string }; Returns: undefined }
+      admin_create_tenant: {
+        Args: {
+          p_name: string
+          p_owner_email?: string
+          p_plan?: Database["public"]["Enums"]["tenant_plan"]
+          p_template_key?: string
+        }
+        Returns: string
+      }
       check_feature_access: {
         Args: { check_tenant_id: string; feature: string }
+        Returns: boolean
+      }
+      clone_template_to_tenant: {
+        Args: { p_template_key: string; p_tenant_id: string }
         Returns: boolean
       }
       get_user_tenant_id: { Args: never; Returns: string }

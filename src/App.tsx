@@ -72,6 +72,8 @@ import AdminBusinessSetup from "./pages/AdminBusinessSetup";
 import DecisionsDashboard from "./pages/DecisionsDashboard";
 // GOVERNANCE #5: Conversation-first for new users
 import OnboardingConversation from "./pages/OnboardingConversation";
+// Platform Admin: Tenant Management
+import AdminTenants from "./pages/AdminTenants";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -147,6 +149,8 @@ const App = () => (
                 <Route path="/app/command-center/leads" element={<ProtectedRoute requireAdmin><AdminLeads /></ProtectedRoute>} />
                 <Route path="/app/command-center/help" element={<ProtectedRoute requireAdmin><AdminHelp /></ProtectedRoute>} />
                 <Route path="/app/business-setup" element={<ProtectedRoute requireAdmin><AdminBusinessSetup /></ProtectedRoute>} />
+                {/* Platform Admin: Tenant Management */}
+                <Route path="/app/admin/tenants" element={<ProtectedRoute requireAdmin><AdminTenants /></ProtectedRoute>} />
                 
                 {/* Legacy Admin Routes */}
                 <Route path="/admin/analytics" element={<ProtectedRoute requireAdmin><AdminAnalytics /></ProtectedRoute>} />
