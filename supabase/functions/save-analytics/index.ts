@@ -49,9 +49,18 @@ serve(async (req) => {
     const { action, data } = await req.json();
     
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error("Missing env vars - URL:", !!SUPABASE_URL, "KEY:", !!SUPABASE_ANON_KEY);
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Use anon key for analytics - RLS will handle access control
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     console.log(`Save analytics action: ${action}`);
     
