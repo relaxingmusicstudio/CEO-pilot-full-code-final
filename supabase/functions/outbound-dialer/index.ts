@@ -292,11 +292,12 @@ serve(async (req) => {
           metadata: { call_log_id: callLog.id, call_type, consent_verified: hasConsent },
         });
         
-        // Update lead call stats
-        await supabase.from('leads').update({
-          last_call_date: new Date().toISOString(),
-          total_call_attempts: supabase.rpc('increment_call_attempts', { row_id: lead_id }),
-        }).eq('id', lead_id);
+        // Update lead call stats via RPC (ownership enforcement)
+        await supabase.rpc('cold_update_lead_fields', {
+          p_lead_id: lead_id,
+          p_last_contacted: new Date().toISOString(),
+          p_increment_call_attempts: true,
+        });
       }
 
       // Update dialer queue if item provided
@@ -406,11 +407,12 @@ serve(async (req) => {
           metadata: { notes, call_log_id: queue_item_id },
         });
         
-        // Update lead with call outcome
-        await supabase.from('leads').update({
-          last_call_outcome: disposition,
-          last_call_notes: notes,
-        }).eq('id', lead_id);
+        // Update lead with call outcome via RPC (ownership enforcement)
+        await supabase.rpc('cold_update_lead_fields', {
+          p_lead_id: lead_id,
+          p_last_call_outcome: disposition,
+          p_last_call_notes: notes,
+        });
       }
 
       // Update dialer queue status

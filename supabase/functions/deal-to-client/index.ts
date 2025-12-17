@@ -113,12 +113,12 @@ serve(async (req) => {
       console.error("[deal-to-client] Deal update error:", updateError);
     }
 
-    // Update lead status if exists
+    // Update lead status via RPC (ownership enforcement)
     if (deal.lead_id) {
-      await supabase
-        .from("leads")
-        .update({ status: "converted", converted_at: new Date().toISOString() })
-        .eq("id", deal.lead_id);
+      await supabase.rpc('convert_lead', {
+        p_lead_id: deal.lead_id,
+        p_converted_at: new Date().toISOString(),
+      });
     }
 
     // Create onboarding record

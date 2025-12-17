@@ -294,18 +294,43 @@ serve(async (req) => {
       case "update_lead_status": {
         const { leadId, status, notes, revenueValue, convertedAt } = data;
         
-        const updateData: any = { status };
-        if (notes) updateData.notes = notes;
-        if (revenueValue) updateData.revenue_value = revenueValue;
-        if (convertedAt) updateData.converted_at = convertedAt;
+        // Route to appropriate RPC based on status (ownership enforcement)
+        const coldStatuses = ['cold', 'warm', 'contacted', 'nurturing', 'new'];
+        const salesStatuses = ['qualified', 'disqualified', 'opportunity', 'negotiating', 'closed_won', 'closed_lost'];
         
-        const { error } = await supabase
-          .from("leads")
-          .update(updateData)
-          .eq("id", leadId);
+        if (status === 'converted') {
+          // Use convert_lead RPC
+          const { error } = await supabase.rpc('convert_lead', {
+            p_lead_id: leadId,
+            p_converted_at: convertedAt || new Date().toISOString(),
+            p_notes: notes,
+            p_revenue_value: revenueValue,
+          });
+          if (error) throw error;
+        } else if (coldStatuses.includes(status)) {
+          // Use cold_update_lead_fields RPC
+          const { error } = await supabase.rpc('cold_update_lead_fields', {
+            p_lead_id: leadId,
+            p_status: status,
+          });
+          if (error) throw error;
+        } else if (salesStatuses.includes(status)) {
+          // Use sales_update_lead_fields RPC
+          const { error } = await supabase.rpc('sales_update_lead_fields', {
+            p_lead_id: leadId,
+            p_status: status,
+          });
+          if (error) throw error;
+        } else {
+          // For other statuses (new, etc.), use legacy RPC context
+          const { error } = await supabase.rpc('cold_update_lead_fields', {
+            p_lead_id: leadId,
+            p_status: status,
+          });
+          if (error) throw error;
+        }
         
-        if (error) throw error;
-        console.log("Updated lead status:", leadId, status);
+        console.log("Updated lead status via RPC:", leadId, status);
         
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
