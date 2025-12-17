@@ -64,10 +64,12 @@ export default function ApprovalQueue() {
   const fetchActions = async () => {
     setLoading(true);
     try {
+      // GOVERNANCE: Use standardized statuses
+      // Official: pending_approval, approved, rejected, modified, conflicted
       const { data: pending, error: pendingError } = await supabase
         .from("action_queue")
         .select("*")
-        .in("status", ["queued", "pending_approval"])
+        .in("status", ["pending_approval"])
         .order("priority", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(50);
@@ -77,8 +79,8 @@ export default function ApprovalQueue() {
       const { data: approved, error: approvedError } = await supabase
         .from("action_queue")
         .select("*")
-        .in("status", ["approved", "executed", "completed"])
-        .order("executed_at", { ascending: false })
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
         .limit(20);
 
       if (approvedError) throw approvedError;
@@ -86,7 +88,7 @@ export default function ApprovalQueue() {
       const { data: rejected, error: rejectedError } = await supabase
         .from("action_queue")
         .select("*")
-        .eq("status", "rejected")
+        .in("status", ["rejected", "modified", "conflicted"])
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -526,7 +528,7 @@ export default function ApprovalQueue() {
                 </div>
               )}
 
-              {(selectedAction.status === "queued" || selectedAction.status === "pending_approval") && (
+              {selectedAction.status === "pending_approval" && (
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"

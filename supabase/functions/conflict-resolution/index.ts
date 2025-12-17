@@ -1,3 +1,12 @@
+/**
+ * Conflict Resolution Engine - GOVERNANCE HARDENED
+ * 
+ * CRITICAL: This function can only QUEUE actions for human approval.
+ * It CANNOT execute, complete, or cancel actions.
+ * 
+ * Official statuses: pending_approval, approved, rejected, modified, conflicted
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateDecisionCard, wrapWithDecisionCard, createSystemDecisionCard, logValidationFailure, type DecisionCard } from "../_shared/decisionSchema.ts";
@@ -6,6 +15,9 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// GOVERNANCE: Official allowed statuses
+const ALLOWED_STATUSES = ['pending_approval', 'approved', 'rejected', 'modified', 'conflicted'];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,7 +30,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action, data } = await req.json();
-    console.log(`Conflict Resolution Engine: ${action}`);
+    console.log(`[Conflict Resolution] Action: ${action}`);
 
     switch (action) {
       case 'queue_action': {
@@ -79,13 +91,13 @@ serve(async (req) => {
           }
         }
 
-        // Check for existing queued actions on same target
+        // Check for existing actions on same target (only non-terminal statuses)
         const { data: existingActions } = await supabase
           .from('action_queue')
           .select('*')
           .eq('target_type', target_type)
           .eq('target_id', target_id)
-          .in('status', ['queued', 'pending_approval', 'approved']);
+          .in('status', ['pending_approval', 'approved']);
 
         let conflictResolution = null;
         
@@ -101,7 +113,7 @@ serve(async (req) => {
             const highestPriority = Math.max(...conflicts.map(c => c.priority));
             
             if (priority > highestPriority) {
-              // New action wins - defer existing
+              // New action wins - defer existing to conflicted
               const deferredIds = conflicts.map(c => c.id);
               await supabase
                 .from('action_queue')
@@ -150,6 +162,7 @@ serve(async (req) => {
         }
 
         // Insert the action with decision_card wrapper
+        // GOVERNANCE: Always status='pending_approval'
         const { data: newAction, error } = await supabase
           .from('action_queue')
           .insert({
@@ -159,7 +172,7 @@ serve(async (req) => {
             target_id,
             priority,
             scheduled_at: scheduled_at || new Date().toISOString(),
-            status: 'pending_approval', // GOVERNANCE: Always pending_approval
+            status: 'pending_approval',
             action_payload: wrapWithDecisionCard(decisionCard, payload),
             conflict_resolution: conflictResolution,
           })
@@ -168,7 +181,7 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        console.log(`[Conflict Resolution] Queued action ${newAction.id} with valid decision_card`);
+        console.log(`[Conflict Resolution] Queued action ${newAction.id} with valid decision_card, status=pending_approval`);
 
         return new Response(JSON.stringify({
           success: true,
@@ -197,52 +210,34 @@ serve(async (req) => {
         const { data: queue, error } = await query;
         if (error) throw error;
 
+        // GOVERNANCE: Only report official statuses
         return new Response(JSON.stringify({
           success: true,
           queue: queue || [],
           stats: {
             pending_approval: (queue || []).filter(a => a.status === 'pending_approval').length,
-            queued: (queue || []).filter(a => a.status === 'queued').length,
+            approved: (queue || []).filter(a => a.status === 'approved').length,
+            rejected: (queue || []).filter(a => a.status === 'rejected').length,
+            modified: (queue || []).filter(a => a.status === 'modified').length,
             conflicted: (queue || []).filter(a => a.status === 'conflicted').length,
-            executing: (queue || []).filter(a => a.status === 'executing').length,
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
-      case 'execute_action': {
-        const { action_id } = data;
-        
-        const { error } = await supabase
-          .from('action_queue')
-          .update({
-            status: 'executing',
-            executed_at: new Date().toISOString(),
-          })
-          .eq('id', action_id);
-
-        if (error) throw error;
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
+      // GOVERNANCE: execute_action and complete_action are DISABLED
+      // Status transitions must happen through human dashboard review only
+      case 'execute_action':
       case 'complete_action': {
-        const { action_id, result, success } = data;
-        
-        const { error } = await supabase
-          .from('action_queue')
-          .update({
-            status: success ? 'completed' : 'cancelled',
-            result,
-          })
-          .eq('id', action_id);
-
-        if (error) throw error;
-
-        return new Response(JSON.stringify({ success: true }), {
+        console.error(`[Conflict Resolution] BLOCKED: ${action} is disabled for governance. Status changes must occur through dashboard.`);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'GOVERNANCE_VIOLATION',
+          message: `Action '${action}' is disabled. Status transitions must occur through human dashboard review only.`,
+          allowed_actions: ['queue_action', 'get_queue', 'get_conflict_log']
+        }), {
+          status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -276,7 +271,7 @@ serve(async (req) => {
         });
     }
   } catch (error: any) {
-    console.error('Conflict Resolution error:', error);
+    console.error('[Conflict Resolution] Error:', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

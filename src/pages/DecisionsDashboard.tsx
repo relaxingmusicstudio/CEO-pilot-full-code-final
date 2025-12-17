@@ -71,19 +71,20 @@ export default function DecisionsDashboard() {
   const fetchDecisions = async () => {
     setLoading(true);
     try {
-      // Fetch from both action_queue and ceo_action_queue
+      // GOVERNANCE: Only fetch pending_approval status
+      // Official statuses: pending_approval, approved, rejected, modified, conflicted
       const [actionRes, ceoRes] = await Promise.all([
         supabase
           .from("action_queue")
           .select("*")
-          .in("status", ["queued", "pending_approval"])
+          .in("status", ["pending_approval"])
           .order("priority", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
           .from("ceo_action_queue")
           .select("*")
-          .in("status", ["pending", "pending_review"])
+          .in("status", ["pending_approval", "pending", "pending_review"])
           .order("priority", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(20),
@@ -93,9 +94,12 @@ export default function DecisionsDashboard() {
         ...item,
         source: 'action_queue'
       }));
+      
+      // Map ceo_action_queue.payload -> action_payload for UI compatibility
       const ceoItems = (ceoRes.data || []).map(item => ({
         ...item,
         agent_type: 'ceo-agent',
+        action_payload: item.payload, // Map column name for UI
         source: 'ceo_action_queue'
       }));
 
