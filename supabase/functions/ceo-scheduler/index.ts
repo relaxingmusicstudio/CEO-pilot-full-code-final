@@ -17,6 +17,7 @@ const corsHeaders = {
 
 const DAILY_BRIEF_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const COST_ROLLUP_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const COST_ALERT_THRESHOLD_CENTS = 500; // $5/day default threshold
 
 interface BriefData {
   leads_24h: number;
@@ -38,6 +39,14 @@ interface CostRollup {
   by_agent: Record<string, number>;
   by_purpose: Record<string, number>;
   by_provider: Record<string, number>;
+}
+
+interface ActionToCreate {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  action_type: string;
+  triggering_metric: string;
 }
 
 class MissingSecretError extends Error {
@@ -65,13 +74,6 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function internalUnauthorizedResponse(): Response {
-  return jsonResponse(
-    { error: "Unauthorized", message: "Invalid or missing internal authentication" },
-    401,
-  );
 }
 
 function toNumber(value: unknown): number {
@@ -140,7 +142,7 @@ serve(async (req) => {
       return jsonResponse({ error: `Missing required secret: ${error.secretName}` }, 500);
     }
     if (error instanceof UnauthorizedInternalError) {
-      return internalUnauthorizedResponse();
+      return jsonResponse({ error: "Unauthorized", message: "Invalid or missing internal authentication" }, 401);
     }
 
     console.error("[ceo-scheduler] Unhandled error", { message: error instanceof Error ? error.message : String(error) });
@@ -151,7 +153,7 @@ serve(async (req) => {
 async function runDailyBriefs(supabase: SupabaseClient, specificTenantIds?: string[]): Promise<Response> {
   const started = Date.now();
 
-  // Tenants selection: canonical = status='active' (no guessing / no dual-mode)
+  // Tenants selection: canonical = status='active'
   let tenantsQuery = supabase
     .from("tenants")
     .select("id, name")
@@ -177,6 +179,7 @@ async function runDailyBriefs(supabase: SupabaseClient, specificTenantIds?: stri
     status: "success" | "failed" | "skipped";
     error?: string;
     duration_ms: number;
+    actions_created?: number;
   }> = [];
 
   for (const tenant of tenants as Array<{ id: string; name: string }>) {
@@ -200,17 +203,36 @@ async function runDailyBriefs(supabase: SupabaseClient, specificTenantIds?: stri
           const durationMs = Date.now() - tenantStart;
           results.push({ tenant_id: tenant.id, tenant_name: tenant.name, status: "skipped", duration_ms: durationMs });
           await logJobRun(supabase, tenant.id, "daily_brief", "skipped", null, durationMs, { reason: "cache_fresh" });
+          // Skip actionize when brief is skipped
+          await logJobRun(supabase, tenant.id, "daily_brief_actionize", "skipped", null, 0, { skipped_reason: "brief_cache_fresh" });
           continue;
         }
       }
 
       const briefData = await generateTenantBriefAndCache(supabase, tenant.id);
-      const durationMs = Date.now() - tenantStart;
+      const briefDurationMs = Date.now() - tenantStart;
 
-      results.push({ tenant_id: tenant.id, tenant_name: tenant.name, status: "success", duration_ms: durationMs });
-      await logJobRun(supabase, tenant.id, "daily_brief", "success", null, durationMs, {
+      await logJobRun(supabase, tenant.id, "daily_brief", "success", null, briefDurationMs, {
         missed_calls_24h: briefData.missed_calls_24h,
         revenue_invoiced_this_month_cents: briefData.revenue_invoiced_this_month_cents,
+      });
+
+      // Now run actionize for this tenant
+      const actionizeStart = Date.now();
+      const actionsCreated = await actionizeTenantBrief(supabase, tenant.id, briefData);
+      const actionizeDurationMs = Date.now() - actionizeStart;
+
+      await logJobRun(supabase, tenant.id, "daily_brief_actionize", "success", null, actionizeDurationMs, {
+        created_actions: actionsCreated,
+      });
+
+      const totalDurationMs = Date.now() - tenantStart;
+      results.push({
+        tenant_id: tenant.id,
+        tenant_name: tenant.name,
+        status: "success",
+        duration_ms: totalDurationMs,
+        actions_created: actionsCreated,
       });
     } catch (e) {
       const durationMs = Date.now() - tenantStart;
@@ -222,6 +244,14 @@ async function runDailyBriefs(supabase: SupabaseClient, specificTenantIds?: stri
   }
 
   const duration = Date.now() - started;
+  console.log("[ceo-scheduler] runDailyBriefs complete", {
+    total: tenants.length,
+    success: results.filter((r) => r.status === "success").length,
+    failed: results.filter((r) => r.status === "failed").length,
+    skipped: results.filter((r) => r.status === "skipped").length,
+    duration_ms: duration,
+  });
+
   return jsonResponse({
     total: tenants.length,
     success: results.filter((r) => r.status === "success").length,
@@ -496,13 +526,160 @@ async function generateTenantBriefAndCache(supabase: SupabaseClient, tenantId: s
   return briefData;
 }
 
+/**
+ * Generate deterministic actions based on brief metrics
+ */
+function generateDeterministicActions(briefData: BriefData): ActionToCreate[] {
+  const actions: ActionToCreate[] = [];
+
+  // Rule 1: Missed calls > 0 -> action about follow-up
+  if (briefData.missed_calls_24h > 0) {
+    const priority = briefData.missed_calls_24h > 5 ? "high" : briefData.missed_calls_24h > 2 ? "medium" : "low";
+    actions.push({
+      title: `Follow up on ${briefData.missed_calls_24h} missed calls`,
+      description: `${briefData.missed_calls_24h} calls were missed in the last 24h. Review call logs and ensure follow-up.`,
+      priority,
+      action_type: "missed_call_followup",
+      triggering_metric: `missed_calls_24h: ${briefData.missed_calls_24h}`,
+    });
+  }
+
+  // Rule 2: Hot leads > 0 -> immediate follow-up action
+  const hotLeads = briefData.lead_temperature?.hot || 0;
+  if (hotLeads > 0) {
+    actions.push({
+      title: `${hotLeads} hot leads need immediate attention`,
+      description: `You have ${hotLeads} hot leads ready for immediate follow-up.`,
+      priority: "high",
+      action_type: "hot_lead_followup",
+      triggering_metric: `hot_leads: ${hotLeads}`,
+    });
+  }
+
+  // Rule 3: High pending actions -> queue management
+  if (briefData.pending_actions > 10) {
+    actions.push({
+      title: `Clear action queue (${briefData.pending_actions} pending)`,
+      description: `Your action queue has ${briefData.pending_actions} pending items. Review and clear.`,
+      priority: briefData.pending_actions > 20 ? "high" : "medium",
+      action_type: "queue_management",
+      triggering_metric: `pending_actions: ${briefData.pending_actions}`,
+    });
+  }
+
+  // Rule 4: Zero leads in 24h -> lead gen check
+  if (briefData.leads_24h === 0) {
+    actions.push({
+      title: "No new leads in 24h - check lead generation",
+      description: "Zero new leads were captured in the last 24 hours. Review marketing campaigns.",
+      priority: "medium",
+      action_type: "lead_gen_check",
+      triggering_metric: "leads_24h: 0",
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Actionize tenant brief - creates actions in ceo_action_queue
+ */
+async function actionizeTenantBrief(supabase: SupabaseClient, tenantId: string, briefData: BriefData): Promise<number> {
+  const allActions = generateDeterministicActions(briefData);
+  const maxActions = 3;
+  let created = 0;
+
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  for (const action of allActions.slice(0, maxActions)) {
+    // Check for duplicates (same action_type within 24h)
+    const { count: existingCount } = await supabase
+      .from("ceo_action_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("source", "daily_brief")
+      .eq("action_type", action.action_type)
+      .gte("created_at", yesterday);
+
+    if ((existingCount || 0) > 0) {
+      continue; // Skip duplicate
+    }
+
+    const { error: insertError } = await supabase
+      .from("ceo_action_queue")
+      .insert({
+        tenant_id: tenantId,
+        action_type: action.action_type,
+        target_type: "brief_insight",
+        target_id: tenantId,
+        status: "pending",
+        priority: action.priority === "high" ? 1 : action.priority === "medium" ? 2 : 3,
+        source: "daily_brief",
+        action_payload: {
+          title: action.title,
+          description: action.description,
+          triggering_metric: action.triggering_metric,
+        },
+        claude_reasoning: action.description,
+      });
+
+    if (!insertError) {
+      created++;
+    } else {
+      console.error("[ceo-scheduler] Failed to create action", { tenant_id: tenantId, action_type: action.action_type });
+    }
+  }
+
+  return created;
+}
+
+/**
+ * Check if a cost alert already exists for this tenant within 24h
+ */
+async function hasCostAlertRecently(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { count } = await supabase
+    .from("ceo_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("alert_type", "cost_spike")
+    .gte("created_at", yesterday);
+
+  return (count || 0) > 0;
+}
+
+/**
+ * Create a cost alert for a tenant
+ */
+async function createCostAlert(
+  supabase: SupabaseClient,
+  tenantId: string,
+  cost24h: number,
+  avgCost: number,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase.from("ceo_alerts").insert({
+    alert_type: "cost_spike",
+    title: `AI Cost Alert: ${reason}`,
+    message: `24h spend: $${(cost24h / 100).toFixed(2)} vs 30d avg: $${(avgCost / 100).toFixed(2)}/day`,
+    priority: "high",
+    source: "cost_guardrail",
+    metadata: { tenant_id: tenantId, cost_24h_cents: cost24h, avg_cost_cents: avgCost },
+  });
+
+  if (error) {
+    console.error("[ceo-scheduler] Failed to create cost alert", { tenant_id: tenantId, message: error.message });
+  }
+}
+
 async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
   const started = Date.now();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const { data: costs, error } = await supabase
     .from("agent_cost_tracking")
-    .select("tenant_id, agent_type, purpose, provider, cost_cents, tokens_used")
+    .select("tenant_id, agent_type, purpose, provider, cost_cents, tokens_used, created_at")
     .gte("created_at", thirtyDaysAgo.toISOString());
 
   if (error) {
@@ -510,10 +687,11 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
     return jsonResponse({ error: "Failed to compute cost rollup" }, 500);
   }
 
-  const byTenant: Record<string, CostRollup> = {};
+  const byTenant: Record<string, CostRollup & { cost_24h: number; cost_30d: number }> = {};
   let unassignedRows = 0;
+  let alertsCreated = 0;
 
-  for (const row of (costs || []) as Array<{ tenant_id?: string | null; agent_type?: string | null; purpose?: string | null; provider?: string | null; cost_cents?: unknown; tokens_used?: unknown }>) {
+  for (const row of (costs || []) as Array<{ tenant_id?: string | null; agent_type?: string | null; purpose?: string | null; provider?: string | null; cost_cents?: unknown; tokens_used?: unknown; created_at?: string }>) {
     if (!row.tenant_id) {
       unassignedRows++;
       continue;
@@ -521,14 +699,21 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
 
     const tid = row.tenant_id;
     if (!byTenant[tid]) {
-      byTenant[tid] = { total_cents: 0, total_tokens: 0, by_agent: {}, by_purpose: {}, by_provider: {} };
+      byTenant[tid] = { total_cents: 0, total_tokens: 0, by_agent: {}, by_purpose: {}, by_provider: {}, cost_24h: 0, cost_30d: 0 };
     }
 
     const cost = Math.round(toNumber(row.cost_cents));
     const tokens = Math.round(toNumber(row.tokens_used));
+    const createdAt = row.created_at ? new Date(row.created_at) : new Date();
 
     byTenant[tid].total_cents += cost;
     byTenant[tid].total_tokens += tokens;
+    byTenant[tid].cost_30d += cost;
+
+    // Track 24h cost separately
+    if (createdAt > yesterday) {
+      byTenant[tid].cost_24h += cost;
+    }
 
     const agent = row.agent_type || "unknown";
     byTenant[tid].by_agent[agent] = (byTenant[tid].by_agent[agent] || 0) + cost;
@@ -540,13 +725,21 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
     byTenant[tid].by_provider[provider] = (byTenant[tid].by_provider[provider] || 0) + cost;
   }
 
-  // Cache per tenant ONLY (no global/unassigned cache keys)
+  // Cache per tenant + check cost guardrails
   for (const [tenantId, rollup] of Object.entries(byTenant)) {
     const cacheKey = `ceo_cost_rollup_${tenantId}`;
     const { error: cacheError } = await supabase.from("agent_shared_state").upsert(
       {
         key: cacheKey,
-        value: { ...rollup, tenant_id: tenantId, generated_at: new Date().toISOString() },
+        value: {
+          total_cents: rollup.total_cents,
+          total_tokens: rollup.total_tokens,
+          by_agent: rollup.by_agent,
+          by_purpose: rollup.by_purpose,
+          by_provider: rollup.by_provider,
+          tenant_id: tenantId,
+          generated_at: new Date().toISOString(),
+        },
         category: "ceo_cost",
         expires_at: new Date(Date.now() + COST_ROLLUP_TTL_MS).toISOString(),
       },
@@ -556,12 +749,34 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
     if (cacheError) {
       console.error("[ceo-scheduler] Failed to cache cost rollup", { tenant_id: tenantId, message: cacheError.message });
     }
+
+    // Cost guardrails check
+    const avgDailyCost = Math.round(rollup.cost_30d / 30);
+    const hasRecentAlert = await hasCostAlertRecently(supabase, tenantId);
+
+    if (!hasRecentAlert) {
+      // Check threshold: $5/day or 2x average
+      if (rollup.cost_24h > COST_ALERT_THRESHOLD_CENTS) {
+        await createCostAlert(supabase, tenantId, rollup.cost_24h, avgDailyCost, "Exceeds daily threshold");
+        alertsCreated++;
+      } else if (avgDailyCost > 0 && rollup.cost_24h > avgDailyCost * 2) {
+        await createCostAlert(supabase, tenantId, rollup.cost_24h, avgDailyCost, "2x spike vs 30d average");
+        alertsCreated++;
+      }
+    }
   }
 
   const duration = Date.now() - started;
   await logJobRun(supabase, null, "cost_rollup", "success", null, duration, {
     tenants_processed: Object.keys(byTenant).length,
     unassigned_rows: unassignedRows,
+    alerts_created: alertsCreated,
+  });
+
+  console.log("[ceo-scheduler] runCostRollup complete", {
+    tenants_processed: Object.keys(byTenant).length,
+    alerts_created: alertsCreated,
+    duration_ms: duration,
   });
 
   return jsonResponse({
@@ -569,6 +784,7 @@ async function runCostRollup(supabase: SupabaseClient): Promise<Response> {
     duration_ms: duration,
     tenants_processed: Object.keys(byTenant).length,
     unassigned_rows: unassignedRows,
+    alerts_created: alertsCreated,
   });
 }
 

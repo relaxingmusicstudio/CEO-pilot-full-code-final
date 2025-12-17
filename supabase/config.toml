@@ -357,3 +357,6 @@ verify_jwt = false
 
 [functions.ceo-scheduler]
 verify_jwt = false
+
+[functions.ceo-actionize-brief]
+verify_jwt = false
