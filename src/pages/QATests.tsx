@@ -102,8 +102,11 @@ export default function QATests() {
     // TEST 6: Cron auth rejection (no secret)
     tests.push(await runCronAuthTest());
 
-    // TEST 7: Webhook insertion test
+    // TEST 7: Webhook POST (real)
     tests.push(await runWebhookInsertionTest(tenantIdA));
+
+    // TEST 8: Admin Scheduler Trigger (real)
+    tests.push(await runAdminSchedulerTest(tenantIdA));
 
     const output: TestOutput = {
       timestamp: new Date().toISOString(),
@@ -411,13 +414,141 @@ export default function QATests() {
 
   const runWebhookInsertionTest = async (tenantId: string): Promise<TestResult> => {
     const start = Date.now();
-    const name = "TEST 7 - Webhook Table Access";
+    const name = "TEST 7 - Webhook POST (Real)";
+    const qa_nonce = `qa_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    
     try {
-      const { count, error } = await supabase.from("inbound_webhooks").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
-      if (error) return { name, status: "error", details: { supabase_error: error.message }, error: error.message, duration_ms: Date.now() - start };
-      return { name, status: "pass", details: { tenant_id: tenantId, webhook_count: count || 0 }, duration_ms: Date.now() - start };
+      // POST to lead-webhook with test payload
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-webhook`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Tenant-Id": tenantId
+        },
+        body: JSON.stringify({ 
+          name: "QA Test Lead", 
+          source: "qa_tests", 
+          qa_nonce 
+        }),
+      });
+
+      const responseBody = await response.json().catch(() => ({}));
+      
+      if (!response.ok) {
+        return {
+          name,
+          status: "fail",
+          details: { 
+            status: response.status, 
+            response: responseBody,
+            qa_nonce 
+          },
+          error: `Webhook returned ${response.status}`,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // Verify webhook was stored
+      const { data: webhooks, error: webhookError } = await supabase
+        .from("inbound_webhooks")
+        .select("id, status, received_at")
+        .eq("tenant_id", tenantId)
+        .order("received_at", { ascending: false })
+        .limit(1);
+
+      if (webhookError) {
+        return {
+          name,
+          status: "error",
+          details: { supabase_error: webhookError.message },
+          error: webhookError.message,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      return {
+        name,
+        status: "pass",
+        details: {
+          webhook_response: responseBody,
+          latest_webhook_id: webhooks?.[0]?.id,
+          webhook_count: webhooks?.length || 0,
+          qa_nonce,
+        },
+        duration_ms: Date.now() - start,
+      };
     } catch (err) {
-      return { name, status: "error", details: {}, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start };
+      return {
+        name,
+        status: "error",
+        details: {},
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
+    }
+  };
+
+  const runAdminSchedulerTest = async (tenantId: string): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 8 - Admin Scheduler Trigger (Real)";
+    
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        return {
+          name,
+          status: "error",
+          details: { reason: "No active session" },
+          error: "Must be logged in to run admin scheduler test",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-run-scheduler`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ 
+          action: "check_job_status",
+          tenant_ids: [tenantId]
+        }),
+      });
+
+      const responseBody = await response.json().catch(() => ({}));
+      
+      // For admins, should NOT be 401/403
+      if (response.status === 401 || response.status === 403) {
+        return {
+          name,
+          status: "fail",
+          details: { status: response.status, response: responseBody },
+          error: "Admin was rejected - check RBAC configuration",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      return {
+        name,
+        status: response.ok ? "pass" : "error",
+        details: {
+          status: response.status,
+          response: responseBody,
+        },
+        error: response.ok ? undefined : `Scheduler returned ${response.status}`,
+        duration_ms: Date.now() - start,
+      };
+    } catch (err) {
+      return {
+        name,
+        status: "error",
+        details: {},
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
     }
   };
 

@@ -5659,6 +5659,7 @@ export type Database = {
           lead_score: number | null
           lead_temperature: string | null
           max_attempts: number | null
+          metadata: Json
           name: string | null
           next_action: string | null
           next_action_date: string | null
@@ -5736,6 +5737,7 @@ export type Database = {
           lead_score?: number | null
           lead_temperature?: string | null
           max_attempts?: number | null
+          metadata?: Json
           name?: string | null
           next_action?: string | null
           next_action_date?: string | null
@@ -5813,6 +5815,7 @@ export type Database = {
           lead_score?: number | null
           lead_temperature?: string | null
           max_attempts?: number | null
+          metadata?: Json
           name?: string | null
           next_action?: string | null
           next_action_date?: string | null
@@ -9487,6 +9490,27 @@ export type Database = {
         }
         Relationships: []
       }
+      suppression_list: {
+        Row: {
+          channel: string | null
+          contact_id: string | null
+          email: string | null
+          phone: string | null
+          reason: string | null
+          suppressed_at: string | null
+          suppression_id: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_unified_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       activate_tenant: { Args: { p_tenant_id: string }; Returns: undefined }
@@ -9499,6 +9523,7 @@ export type Database = {
         }
         Returns: string
       }
+      call_ceo_scheduler: { Args: { p_action: string }; Returns: undefined }
       check_budget_cap: {
         Args: { p_amount_cents?: number; p_category: string }
         Returns: Json
@@ -9646,6 +9671,10 @@ export type Database = {
           p_status?: string
         }
         Returns: Json
+      }
+      set_internal_scheduler_secret: {
+        Args: { p_secret: string }
+        Returns: undefined
       }
       user_belongs_to_tenant: {
         Args: { check_tenant_id: string }
