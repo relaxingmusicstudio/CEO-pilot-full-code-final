@@ -406,13 +406,13 @@ export default function QATests() {
     const cls = "h-4 w-4";
     switch (status) {
       case "pass":
-        return <CheckCircle2 className={`${cls} text-green-500`} />;
+        return <CheckCircle2 className={cls} />;
       case "fail":
-        return <XCircle className={`${cls} text-destructive`} />;
+        return <XCircle className={cls} />;
       case "error":
-        return <AlertTriangle className={`${cls} text-yellow-500`} />;
+        return <AlertTriangle className={cls} />;
       default:
-        return <Clock className={`${cls} text-muted-foreground`} />;
+        return <Clock className={cls} />;
     }
   };
 
