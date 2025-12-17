@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createAuditContext } from '../_shared/auditLogger.ts';
-import { aiChat } from "../_shared/ai.ts";
+import { aiChat, parseAIError } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,19 +20,18 @@ serve(async (req) => {
 
   try {
     const { action, ...params } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     await audit.logStart(`Multi-agent coordination: ${action}`, { action });
 
     switch (action) {
       case 'predict_tools':
-        return await predictTools(params, LOVABLE_API_KEY, audit);
+        return await predictTools(params, audit);
       case 'multi_critic_review':
-        return await multiCriticReview(params, LOVABLE_API_KEY, audit);
+        return await multiCriticReview(params, audit);
       case 'manager_decompose':
-        return await managerDecompose(params, LOVABLE_API_KEY, audit);
+        return await managerDecompose(params, audit);
       case 'parallel_race':
-        return await parallelRace(params, LOVABLE_API_KEY, audit);
+        return await parallelRace(params, audit);
       default:
         await audit.logError('Invalid action', new Error(`Unknown action: ${action}`), { action });
         return new Response(
@@ -43,6 +42,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('Multi-agent coordinator error:', error);
     await audit.logError('Coordinator failed', error instanceof Error ? error : new Error(String(error)));
+    
+    const aiError = parseAIError(error);
+    if (aiError.code === 'QUOTA_EXCEEDED') {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded', code: 'QUOTA_EXCEEDED' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -50,286 +58,173 @@ serve(async (req) => {
   }
 });
 
-// Predictive Agent: Predict which tools/APIs will be needed
-async function predictTools(params: any, apiKey: string | undefined, audit: any) {
+async function predictTools(params: any, audit: any) {
   const { query, context, available_tools } = params;
 
-  if (!apiKey) {
-    await audit.logSuccess('Tool prediction (mock)', 'predict_tools', undefined, { mock: true });
-    return new Response(
-      JSON.stringify({ predicted_tools: available_tools?.slice(0, 3) || [] }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a predictive agent that analyzes user queries and predicts which tools will be needed.
+  const response = await aiChat({
+    messages: [
+      {
+        role: 'system',
+        content: `You are a predictive agent that analyzes user queries and predicts which tools will be needed.
 Available tools: ${JSON.stringify(available_tools)}
 
 Analyze the query and output JSON:
 {
   "predicted_tools": ["tool1", "tool2"],
   "confidence": 0.85,
-  "prefetch_data": ["data_type_to_preload"],
-  "parallel_calls": [["tool1", "tool2"]]
+  "reasoning": "brief explanation"
 }`
-        },
-        { role: 'user', content: `Query: ${query}\nContext: ${JSON.stringify(context)}` }
-      ],
-    }),
-  });
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '{}';
-  
-  try {
-    const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
-    await audit.logSuccess('Tool prediction completed', 'predict_tools', undefined, { tools: parsed.predicted_tools });
-    return new Response(
-      JSON.stringify(parsed),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch {
-    await audit.logSuccess('Tool prediction fallback', 'predict_tools', undefined, { fallback: true });
-    return new Response(
-      JSON.stringify({ predicted_tools: [] }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-// Multi-Critic Review: Run 4 specialist critics in parallel
-async function multiCriticReview(params: any, apiKey: string | undefined, audit: any) {
-  const { content, content_type } = params;
-
-  if (!apiKey) {
-    await audit.logSuccess('Multi-critic review (mock)', 'multi_critic_review', undefined, { mock: true });
-    return new Response(
-      JSON.stringify({ 
-        reviews: {
-          fact_check: { score: 8, issues: [] },
-          tone: { score: 9, suggestions: [] },
-          risk: { score: 9, warnings: [] },
-          ux: { score: 8, improvements: [] }
-        },
-        overall_score: 8.5,
-        approved: true
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Run all 4 critics in parallel
-  const critics = [
-    { name: 'fact_check', prompt: 'You are a fact-checker. Verify accuracy and flag any incorrect claims.' },
-    { name: 'tone', prompt: 'You are a brand voice specialist. Check tone consistency and professionalism.' },
-    { name: 'risk', prompt: 'You are a risk analyst. Flag any legal, compliance, or reputation risks.' },
-    { name: 'ux', prompt: 'You are a UX specialist. Evaluate clarity, readability, and user experience.' }
-  ];
-
-  const reviewPromises = critics.map(async (critic) => {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `${critic.prompt}
-Output JSON: { "score": 1-10, "issues": [], "suggestions": [] }`
-          },
-          { role: 'user', content: `Review this ${content_type}: ${content}` }
-        ],
-      }),
-    });
+      { role: 'user', content: `Query: ${query}\nContext: ${JSON.stringify(context)}` }
+    ],
+  });
 
-    const data = await response.json();
-    const reviewContent = data.choices?.[0]?.message?.content || '{}';
+  try {
+    let text = response.text.trim();
+    if (text.startsWith('```json')) text = text.slice(7);
+    if (text.startsWith('```')) text = text.slice(3);
+    if (text.endsWith('```')) text = text.slice(0, -3);
     
-    try {
-      return { name: critic.name, review: JSON.parse(reviewContent.replace(/```json\n?|\n?```/g, '')) };
-    } catch {
-      return { name: critic.name, review: { score: 7, issues: [], suggestions: [] } };
-    }
-  });
-
-  const results = await Promise.all(reviewPromises);
-  
-  const reviews: Record<string, any> = {};
-  let totalScore = 0;
-  
-  results.forEach(({ name, review }) => {
-    reviews[name] = review;
-    totalScore += review.score || 7;
-  });
-
-  const overallScore = totalScore / critics.length;
-  const approved = overallScore >= 7;
-
-  await audit.logSuccess('Multi-critic review completed', 'multi_critic_review', undefined, { 
-    overall_score: overallScore, 
-    approved,
-    content_type 
-  });
-
-  return new Response(
-    JSON.stringify({
-      reviews,
-      overall_score: Math.round(overallScore * 10) / 10,
-      approved
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+    const result = JSON.parse(text.trim());
+    await audit.logSuccess('Tool prediction', 'predict_tools', undefined, result);
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (e) {
+    await audit.logSuccess('Tool prediction (fallback)', 'predict_tools', undefined, { raw: response.text });
+    return new Response(JSON.stringify({ 
+      predicted_tools: available_tools?.slice(0, 3) || [],
+      confidence: 0.5,
+      reasoning: 'Fallback prediction'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 }
 
-// Manager Agent: Decompose complex tasks into sub-tasks
-async function managerDecompose(params: any, apiKey: string | undefined, audit: any) {
-  const { task, available_workers } = params;
+async function multiCriticReview(params: any, audit: any) {
+  const { content, content_type, critics = ['quality', 'clarity', 'engagement'] } = params;
 
-  if (!apiKey) {
-    await audit.logSuccess('Task decomposition (mock)', 'manager_decompose', undefined, { mock: true });
-    return new Response(
-      JSON.stringify({ 
-        subtasks: [
-          { id: 1, description: task, assigned_to: 'general', priority: 'high' }
-        ]
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+  const reviewPromises = critics.map(async (critic: string) => {
+    const response = await aiChat({
       messages: [
         {
           role: 'system',
-          content: `You are a Manager Agent. Break down complex tasks into subtasks and assign to specialist workers.
-Available workers: ${JSON.stringify(available_workers)}
+          content: `You are a ${critic} critic. Review the content and provide:
+{
+  "critic_type": "${critic}",
+  "score": 1-10,
+  "strengths": ["str1", "str2"],
+  "weaknesses": ["weak1"],
+  "suggestions": ["suggestion1"]
+}`
+        },
+        { role: 'user', content: `Content type: ${content_type}\n\n${content}` }
+      ],
+    });
+
+    try {
+      let text = response.text.trim();
+      if (text.startsWith('```json')) text = text.slice(7);
+      if (text.startsWith('```')) text = text.slice(3);
+      if (text.endsWith('```')) text = text.slice(0, -3);
+      return JSON.parse(text.trim());
+    } catch {
+      return { critic_type: critic, score: 7, strengths: [], weaknesses: [], suggestions: [], error: 'Parse failed' };
+    }
+  });
+
+  const reviews = await Promise.all(reviewPromises);
+  const avgScore = reviews.reduce((sum, r) => sum + (r.score || 0), 0) / reviews.length;
+
+  await audit.logSuccess('Multi-critic review', 'multi_critic_review', undefined, { critics: reviews.length, avgScore });
+  
+  return new Response(JSON.stringify({
+    reviews,
+    overall_score: avgScore,
+    consensus: avgScore >= 7 ? 'approved' : avgScore >= 5 ? 'needs_revision' : 'rejected'
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function managerDecompose(params: any, audit: any) {
+  const { task, available_agents = ['content', 'ads', 'sequences', 'inbox', 'social'] } = params;
+
+  const response = await aiChat({
+    messages: [
+      {
+        role: 'system',
+        content: `You are a task manager. Decompose complex tasks into subtasks for specialized agents.
+Available agents: ${available_agents.join(', ')}
 
 Output JSON:
 {
   "subtasks": [
-    { "id": 1, "description": "...", "assigned_to": "worker_name", "priority": "high/medium/low", "dependencies": [] }
+    { "agent": "agent_name", "task": "specific task", "priority": 1-5, "dependencies": [] }
   ],
-  "execution_order": [[1], [2, 3]],
-  "estimated_time": "X minutes"
+  "estimated_time_minutes": 30,
+  "critical_path": ["subtask1", "subtask2"]
 }`
-        },
-        { role: 'user', content: `Task: ${task}` }
-      ],
-    }),
+      },
+      { role: 'user', content: task }
+    ],
   });
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '{}';
-  
   try {
-    const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
-    await audit.logSuccess('Task decomposition completed', 'manager_decompose', undefined, { 
-      subtask_count: parsed.subtasks?.length || 0 
+    let text = response.text.trim();
+    if (text.startsWith('```json')) text = text.slice(7);
+    if (text.startsWith('```')) text = text.slice(3);
+    if (text.endsWith('```')) text = text.slice(0, -3);
+    
+    const result = JSON.parse(text.trim());
+    await audit.logSuccess('Task decomposition', 'manager_decompose', undefined, { subtasks: result.subtasks?.length });
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
-    return new Response(
-      JSON.stringify(parsed),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch {
-    await audit.logSuccess('Task decomposition fallback', 'manager_decompose', undefined, { fallback: true });
-    return new Response(
-      JSON.stringify({ subtasks: [{ id: 1, description: task, assigned_to: 'general', priority: 'high' }] }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      subtasks: [{ agent: 'content', task, priority: 3, dependencies: [] }],
+      estimated_time_minutes: 30,
+      critical_path: ['task']
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 }
 
-// Parallel Race: Run multiple strategies and use first result
-async function parallelRace(params: any, apiKey: string | undefined, audit: any) {
-  const { query, strategies } = params;
+async function parallelRace(params: any, audit: any) {
+  const { prompt, variants = 3 } = params;
 
-  if (!apiKey || !strategies?.length) {
-    await audit.logSuccess('Parallel race (no strategies)', 'parallel_race', undefined, { mock: true });
-    return new Response(
-      JSON.stringify({ result: null, winning_strategy: null }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Create abort controller for race
-  const controller = new AbortController();
-  
-  const racePromises = strategies.map(async (strategy: any, index: number) => {
-    const startTime = Date.now();
-    
-    try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+  const racePromises = Array(variants).fill(null).map(async (_, i) => {
+    const response = await aiChat({
+      messages: [
+        {
+          role: 'system',
+          content: `You are variant ${i + 1}. Generate a unique, creative response. Be distinctive from other variants.`
         },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: strategy.prompt },
-            { role: 'user', content: query }
-          ],
-        }),
-        signal: controller.signal,
-      });
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.8 + (i * 0.1),
+    });
 
-      const data = await response.json();
-      const result = data.choices?.[0]?.message?.content;
-      
-      return {
-        strategy_index: index,
-        strategy_name: strategy.name,
-        result,
-        time_ms: Date.now() - startTime
-      };
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        return null;
-      }
-      throw error;
-    }
+    return {
+      variant: i + 1,
+      response: response.text,
+      timestamp: Date.now()
+    };
   });
 
-  // Race: first to complete wins
-  const winner = await Promise.race(racePromises.map((p: Promise<any>) => p.then((r: any) => {
-    if (r) controller.abort(); // Cancel others
-    return r;
-  })));
+  const results = await Promise.all(racePromises);
+  results.sort((a, b) => a.timestamp - b.timestamp);
 
-  await audit.logSuccess('Parallel race completed', 'parallel_race', undefined, { 
-    winning_strategy: winner?.strategy_name,
-    time_ms: winner?.time_ms 
+  await audit.logSuccess('Parallel race', 'parallel_race', undefined, { variants: results.length });
+  
+  return new Response(JSON.stringify({
+    winner: results[0],
+    all_results: results,
+    fastest_ms: results[0]?.timestamp ? Date.now() - results[0].timestamp : 0
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
-
-  return new Response(
-    JSON.stringify({
-      result: winner?.result,
-      winning_strategy: winner?.strategy_name,
-      time_ms: winner?.time_ms
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }

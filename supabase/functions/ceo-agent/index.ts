@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChat, aiChatStream, parseAIError } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -424,12 +425,9 @@ serve(async (req) => {
   try {
     const { query, timeRange = "7d", conversationHistory = [], stream = false, visitorId, correctionContext } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-    
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
     
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     
@@ -631,65 +629,61 @@ INSTRUCTIONS:
     ];
 
     if (stream) {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages, stream: true }),
-      });
+      // Streaming mode using aiChatStream
+      try {
+        const aiMessages = messages.map((m: any) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        }));
+        
+        const streamGen = aiChatStream({ messages: aiMessages });
+        const encoder = new TextEncoder();
+        
+        const metricsData = JSON.stringify({
+          type: "metrics",
+          metrics: { totalVisitors, totalConversations, totalLeads, conversionRate: parseFloat(conversionRate), avgEngagement, hotLeads, warmLeads, coldLeads, trafficSources, outcomeBreakdown }
+        });
 
-      if (!response.ok) {
-        const status = response.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "Usage limit reached" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error(`AI API error: ${status}`);
-      }
-
-      const metricsData = JSON.stringify({
-        type: "metrics",
-        metrics: { totalVisitors, totalConversations, totalLeads, conversionRate: parseFloat(conversionRate), avgEngagement, hotLeads, warmLeads, coldLeads, trafficSources, outcomeBreakdown }
-      });
-
-      const { readable, writable } = new TransformStream();
-      const writer = writable.getWriter();
-      const reader = response.body!.getReader();
-
-      (async () => {
-        try {
-          await writer.write(new TextEncoder().encode(`data: ${metricsData}\n\n`));
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            await writer.write(value);
+        const readableStream = new ReadableStream({
+          async start(controller) {
+            try {
+              controller.enqueue(encoder.encode(`data: ${metricsData}\n\n`));
+              for await (const chunk of streamGen) {
+                const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`;
+                controller.enqueue(encoder.encode(sseData));
+              }
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+            } catch (err) {
+              console.error('[CEO Agent] Stream error:', err);
+              controller.error(err);
+            }
           }
-        } finally {
-          await writer.close();
-        }
-      })();
+        });
 
-      return new Response(readable, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+        return new Response(readableStream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      } catch (streamErr) {
+        const aiError = parseAIError(streamErr);
+        if (aiError.code === 'QUOTA_EXCEEDED') {
+          return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        throw streamErr;
+      }
     }
     
-    // Non-streaming with tool execution
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages, tools: analysisTools, tool_choice: "auto" }),
+    // Non-streaming with tool execution using aiChat
+    const aiMessages = messages.map((m: any) => ({
+      role: m.role as "system" | "user" | "assistant",
+      content: m.content,
+    }));
+    
+    const aiResult = await aiChat({
+      messages: aiMessages,
+      tools: analysisTools,
+      tool_choice: "auto",
     });
 
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 429) return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (status === 402) return new Response(JSON.stringify({ error: "Usage limit reached" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI API error: ${status}`);
-    }
-
-    const aiResponse = await response.json();
+    const aiResponse = aiResult.raw;
     console.log("CEO Agent response:", JSON.stringify(aiResponse).slice(0, 500));
     
     let result: any = {

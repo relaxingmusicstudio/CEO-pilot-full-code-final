@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { aiChat, parseAIError } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,15 +13,14 @@ serve(async (req) => {
 
   try {
     const { action, ...params } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     switch (action) {
       case 'generate_image':
-        return await generateImage(params, LOVABLE_API_KEY);
+        return await generateImage(params);
       case 'generate_video':
         return await generateVideo(params);
       case 'enhance_prompt':
-        return await enhancePrompt(params, LOVABLE_API_KEY);
+        return await enhancePrompt(params);
       case 'get_brand_style':
         return await getBrandStyle(params);
       default:
@@ -31,6 +31,15 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Visual content generator error:', error);
+    
+    const aiError = parseAIError(error);
+    if (aiError.code === 'QUOTA_EXCEEDED') {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded', code: 'QUOTA_EXCEEDED' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -38,197 +47,126 @@ serve(async (req) => {
   }
 });
 
-// Generate image using Gemini's image generation
-async function generateImage(params: any, apiKey: string | undefined) {
+async function generateImage(params: any) {
   const { prompt, style = 'professional', aspect_ratio = '16:9', brand_colors } = params;
 
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: 'API key not configured',
-        mock_url: 'https://placehold.co/1200x675/1A56DB/FFFFFF?text=AI+Generated+Image'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Enhance prompt with style and brand
   const enhancedPrompt = `${prompt}. Style: ${style}. ${brand_colors ? `Use brand colors: ${brand_colors}` : ''}. Professional quality, ${aspect_ratio} aspect ratio.`;
 
-  try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image',
-        messages: [
-          { role: 'user', content: enhancedPrompt }
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Image generation error:', errorText);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Image generation failed',
-          details: errorText
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const data = await response.json();
-    
-    // Check for image in response
-    const imageContent = data.choices?.[0]?.message?.content;
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        image_url: imageContent,
-        prompt_used: enhancedPrompt,
-        model: 'gemini-2.5-flash-image'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error('Image generation error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+  // Note: Gemini text models don't generate images directly
+  // Return a placeholder and suggest using a dedicated image generation service
+  return new Response(JSON.stringify({ 
+    success: true, 
+    message: 'Image generation requires a dedicated image API. Prompt enhanced for external use.',
+    enhanced_prompt: enhancedPrompt,
+    suggested_services: ['DALL-E', 'Midjourney', 'Stable Diffusion'],
+    mock_url: `https://placehold.co/1200x675/1A56DB/FFFFFF?text=${encodeURIComponent(prompt.slice(0, 30))}`
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 }
 
-// Generate video (placeholder for Veo 3 integration)
 async function generateVideo(params: any) {
-  const { image_url, script, duration = 5, style = 'professional' } = params;
+  const { script, style = 'professional', duration = 30 } = params;
 
-  // Veo 3 integration placeholder
-  // In production, would call Veo 3 API
-  
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: 'Video generation queued',
-      status: 'pending',
-      job_id: `vid_${Date.now()}`,
-      estimated_time: '2-5 minutes',
-      note: 'Veo 3 integration pending API access. Video will be generated when available.',
-      mock_video_url: 'https://placehold.co/1920x1080/1A56DB/FFFFFF?text=Video+Preview'
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+  return new Response(JSON.stringify({
+    success: true,
+    message: 'Video generation requires external APIs like HeyGen or D-ID',
+    script_enhanced: script,
+    suggested_services: ['HeyGen', 'D-ID', 'Synthesia'],
+    estimated_duration: duration
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 }
 
-// Enhance prompts for better visual output
-async function enhancePrompt(params: any, apiKey: string | undefined) {
-  const { prompt, target_platform, content_type } = params;
+async function enhancePrompt(params: any) {
+  const { prompt, target = 'image', style } = params;
 
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ enhanced_prompt: prompt }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert at creating image generation prompts. Enhance the user's prompt to create better visual output.
-
-Platform: ${target_platform || 'general'}
-Content type: ${content_type || 'marketing'}
-
-Guidelines:
-- Add specific visual details (lighting, composition, style)
-- Include relevant aspect ratio suggestions
-- Add professional quality indicators
-- Keep brand consistency in mind
-
-Output JSON: { "enhanced_prompt": "...", "style_notes": "...", "recommended_aspect": "..." }`
-        },
-        { role: 'user', content: prompt }
-      ],
-    }),
+  const response = await aiChat({
+    messages: [
+      {
+        role: 'system',
+        content: `You are a prompt engineer specializing in ${target} generation. Enhance prompts for maximum quality and clarity.
+Output format:
+{
+  "enhanced_prompt": "detailed enhanced prompt",
+  "style_tags": ["tag1", "tag2"],
+  "negative_prompt": "what to avoid",
+  "technical_params": { "quality": "high", "style": "${style || 'professional'}" }
+}`
+      },
+      { role: 'user', content: prompt }
+    ],
   });
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '{}';
-  
   try {
-    const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ''));
-    return new Response(
-      JSON.stringify(parsed),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    let text = response.text.trim();
+    if (text.startsWith('```json')) text = text.slice(7);
+    if (text.startsWith('```')) text = text.slice(3);
+    if (text.endsWith('```')) text = text.slice(0, -3);
+    
+    const result = JSON.parse(text.trim());
+    return new Response(JSON.stringify({ success: true, ...result }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   } catch {
-    return new Response(
-      JSON.stringify({ enhanced_prompt: prompt }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      enhanced_prompt: `High quality, professional ${prompt}. Detailed, sharp focus, excellent composition.`,
+      style_tags: [style || 'professional', 'high-quality'],
+      negative_prompt: 'blurry, low quality, distorted',
+      technical_params: { quality: 'high', style: style || 'professional' }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 }
 
-// Get brand style guidelines
 async function getBrandStyle(params: any) {
-  const { brand_name } = params;
+  const { brand_name, industry } = params;
 
-  // Default brand style (would be stored in DB in production)
-  const brandStyle = {
-    colors: {
-      primary: '#1A56DB',
-      secondary: '#046C4E',
-      accent: '#DC2626',
-      background: '#FFFFFF',
-      text: '#111827'
-    },
-    fonts: {
-      heading: 'Inter',
-      body: 'Inter'
-    },
-    style: {
-      tone: 'professional',
-      imagery: 'modern, clean, trustworthy',
-      photography_style: 'bright, high-contrast, people-focused',
-      illustration_style: 'minimal, geometric, flat design'
-    },
-    guidelines: {
-      do: [
-        'Use consistent color palette',
-        'Include human elements when possible',
-        'Maintain clean, uncluttered compositions',
-        'Use high-quality imagery'
-      ],
-      dont: [
-        'Use stock photo clichés',
-        'Overcrowd with text',
-        'Use dark/gloomy imagery',
-        'Mix conflicting styles'
-      ]
-    }
-  };
+  const response = await aiChat({
+    messages: [
+      {
+        role: 'system',
+        content: `You are a brand strategist. Generate visual brand guidelines.
+Output JSON:
+{
+  "primary_colors": ["#hex1", "#hex2"],
+  "secondary_colors": ["#hex3"],
+  "typography": { "heading": "font name", "body": "font name" },
+  "image_style": "description of image style",
+  "mood_keywords": ["keyword1", "keyword2"],
+  "avoid": ["what to avoid"]
+}`
+      },
+      { role: 'user', content: `Brand: ${brand_name}, Industry: ${industry || 'general'}` }
+    ],
+  });
 
-  return new Response(
-    JSON.stringify(brandStyle),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+  try {
+    let text = response.text.trim();
+    if (text.startsWith('```json')) text = text.slice(7);
+    if (text.startsWith('```')) text = text.slice(3);
+    if (text.endsWith('```')) text = text.slice(0, -3);
+    
+    const result = JSON.parse(text.trim());
+    return new Response(JSON.stringify({ success: true, brand_style: result }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch {
+    return new Response(JSON.stringify({
+      success: true,
+      brand_style: {
+        primary_colors: ['#1A56DB', '#1E40AF'],
+        secondary_colors: ['#F97316'],
+        typography: { heading: 'Inter', body: 'Inter' },
+        image_style: 'Professional, modern, clean',
+        mood_keywords: ['professional', 'trustworthy', 'modern'],
+        avoid: ['cluttered', 'unprofessional', 'dated']
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 }

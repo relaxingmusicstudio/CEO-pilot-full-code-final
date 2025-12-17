@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { aiChat, selectProvider } from "../_shared/ai.ts";
+import { aiChat, parseAIError } from "../_shared/ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -294,8 +294,7 @@ serve(async (req) => {
 
     // Select optimal sales methodology based on lead profile
     const { methodology, promptEnhancement } = selectMethodology(leadData);
-    const provider = selectProvider();
-    console.log(`[alex-chat] Using ${methodology} methodology, provider: ${provider}`);
+    console.log(`[alex-chat] Using ${methodology} methodology, provider: gemini`);
 
     // Build context with lead data and methodology
     let contextPrompt = SYSTEM_PROMPT + promptEnhancement;
