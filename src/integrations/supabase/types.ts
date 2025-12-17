@@ -371,6 +371,7 @@ export type Database = {
           is_demo: boolean | null
           priority: number | null
           result: Json | null
+          reviewed_at: string | null
           scheduled_at: string | null
           status: string | null
           target_id: string
@@ -389,6 +390,7 @@ export type Database = {
           is_demo?: boolean | null
           priority?: number | null
           result?: Json | null
+          reviewed_at?: string | null
           scheduled_at?: string | null
           status?: string | null
           target_id: string
@@ -407,6 +409,7 @@ export type Database = {
           is_demo?: boolean | null
           priority?: number | null
           result?: Json | null
+          reviewed_at?: string | null
           scheduled_at?: string | null
           status?: string | null
           target_id?: string
