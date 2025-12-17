@@ -86,6 +86,41 @@ async function getBusinessIndustry(supabase: SupabaseClient, tenantId: string | 
   return data?.industry || 'service';
 }
 
+const RATE_LIMIT_MAX = 5; // Max refreshes per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Check rate limit for tenant brief refresh (max 5/hour)
+ */
+async function checkRateLimit(supabase: SupabaseClient, tenantId: string | null): Promise<{ allowed: boolean; remaining: number }> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+  const actionType = 'brief_refresh';
+  const tenantKey = tenantId || 'global';
+  
+  // Count recent refreshes
+  const { count } = await supabase
+    .from('ceo_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantKey)
+    .eq('action_type', actionType)
+    .gte('window_start', windowStart.toISOString());
+  
+  const currentCount = count || 0;
+  
+  if (currentCount >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0 };
+  }
+  
+  // Log this request
+  await supabase.from('ceo_rate_limits').insert({
+    tenant_id: tenantKey,
+    action_type: actionType,
+    window_start: new Date().toISOString(),
+  });
+  
+  return { allowed: true, remaining: RATE_LIMIT_MAX - currentCount - 1 };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -103,7 +138,20 @@ serve(async (req) => {
     const tenantId = await getTenantIdFromAuth(supabase, authHeader);
     const cacheKey = `ceo_daily_brief_${tenantId || 'global'}`;
     
-    console.log(`[ceo-daily-brief] Generating brief for tenant=${tenantId || 'global'}`);
+    console.log(`[ceo-daily-brief] Generating brief for tenant=${tenantId || 'global'} force=${force_refresh}`);
+
+    // RATE LIMITING: Check if force_refresh is within limits
+    if (force_refresh) {
+      const rateCheck = await checkRateLimit(supabase, tenantId);
+      if (!rateCheck.allowed) {
+        console.log(`[ceo-daily-brief] Rate limit exceeded for tenant=${tenantId || 'global'}`);
+        return jsonResponse({ 
+          error: 'Rate limit exceeded. Maximum 5 refreshes per hour.',
+          rate_limit: { max: RATE_LIMIT_MAX, remaining: 0, window_hours: 1 }
+        }, 429);
+      }
+      console.log(`[ceo-daily-brief] Rate limit OK. Remaining: ${rateCheck.remaining}`);
+    }
 
     // Check for cached brief (TTL based on expires_at)
     if (!force_refresh) {

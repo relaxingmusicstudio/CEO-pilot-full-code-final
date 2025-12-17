@@ -354,3 +354,6 @@ verify_jwt = false
 
 [functions.ceo-dashboard]
 verify_jwt = false
+
+[functions.ceo-scheduler]
+verify_jwt = false

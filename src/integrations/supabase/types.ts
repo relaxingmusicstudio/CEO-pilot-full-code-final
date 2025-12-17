@@ -2313,6 +2313,82 @@ export type Database = {
         }
         Relationships: []
       }
+      ceo_job_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          job_type: string
+          metadata: Json | null
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          job_type: string
+          metadata?: Json | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          job_type?: string
+          metadata?: Json | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ceo_rate_limits: {
+        Row: {
+          action_type: string
+          count: number
+          created_at: string
+          id: string
+          tenant_id: string | null
+          window_start: string
+        }
+        Insert: {
+          action_type: string
+          count?: number
+          created_at?: string
+          id?: string
+          tenant_id?: string | null
+          window_start?: string
+        }
+        Update: {
+          action_type?: string
+          count?: number
+          created_at?: string
+          id?: string
+          tenant_id?: string | null
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceo_rate_limits_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ceo_score_history: {
         Row: {
           breakdown: Json | null

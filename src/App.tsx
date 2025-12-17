@@ -47,6 +47,7 @@ import AdminAudit from "./pages/AdminAudit";
 import AdminHelp from "./pages/AdminHelp";
 import AdminBusinessSetup from "./pages/AdminBusinessSetup";
 import AdminAutomation from "./pages/AdminAutomation";
+import CeoDashboard from "./pages/CeoDashboard";
 
 // Platform Admin (hidden from regular users)
 import AdminTenants from "./pages/AdminTenants";
@@ -138,6 +139,7 @@ const App = () => (
                     <Route path="audit" element={<ProtectedRoute requireOwner><AdminAudit /></ProtectedRoute>} />
                     <Route path="help" element={<ProtectedRoute requireOwner><AdminHelp /></ProtectedRoute>} />
                     <Route path="business-setup" element={<ProtectedRoute requireOwner><AdminBusinessSetup /></ProtectedRoute>} />
+                    <Route path="ceo-dashboard" element={<ProtectedRoute requireOwner><CeoDashboard /></ProtectedRoute>} />
                   </Route>
                   
                   {/* Platform Admin - Under /platform, requires admin role */}
