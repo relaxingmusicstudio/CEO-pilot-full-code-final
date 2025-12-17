@@ -99,6 +99,12 @@ export default function QATests() {
     // TEST 5: Scheduler outreach queue query
     tests.push(await runOutreachQueueTest(tenantIdA));
 
+    // TEST 6: Cron auth rejection (no secret)
+    tests.push(await runCronAuthTest());
+
+    // TEST 7: Webhook insertion test
+    tests.push(await runWebhookInsertionTest(tenantIdA));
+
     const output: TestOutput = {
       timestamp: new Date().toISOString(),
       tests,
@@ -384,6 +390,34 @@ export default function QATests() {
         error: err instanceof Error ? err.message : String(err),
         duration_ms: Date.now() - start,
       };
+    }
+  };
+
+  const runCronAuthTest = async (): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 6 - Cron Auth Rejection (No Secret)";
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-scheduler`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check_job_status" }),
+      });
+      const passed = response.status === 401 || response.status === 403;
+      return { name, status: passed ? "pass" : "fail", details: { response_status: response.status }, error: passed ? undefined : `Expected 401/403`, duration_ms: Date.now() - start };
+    } catch (err) {
+      return { name, status: "error", details: {}, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start };
+    }
+  };
+
+  const runWebhookInsertionTest = async (tenantId: string): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 7 - Webhook Table Access";
+    try {
+      const { count, error } = await supabase.from("inbound_webhooks").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
+      if (error) return { name, status: "error", details: { supabase_error: error.message }, error: error.message, duration_ms: Date.now() - start };
+      return { name, status: "pass", details: { tenant_id: tenantId, webhook_count: count || 0 }, duration_ms: Date.now() - start };
+    } catch (err) {
+      return { name, status: "error", details: {}, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start };
     }
   };
 

@@ -5319,6 +5319,56 @@ export type Database = {
         }
         Relationships: []
       }
+      inbound_webhooks: {
+        Row: {
+          created_at: string
+          dedupe_key: string | null
+          error: string | null
+          headers: Json | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          source: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          headers?: Json | null
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          source: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          headers?: Json | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          source?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_webhooks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_permission_violations: {
         Row: {
           agent_name: string
@@ -5598,6 +5648,7 @@ export type Database = {
           form_submitted_at: string | null
           ghl_contact_id: string | null
           id: string
+          inbound_webhook_id: string | null
           interests: string[] | null
           ip_address: string | null
           is_demo: boolean | null
@@ -5617,8 +5668,10 @@ export type Database = {
           objections: string[] | null
           outcome_reason: string | null
           pain_points: string[] | null
+          persona_type: string | null
           phone: string | null
           preferred_contact_method: string | null
+          qualification_framework: string | null
           revenue_value: number | null
           service_type: string | null
           source: string | null
@@ -5672,6 +5725,7 @@ export type Database = {
           form_submitted_at?: string | null
           ghl_contact_id?: string | null
           id?: string
+          inbound_webhook_id?: string | null
           interests?: string[] | null
           ip_address?: string | null
           is_demo?: boolean | null
@@ -5691,8 +5745,10 @@ export type Database = {
           objections?: string[] | null
           outcome_reason?: string | null
           pain_points?: string[] | null
+          persona_type?: string | null
           phone?: string | null
           preferred_contact_method?: string | null
+          qualification_framework?: string | null
           revenue_value?: number | null
           service_type?: string | null
           source?: string | null
@@ -5746,6 +5802,7 @@ export type Database = {
           form_submitted_at?: string | null
           ghl_contact_id?: string | null
           id?: string
+          inbound_webhook_id?: string | null
           interests?: string[] | null
           ip_address?: string | null
           is_demo?: boolean | null
@@ -5765,8 +5822,10 @@ export type Database = {
           objections?: string[] | null
           outcome_reason?: string | null
           pain_points?: string[] | null
+          persona_type?: string | null
           phone?: string | null
           preferred_contact_method?: string | null
+          qualification_framework?: string | null
           revenue_value?: number | null
           service_type?: string | null
           source?: string | null
@@ -6964,6 +7023,24 @@ export type Database = {
           recommended_action?: string | null
           scenario_name?: string
           scenario_type?: string | null
+        }
+        Relationships: []
+      }
+      scheduler_idempotency: {
+        Row: {
+          created_at: string
+          id: string
+          job_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_key?: string
         }
         Relationships: []
       }
@@ -8378,6 +8455,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tenant_content_blocks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_integrations: {
+        Row: {
+          api_key_hash: string
+          created_at: string
+          id: string
+          is_active: boolean
+          meta_app_secret: string | null
+          meta_verify_token: string | null
+          provider: string
+          settings: Json | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_hash: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta_app_secret?: string | null
+          meta_verify_token?: string | null
+          provider: string
+          settings?: Json | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_hash?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta_app_secret?: string | null
+          meta_verify_token?: string | null
+          provider?: string
+          settings?: Json | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

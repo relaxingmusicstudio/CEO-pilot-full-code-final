@@ -116,12 +116,82 @@ function requireInternalAuth(req: Request): void {
   if (!provided || provided !== expected) throw new UnauthorizedInternalError();
 }
 
+/**
+ * Compute idempotency key for a job action based on time window
+ */
+function computeIdempotencyKey(action: string): string {
+  const now = new Date();
+  let window: string;
+  
+  switch (action) {
+    case "run_daily_briefs":
+      // Daily window: yyyy-mm-dd
+      window = now.toISOString().slice(0, 10);
+      break;
+    case "run_cost_rollup":
+      // 6-hour window: yyyy-mm-ddThh (rounded to 0,6,12,18)
+      const hour = Math.floor(now.getUTCHours() / 6) * 6;
+      window = `${now.toISOString().slice(0, 10)}T${hour.toString().padStart(2, "0")}`;
+      break;
+    case "run_outreach_queue":
+      // 15-minute window: yyyy-mm-ddThh:mm (rounded to 0,15,30,45)
+      const minute = Math.floor(now.getUTCMinutes() / 15) * 15;
+      window = `${now.toISOString().slice(0, 13)}:${minute.toString().padStart(2, "0")}`;
+      break;
+    default:
+      window = now.toISOString();
+  }
+  
+  return `scheduler_${action}_${window}`;
+}
+
+/**
+ * Check idempotency - returns true if job should be skipped (already ran)
+ */
+async function checkIdempotency(supabase: SupabaseClient, jobKey: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("scheduler_idempotency")
+    .insert({ job_key: jobKey });
+  
+  // If insert succeeds, this is a new job (not duplicate)
+  if (!error) return false;
+  
+  // If unique constraint violation, job already ran
+  if (error.code === "23505") {
+    console.log("[ceo-scheduler] Idempotency check: skipping duplicate job", { job_key: jobKey });
+    return true;
+  }
+  
+  // Other errors - log but allow job to proceed
+  console.error("[ceo-scheduler] Idempotency check failed", { job_key: jobKey, error: error.message });
+  return false;
+}
+
+/**
+ * Cleanup old idempotency keys (older than 7 days)
+ */
+async function cleanupIdempotencyKeys(supabase: SupabaseClient): Promise<void> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("scheduler_idempotency")
+    .delete()
+    .lt("created_at", sevenDaysAgo);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const { action = "run_daily_briefs", tenant_ids } = await req.json().catch(() => ({}));
+
+    // Health check action - does not require auth (for monitoring)
+    if (action === "health") {
+      return jsonResponse({ status: "ok", timestamp: new Date().toISOString() });
+    }
+
+    // All other actions require internal authentication
     requireInternalAuth(req);
 
     const supabase = createClient(
@@ -130,7 +200,26 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    const { action = "run_daily_briefs", tenant_ids } = await req.json().catch(() => ({}));
+    // Check idempotency for scheduled actions
+    const scheduledActions = ["run_daily_briefs", "run_cost_rollup", "run_outreach_queue"];
+    if (scheduledActions.includes(action)) {
+      const jobKey = computeIdempotencyKey(action);
+      const isDuplicate = await checkIdempotency(supabase, jobKey);
+      
+      if (isDuplicate) {
+        return jsonResponse({ 
+          status: "skipped", 
+          reason: "duplicate_job", 
+          job_key: jobKey,
+          message: "Job already ran in this time window" 
+        });
+      }
+      
+      // Cleanup old keys periodically (on daily briefs run)
+      if (action === "run_daily_briefs") {
+        await cleanupIdempotencyKeys(supabase);
+      }
+    }
 
     switch (action) {
       case "run_daily_briefs":

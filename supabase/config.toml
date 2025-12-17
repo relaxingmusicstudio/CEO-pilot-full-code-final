@@ -213,10 +213,6 @@ verify_jwt = false
 [functions.push-notifications]
 verify_jwt = false
 
-# GOVERNANCE #10: human-bypass function deprecated - no bypass allowed
-# [functions.human-bypass]
-# verify_jwt = false
-
 [functions.action-rollback]
 verify_jwt = false
 
@@ -362,4 +358,14 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.lead-outreach-engine]
+verify_jwt = false
+
+# Phase 1 - New functions for autonomous operation
+[functions.admin-run-scheduler]
+verify_jwt = true
+
+[functions.lead-webhook]
+verify_jwt = false
+
+[functions.meta-lead-webhook]
 verify_jwt = false
