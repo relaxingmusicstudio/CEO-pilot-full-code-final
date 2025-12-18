@@ -33,7 +33,7 @@ interface TestOutput {
 }
 
 export default function QATests() {
-  const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { isOwner, isLoading: roleLoading } = useUserRole();
   const [tenantIdA, setTenantIdA] = useState("");
   const [tenantIdB, setTenantIdB] = useState("");
   const [alertIdFromTenantB, setAlertIdFromTenantB] = useState("");
@@ -50,7 +50,7 @@ export default function QATests() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isOwner) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         <Alert variant="destructive">
