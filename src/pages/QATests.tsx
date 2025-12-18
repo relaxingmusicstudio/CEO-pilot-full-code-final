@@ -875,11 +875,43 @@ export default function QATests() {
         optionalWarnings.push("user_id column missing (edge function will omit it)");
       }
 
-      // Check for unique partial index by attempting to verify via RPC or indirect detection
-      // Since we can't query pg_indexes directly, we note the index name for reference
+      // Check for unique partial index via pg_indexes catalog
       const expectedIndexName = "lead_profiles_one_primary_per_fingerprint";
-      const hasUniqueIndex = true; // Assumed - TEST 13 validates via concurrent behavior
-      const indexWarning = `Index '${expectedIndexName}' assumed. TEST 13 validates via concurrent requests.`;
+      let hasUniqueIndex = false;
+      let indexRlsBlocked = false;
+      let indexCheckError: string | undefined;
+      
+      try {
+        // Query pg_indexes for the specific index
+        const { data: indexData, error: indexError } = await supabase
+          .from("pg_indexes" as any)
+          .select("indexname")
+          .eq("schemaname", "public")
+          .eq("tablename", "lead_profiles")
+          .eq("indexname", expectedIndexName)
+          .limit(1);
+        
+        if (indexError) {
+          if (indexError.code === "42501" || indexError.code === "42P01") {
+            // RLS blocked or table not found - non-fatal warning
+            indexRlsBlocked = true;
+            indexCheckError = `pg_indexes query blocked (${indexError.code}). Index assumed via TEST 13.`;
+          } else {
+            indexCheckError = `pg_indexes query failed: ${indexError.message}`;
+          }
+        } else {
+          hasUniqueIndex = indexData && indexData.length > 0;
+        }
+      } catch (err) {
+        indexRlsBlocked = true;
+        indexCheckError = `pg_indexes check exception: ${err instanceof Error ? err.message : String(err)}`;
+      }
+      
+      const indexWarning = indexRlsBlocked 
+        ? `Index check blocked by permissions. TEST 13 validates via concurrent behavior.`
+        : hasUniqueIndex 
+          ? undefined 
+          : `MISSING: Index '${expectedIndexName}' not found. Run migration to create it.`;
 
       const passed = leadProfilesExists && fingerprintRpcWorks && hasTimestamp && hasRequestSnapshot;
 
@@ -904,7 +936,10 @@ export default function QATests() {
             request_snapshot_column: hasRequestSnapshot,
           },
           unique_index: {
-            assumed_exists: hasUniqueIndex,
+            index_name: expectedIndexName,
+            verified: hasUniqueIndex,
+            rls_blocked: indexRlsBlocked,
+            error: indexCheckError,
             warning: indexWarning,
           },
           optional_warnings: optionalWarnings.length > 0 ? optionalWarnings : undefined,
