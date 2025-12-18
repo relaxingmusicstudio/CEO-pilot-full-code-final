@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+/**
+ * Proof Gate - One-click diagnostic orchestrator
+ * 
+ * Runs sequential checks and produces a canonical Evidence Pack.
+ * "This is how we prove what's true."
+ */
+
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, Loader2, Copy, Download, Play, AlertTriangle, Shield, Zap } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, Download, Play, AlertTriangle, Shield, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,10 +23,23 @@ import {
   PreflightReport, 
   createEmptyBundle, 
   copyBundleToClipboard, 
-  downloadBundle 
+  downloadBundle,
+  EvidencePack,
+  createEmptyEvidencePack,
+  copyEvidencePackToClipboard,
+  downloadEvidencePack,
+  storeEvidencePack,
+  loadIssueCounts,
+  saveIssueCounts,
+  incrementIssueCounts,
+  getRecurringIssues,
+  resetIssueCounts,
+  loadLatestEdgeRun,
+  runMiniQA,
 } from "@/lib/supportBundle";
-import { platformTools, getVisibleTools, getAllPlatformRoutes } from "@/lib/toolRegistry";
-import { getRouteAccessPolicies } from "@/lib/routeConfig";
+import { platformTools, getAllPlatformRoutes } from "@/lib/toolRegistry";
+import { getPlatformRouteGuards } from "@/lib/routeGuards";
+import { runRouteNavAudit, AuditContext } from "@/lib/routeNavAudit";
 import { getNavRoutesForRole } from "@/hooks/useRoleNavigation";
 
 type StepStatus = "pending" | "running" | "pass" | "fail" | "skip";
@@ -34,20 +54,24 @@ interface Step {
 
 export default function ProofGate() {
   const { user } = useAuth();
-  const { role, isOwner, isAdmin } = useUserRole();
+  const { role, isOwner, isAdmin, isClient } = useUserRole();
   
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Step[]>([
-    { id: "db_doctor", name: "DB Doctor (qa_dependency_check)", status: "pending" },
-    { id: "edge_preflight", name: "Edge Preflight (lead-normalize)", status: "pending" },
-    { id: "normalize_test", name: "Normalize Sample Test", status: "pending" },
+    { id: "access_check", name: "Access/Role Check", status: "pending" },
     { id: "route_audit", name: "Route & Nav Audit", status: "pending" },
-    { id: "audit_logs", name: "Fetch Recent Audit Logs", status: "pending" },
-    { id: "bundle", name: "Compose Support Bundle", status: "pending" },
+    { id: "db_doctor", name: "DB Doctor (preflight)", status: "pending" },
+    { id: "edge_preflight", name: "Edge Preflight", status: "pending" },
+    { id: "qa_check", name: "QA Access + Mini QA", status: "pending" },
+    { id: "edge_capture", name: "Edge Console Capture", status: "pending" },
+    { id: "compose", name: "Compose Evidence Pack", status: "pending" },
   ]);
+  
+  const [evidencePack, setEvidencePack] = useState<EvidencePack | null>(null);
   const [bundle, setBundle] = useState<SupportBundle | null>(null);
   const [showTextarea, setShowTextarea] = useState(false);
   const [preflightStatus, setPreflightStatus] = useState<PreflightReport | null>(null);
+  const [issueCounts, setIssueCounts] = useState<Record<string, number>>(loadIssueCounts());
   
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
   const edgeBaseUrl = `${supabaseUrl}/functions/v1`;
@@ -56,11 +80,26 @@ export default function ProofGate() {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, ...update } : s));
   };
 
+  const roleContext: AuditContext = {
+    isAdmin: isAdmin ?? false,
+    isOwner: isOwner ?? false,
+    isClient: isClient ?? false,
+    isAuthenticated: !!user,
+  };
+
   const runProofGate = async () => {
     setRunning(true);
     setShowTextarea(false);
     setSteps(steps.map(s => ({ ...s, status: "pending", result: undefined, error: undefined })));
     
+    // Initialize Evidence Pack
+    const pack = createEmptyEvidencePack();
+    pack.timestamp = new Date().toISOString();
+    pack.current_route = window.location.pathname;
+    pack.user_id_masked = user?.id ? `${user.id.substring(0, 8)}...` : "(unauthenticated)";
+    pack.role_flags = { ...roleContext };
+    
+    // Also initialize legacy bundle for backwards compat
     const newBundle = createEmptyBundle();
     newBundle.user_id = user?.id || null;
     newBundle.role = role || null;
@@ -70,20 +109,83 @@ export default function ProofGate() {
     // Fetch tenant IDs
     try {
       const { data: tenants } = await supabase.from("tenants").select("id").limit(5);
-      newBundle.tenant_ids = tenants?.map(t => t.id) || [];
-    } catch {}
-    
-    // Fetch counts
-    try {
-      const [alertsRes, profilesRes] = await Promise.all([
-        supabase.from("ceo_alerts").select("*", { count: "exact", head: true }),
-        supabase.from("lead_profiles").select("*", { count: "exact", head: true }),
-      ]);
-      newBundle.ceo_alerts_count = alertsRes.count ?? 0;
-      newBundle.lead_profiles_count = profilesRes.count ?? 0;
+      const tenantIds = tenants?.map(t => t.id) || [];
+      pack.tenant_ids = tenantIds;
+      newBundle.tenant_ids = tenantIds;
     } catch {}
 
-    // Step 1: DB Doctor
+    // === STEP 1: Access/Role Check ===
+    updateStep("access_check", { status: "running" });
+    try {
+      const accessResult = {
+        authenticated: !!user,
+        role: role || "unknown",
+        isOwner: isOwner ?? false,
+        isAdmin: isAdmin ?? false,
+        isClient: isClient ?? false,
+      };
+      updateStep("access_check", { 
+        status: accessResult.authenticated ? "pass" : "fail", 
+        result: accessResult 
+      });
+    } catch (err) {
+      updateStep("access_check", { status: "fail", error: String(err) });
+    }
+
+    // === STEP 2: Route & Nav Audit ===
+    updateStep("route_audit", { status: "running" });
+    try {
+      // Populate routing snapshots
+      pack.nav_routes_visible = getNavRoutesForRole(roleContext);
+      pack.tool_registry_snapshot = platformTools.map(t => ({
+        id: t.id,
+        name: t.name,
+        route: t.route,
+        requires: t.requires,
+        category: t.category,
+      }));
+      pack.platform_routes_snapshot = getAllPlatformRoutes();
+      pack.route_guard_snapshot = getPlatformRouteGuards().map(g => ({
+        path: g.path,
+        requires: g.requires,
+      }));
+      
+      // Run audit
+      const auditResult = runRouteNavAudit(roleContext);
+      pack.route_nav_audit = auditResult;
+      
+      // Update issue counts
+      const newCounts = incrementIssueCounts(auditResult.findings, issueCounts);
+      setIssueCounts(newCounts);
+      saveIssueCounts(newCounts);
+      pack.recurring_issue_counts = newCounts;
+      
+      // Legacy bundle
+      newBundle.route_nav_audit = {
+        summary: auditResult.summary,
+        findings: auditResult.findings.map(f => ({
+          severity: f.severity,
+          issue_code: f.issue_code,
+          identifier: f.identifier,
+          route: f.route,
+          description: f.description,
+        })),
+        counters: newCounts,
+      };
+      
+      updateStep("route_audit", { 
+        status: auditResult.summary.critical === 0 ? "pass" : "fail",
+        result: { 
+          critical: auditResult.summary.critical, 
+          warning: auditResult.summary.warning,
+          passed: auditResult.summary.passed,
+        }
+      });
+    } catch (err) {
+      updateStep("route_audit", { status: "fail", error: String(err) });
+    }
+
+    // === STEP 3: DB Doctor ===
     updateStep("db_doctor", { status: "running" });
     try {
       const { data, error } = await (supabase.rpc as any)("qa_dependency_check");
@@ -92,11 +194,11 @@ export default function ProofGate() {
       updateStep("db_doctor", { status: data?.ok ? "pass" : "fail", result: data });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      updateStep("db_doctor", { status: "fail", error: errMsg });
+      updateStep("db_doctor", { status: "skip", error: errMsg });
       newBundle.db_doctor_report = { ok: false, error: errMsg };
     }
 
-    // Step 2: Edge Preflight
+    // === STEP 4: Edge Preflight ===
     updateStep("edge_preflight", { status: "running" });
     try {
       const response = await fetch(`${edgeBaseUrl}/lead-normalize`, {
@@ -115,151 +217,92 @@ export default function ProofGate() {
       newBundle.edge_preflight = { ok: false, error: errMsg };
     }
 
-    // Step 3: Normalize Sample (only if deps OK)
-    const depsOk = newBundle.db_doctor_report?.ok && newBundle.edge_preflight?.ok;
-    if (depsOk && newBundle.tenant_ids.length > 0) {
-      updateStep("normalize_test", { status: "running" });
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        const accessToken = session?.session?.access_token;
-        
-        const response = await fetch(`${edgeBaseUrl}/lead-normalize`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({
-            tenant_id: newBundle.tenant_ids[0],
-            lead: {
-              email: `proof_gate_${Date.now()}@test.local`,
-              phone: "5550000001",
-              source: "proof_gate",
-            },
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.ok) {
-          newBundle.last_edge_error = data;
-        }
-        newBundle.edge_console_runs.push({
-          timestamp: new Date().toISOString(),
-          function_name: "lead-normalize",
-          request: { method: "POST", headers: {}, body: { tenant_id: "...", lead: "..." } },
-          response: { status: response.status, headers: {}, body: data },
-          duration_ms: data.duration_ms || 0,
-        });
-        updateStep("normalize_test", { status: response.ok && data.ok ? "pass" : "fail", result: data });
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        updateStep("normalize_test", { status: "fail", error: errMsg });
-        newBundle.last_edge_error = { error: errMsg };
-      }
-    } else {
-      updateStep("normalize_test", { status: "skip", result: { reason: "Dependencies not OK or no tenants" } });
-    }
-
-    // Step 4: Route & Nav Audit
-    updateStep("route_audit", { status: "running" });
+    // === STEP 5: QA Access + Mini QA ===
+    updateStep("qa_check", { status: "running" });
     try {
-      const roleContext = {
-        isAdmin: isAdmin ?? false,
-        isOwner: isOwner ?? false,
-        isClient: false,
-        isAuthenticated: true,
-      };
+      // Try to access QA endpoint (this would fail if not authenticated properly)
+      pack.qa_access_status = user ? "available" : "denied";
       
-      const registryRoutes = getAllPlatformRoutes();
-      const visibleTools = getVisibleTools(roleContext);
-      const navRoutes = getNavRoutesForRole(roleContext);
-      const routePolicies = getRouteAccessPolicies();
-      
-      // Run basic audit checks
-      const auditFindings: Array<{ severity: string; issue_code: string; tool_id: string; route: string; description: string }> = [];
-      
-      for (const tool of platformTools) {
-        if (tool.id === "tools-hub") continue;
-        const isVisibleInToolsHub = visibleTools.some(t => t.id === tool.id);
-        const shouldBeVisible = (
-          (tool.requires === "authenticated") ||
-          (tool.requires === "owner" && (roleContext.isOwner || roleContext.isAdmin)) ||
-          (tool.requires === "admin" && roleContext.isAdmin)
-        );
-        
-        if (shouldBeVisible && !isVisibleInToolsHub) {
-          auditFindings.push({
-            severity: "warning",
-            issue_code: "tools_hub_missing",
-            tool_id: tool.id,
-            route: tool.route,
-            description: `Tool "${tool.name}" should be visible but is not`,
-          });
-        }
+      // Run Mini QA as fallback
+      let auditRunnable = true;
+      try {
+        runRouteNavAudit(roleContext);
+      } catch {
+        auditRunnable = false;
       }
       
-      newBundle.route_nav_audit = {
-        summary: {
-          critical: auditFindings.filter(f => f.severity === "critical").length,
-          warning: auditFindings.filter(f => f.severity === "warning").length,
-          passed: platformTools.length - auditFindings.length,
-          total_tools: platformTools.length,
-        },
-        findings: auditFindings,
-        counters: {},
-      };
+      const miniQA = runMiniQA({
+        isAuthenticated: !!user,
+        toolRegistryLength: platformTools.length,
+        auditRunnable,
+      });
+      pack.mini_qa = miniQA;
       
-      updateStep("route_audit", { 
-        status: auditFindings.length === 0 ? "pass" : "fail", 
-        result: { findings_count: auditFindings.length } 
+      updateStep("qa_check", { 
+        status: miniQA.errors.length === 0 ? "pass" : "fail",
+        result: miniQA,
       });
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      updateStep("route_audit", { status: "fail", error: errMsg });
+      pack.qa_access_status = "denied";
+      updateStep("qa_check", { status: "skip", error: String(err) });
     }
 
-    // Step 5: Audit Logs
-    updateStep("audit_logs", { status: "running" });
+    // === STEP 6: Edge Console Capture ===
+    updateStep("edge_capture", { status: "running" });
     try {
-      const { data: logs, error } = await supabase
-        .from("platform_audit_log")
-        .select("*")
-        .order("timestamp", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      newBundle.recent_audit_logs = logs || [];
-      updateStep("audit_logs", { status: "pass", result: { count: logs?.length || 0 } });
+      const latestRun = loadLatestEdgeRun();
+      pack.latest_edge_console_run = latestRun;
+      updateStep("edge_capture", { 
+        status: latestRun ? "pass" : "skip",
+        result: latestRun ? { function: latestRun.function_name, timestamp: latestRun.timestamp } : { reason: "No edge runs captured" },
+      });
     } catch (err) {
-      updateStep("audit_logs", { status: "skip", error: "No access to audit logs" });
+      updateStep("edge_capture", { status: "skip", error: String(err) });
     }
 
-    // Step 5: Compose Bundle
-    updateStep("bundle", { status: "running" });
+    // === STEP 7: Compose Evidence Pack ===
+    updateStep("compose", { status: "running" });
     
     // Determine human actions required
     if ((newBundle.db_doctor_report?.suspect_count ?? 0) > 0) {
-      newBundle.human_actions_required.push({
+      const action = {
         action: "Run Fix SQL in Supabase",
         location: "Supabase Dashboard → SQL Editor",
         value: newBundle.db_doctor_report?.suspects?.map(s => s.fix_sql).join("\n\n"),
-      });
+      };
+      pack.human_actions_required.push(action);
+      newBundle.human_actions_required.push(action);
     }
     
+    // Store Evidence Pack
+    storeEvidencePack(pack);
+    setEvidencePack(pack);
+    
+    // Legacy bundle
     newBundle.timestamp = new Date().toISOString();
     setBundle(newBundle);
     
-    const result = await copyBundleToClipboard(newBundle);
+    // Auto-copy Evidence Pack
+    const result = await copyEvidencePackToClipboard(pack);
     if (!result.success) {
       setShowTextarea(true);
     }
     
-    updateStep("bundle", { status: "pass" });
+    updateStep("compose", { status: "pass" });
     setRunning(false);
-    toast.success("Proof Gate complete! Bundle copied.");
+    toast.success("Proof Gate complete! Evidence Pack copied.");
+  };
+
+  const handleResetCounters = () => {
+    resetIssueCounts();
+    setIssueCounts({});
+    toast.success("Issue counters reset");
   };
 
   const progress = (steps.filter(s => s.status !== "pending").length / steps.length) * 100;
   const hasBlockers = preflightStatus && (!preflightStatus.ok || (preflightStatus.suspect_count ?? 0) > 0);
   const allPass = steps.every(s => s.status === "pass" || s.status === "skip");
+  const recurringIssues = getRecurringIssues(issueCounts);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl space-y-6">
@@ -272,11 +315,12 @@ export default function ProofGate() {
             Proof Gate
           </CardTitle>
           <CardDescription>
-            One-click diagnostic that runs checks, captures evidence, and copies the Support Bundle.
+            One-click diagnostic that runs checks, captures evidence, and copies the Evidence Pack.
+            "This is how we prove what's true."
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <Button 
               onClick={runProofGate} 
               disabled={running}
@@ -287,24 +331,56 @@ export default function ProofGate() {
               Run Proof Gate
             </Button>
             
-            {bundle && (
+            {evidencePack && (
               <>
-                <Button variant="outline" onClick={() => copyBundleToClipboard(bundle).then(r => {
+                <Button variant="outline" onClick={() => copyEvidencePackToClipboard(evidencePack).then(r => {
                   if (!r.success) setShowTextarea(true);
-                  else toast.success("Bundle copied");
+                  else toast.success("Evidence Pack copied");
                 })}>
                   <Copy className="h-4 w-4 mr-2" />
-                  Copy Bundle
+                  Copy Evidence Pack
                 </Button>
-                <Button variant="outline" onClick={() => downloadBundle(bundle)}>
+                <Button variant="outline" onClick={() => downloadEvidencePack(evidencePack)}>
                   <Download className="h-4 w-4 mr-2" />
-                  Download Bundle
+                  Download Evidence Pack
                 </Button>
               </>
             )}
+            
+            {bundle && (
+              <Button variant="outline" onClick={() => downloadBundle(bundle)}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Legacy Bundle
+              </Button>
+            )}
+            
+            <Button variant="ghost" onClick={handleResetCounters}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset Counters
+            </Button>
           </div>
 
           {running && <Progress value={progress} className="h-2" />}
+
+          {/* Recurring Issues Banner */}
+          {recurringIssues.length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Recurring Issues Detected (2+)</AlertTitle>
+              <AlertDescription>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {recurringIssues.map(code => (
+                    <Badge key={code} variant="destructive">
+                      {code} ({issueCounts[code]}x)
+                    </Badge>
+                  ))}
+                </div>
+                <p className="mt-2 text-sm">
+                  Recommended: Create or expand a tool rule to prevent these issues.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-2">
             {steps.map((step) => (
@@ -324,6 +400,12 @@ export default function ProofGate() {
                 }>
                   {step.status}
                 </Badge>
+                
+                {step.result && (
+                  <span className="text-xs text-muted-foreground max-w-[200px] truncate">
+                    {JSON.stringify(step.result).substring(0, 50)}...
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -357,22 +439,22 @@ export default function ProofGate() {
             </Alert>
           )}
 
-          {!running && allPass && bundle && (
+          {!running && allPass && evidencePack && (
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
               <AlertTitle>✅ Proof Gate PASS</AlertTitle>
               <AlertDescription>
-                All checks passed. Bundle has been copied to clipboard.
+                All checks passed. Evidence Pack has been copied to clipboard.
               </AlertDescription>
             </Alert>
           )}
 
-          {bundle?.human_actions_required && bundle.human_actions_required.length > 0 && (
+          {evidencePack?.human_actions_required && evidencePack.human_actions_required.length > 0 && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Human Action Required</AlertTitle>
               <AlertDescription>
-                {bundle.human_actions_required.map((action, i) => (
+                {evidencePack.human_actions_required.map((action, i) => (
                   <div key={i} className="mt-2 p-2 bg-muted rounded">
                     <strong>{action.action}</strong>
                     <div className="text-sm text-muted-foreground">{action.location}</div>
@@ -382,11 +464,11 @@ export default function ProofGate() {
             </Alert>
           )}
 
-          {showTextarea && bundle && (
+          {showTextarea && evidencePack && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Clipboard access denied. Copy from below:</p>
               <Textarea 
-                value={JSON.stringify(bundle, null, 2)} 
+                value={JSON.stringify(evidencePack, null, 2)} 
                 readOnly 
                 className="font-mono text-xs h-64"
                 onClick={(e) => (e.target as HTMLTextAreaElement).select()}

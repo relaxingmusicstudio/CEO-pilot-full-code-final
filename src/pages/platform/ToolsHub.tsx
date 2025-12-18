@@ -34,11 +34,19 @@ import {
   EvidencePack,
   createEmptyEvidencePack, 
   copyEvidencePackToClipboard, 
-  downloadEvidencePack 
+  downloadEvidencePack,
+  storeEvidencePack,
+  loadStoredEvidencePack,
+  loadIssueCounts,
+  saveIssueCounts,
+  incrementIssueCounts,
+  getRecurringIssues,
+  resetIssueCounts,
+  loadLatestEdgeRun,
+  runMiniQA,
+  EVIDENCE_PACK_KEY,
+  ISSUE_COUNTS_KEY,
 } from "@/lib/supportBundle";
-
-const EVIDENCE_PACK_KEY = "platform_evidence_pack_v1";
-const ISSUE_COUNTS_KEY = "platform_issue_counts_v1";
 
 interface ToolRunResult {
   toolId: string;
@@ -59,17 +67,12 @@ export default function ToolsHub() {
   const [evidencePack, setEvidencePack] = useState<EvidencePack | null>(null);
   const [showEvidenceJson, setShowEvidenceJson] = useState(false);
   const [isRunningEvidence, setIsRunningEvidence] = useState(false);
-  const [issueCounts, setIssueCounts] = useState<Record<string, number>>({});
+  const [issueCounts, setIssueCounts] = useState<Record<string, number>>(loadIssueCounts());
   
-  // Load stored evidence pack and issue counts on mount
+  // Load stored evidence pack on mount
   useEffect(() => {
-    try {
-      const storedPack = localStorage.getItem(EVIDENCE_PACK_KEY);
-      if (storedPack) setEvidencePack(JSON.parse(storedPack));
-      
-      const storedCounts = localStorage.getItem(ISSUE_COUNTS_KEY);
-      if (storedCounts) setIssueCounts(JSON.parse(storedCounts));
-    } catch {}
+    const storedPack = loadStoredEvidencePack();
+    if (storedPack) setEvidencePack(storedPack);
   }, []);
 
   const availableTools = getToolsForAccessLevel(isAdmin ?? false, isOwner ?? false);
@@ -109,10 +112,13 @@ export default function ToolsHub() {
     // Navigation & Routes
     pack.nav_routes_visible = getNavRoutesForRole(roleContext);
     pack.tool_registry_snapshot = platformTools.map(t => ({ 
-      id: t.id, 
+      id: t.id,
+      name: t.name,
       route: t.route, 
-      requires: t.requires 
+      requires: t.requires,
+      category: t.category,
     }));
+    pack.platform_routes_snapshot = platformTools.map(t => t.route);
     pack.route_guard_snapshot = getPlatformRouteGuards().map(g => ({ 
       path: g.path, 
       requires: g.requires 
@@ -123,37 +129,35 @@ export default function ToolsHub() {
       const auditResult = runRouteNavAudit(roleContext);
       pack.route_nav_audit = auditResult;
       
-      // Update issue counts
-      const newCounts = { ...issueCounts };
-      for (const finding of auditResult.findings) {
-        newCounts[finding.issue_code] = (newCounts[finding.issue_code] || 0) + 1;
-      }
+      // Update issue counts using utility
+      const newCounts = incrementIssueCounts(auditResult.findings, issueCounts);
       setIssueCounts(newCounts);
-      localStorage.setItem(ISSUE_COUNTS_KEY, JSON.stringify(newCounts));
+      saveIssueCounts(newCounts);
+      pack.recurring_issue_counts = newCounts;
     } catch (err) {
       console.error("Audit failed:", err);
     }
     
-    // Load latest edge console run from localStorage if exists
+    // Load latest edge console run
+    pack.latest_edge_console_run = loadLatestEdgeRun();
+    
+    // Run Mini QA
+    let auditRunnable = true;
     try {
-      const edgeRuns = localStorage.getItem("platform_edge_console_runs");
-      if (edgeRuns) {
-        const runs = JSON.parse(edgeRuns);
-        if (runs.length > 0) {
-          pack.latest_edge_console_run = runs[runs.length - 1];
-        }
-      }
-    } catch {}
-    
-    // QA Debug JSON - try to fetch if accessible
-    pack.qa_access_status = "not_run";
-    
-    // Issue counts
-    pack.recurring_issue_counts = issueCounts;
+      runRouteNavAudit(roleContext);
+    } catch {
+      auditRunnable = false;
+    }
+    pack.mini_qa = runMiniQA({
+      isAuthenticated: !!user,
+      toolRegistryLength: platformTools.length,
+      auditRunnable,
+    });
+    pack.qa_access_status = user ? "available" : "denied";
     
     // Store and display
     setEvidencePack(pack);
-    localStorage.setItem(EVIDENCE_PACK_KEY, JSON.stringify(pack));
+    storeEvidencePack(pack);
     
     // Auto-copy
     const result = await copyEvidencePackToClipboard(pack);
@@ -176,10 +180,14 @@ export default function ToolsHub() {
     if (tool) navigate(tool.route);
   };
 
-  // Check for recurring issues
-  const recurringIssues = Object.entries(issueCounts)
-    .filter(([_, count]) => count >= 2)
-    .map(([code]) => code);
+  // Check for recurring issues using utility
+  const recurringIssues = getRecurringIssues(issueCounts);
+  
+  const handleResetCounters = () => {
+    resetIssueCounts();
+    setIssueCounts({});
+    toast.success("Issue counters reset");
+  };
 
   if (isLoading) {
     return (
@@ -280,11 +288,7 @@ export default function ToolsHub() {
               variant="outline" 
               size="sm" 
               className="mt-2"
-              onClick={() => {
-                setIssueCounts({});
-                localStorage.removeItem(ISSUE_COUNTS_KEY);
-                toast.success("Issue counters reset");
-              }}
+              onClick={handleResetCounters}
             >
               Reset Counters
             </Button>
