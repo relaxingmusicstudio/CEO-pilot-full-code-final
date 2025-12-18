@@ -154,10 +154,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 
   if (allowedOrigins.length > 0) {
     // Explicit allowlist configured
-    if (
-      origin &&
-      (allowedOrigins.includes(origin) || allowedOrigins.includes("*"))
-    ) {
+    if (origin && allowedOrigins.includes(origin)) {
       allowOrigin = origin;
       varyOrigin = true;
     }
