@@ -95,7 +95,6 @@ const Chatbot = () => {
   const lastActivityRef = useRef<number>(Date.now());
   const conversationStartRef = useRef<number>(Date.now());
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -148,30 +147,32 @@ const Chatbot = () => {
     };
   }, [hasSubmitted, leadData]);
 
-  // Rate limit countdown timer
+  // Rate limit countdown timer - dependency on countdownSeconds to re-run when it changes
   useEffect(() => {
-    if (rateLimitState.isRateLimited && rateLimitState.countdownSeconds > 0) {
-      countdownIntervalRef.current = setInterval(() => {
-        setRateLimitState(prev => {
-          const newCountdown = prev.countdownSeconds - 1;
-          if (newCountdown <= 0) {
-            return {
-              ...prev,
-              isRateLimited: false,
-              countdownSeconds: 0,
-            };
-          }
-          return { ...prev, countdownSeconds: newCountdown };
-        });
-      }, 1000);
+    if (!rateLimitState.isRateLimited || rateLimitState.countdownSeconds <= 0) {
+      return;
     }
 
+    const intervalId = setInterval(() => {
+      setRateLimitState(prev => {
+        const newCountdown = prev.countdownSeconds - 1;
+        console.log(`[RateLimit] Countdown: ${prev.countdownSeconds} -> ${newCountdown}`);
+        if (newCountdown <= 0) {
+          console.log('[RateLimit] Countdown complete, re-enabling');
+          return {
+            ...prev,
+            isRateLimited: false,
+            countdownSeconds: 0,
+          };
+        }
+        return { ...prev, countdownSeconds: newCountdown };
+      });
+    }, 1000);
+
     return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
+      clearInterval(intervalId);
     };
-  }, [rateLimitState.isRateLimited, rateLimitState.retryAfterSeconds]);
+  }, [rateLimitState.isRateLimited, rateLimitState.countdownSeconds]);
 
   // Clear network error after 5 seconds
   useEffect(() => {
@@ -1007,8 +1008,8 @@ Traffic Source: ${visitorGHLData.utm_source || visitorGHLData.referrer_source ||
           </div>
         )}
 
-        {/* Dev Diagnostics (only in dev) */}
-        {process.env.NODE_ENV === 'development' && rateLimitState.lastErrorCode && (
+        {/* Dev Diagnostics (only in dev mode) */}
+        {import.meta.env.DEV && rateLimitState.lastErrorCode && (
           <div className="px-4 py-1 bg-muted/50 border-t border-border text-xs font-mono text-muted-foreground">
             <div className="flex flex-wrap gap-2">
               <span>err: {rateLimitState.lastErrorCode}</span>
@@ -1016,6 +1017,34 @@ Traffic Source: ${visitorGHLData.utm_source || visitorGHLData.referrer_source ||
               <span>retry: {rateLimitState.retryAfterSeconds}s</span>
               <span>ts: {rateLimitState.timestamp ? new Date(rateLimitState.timestamp).toLocaleTimeString() : 'n/a'}</span>
             </div>
+          </div>
+        )}
+
+        {/* Dev-only: Simulate 429 button for testing */}
+        {import.meta.env.DEV && !rateLimitState.isRateLimited && (
+          <div className="px-4 py-1 bg-blue-500/10 border-t border-blue-500/30">
+            <button
+              onClick={() => {
+                console.log('[DEV] Simulating 429 rate limit');
+                setRateLimitState({
+                  isRateLimited: true,
+                  retryAfterSeconds: 10,
+                  countdownSeconds: 10,
+                  lastErrorCode: 'SIMULATED_429',
+                  lastHttpStatus: 429,
+                  timestamp: Date.now(),
+                  networkRetries: 0,
+                });
+                toast({
+                  title: "[DEV] Simulated Rate Limit",
+                  description: "Rate limit triggered for testing. Wait 10s.",
+                  variant: "destructive",
+                });
+              }}
+              className="text-xs text-blue-600 dark:text-blue-400 underline"
+            >
+              [DEV] Simulate 429
+            </button>
           </div>
         )}
 
