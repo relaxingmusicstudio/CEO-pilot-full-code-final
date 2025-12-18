@@ -86,9 +86,11 @@ export interface AIError {
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_PROVIDER: AIProvider = "gemini";
 const DEFAULT_MODEL = "gemini-2.0-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const LOVABLE_AI_MODEL = "google/gemini-2.5-flash";
 
 // Simple in-memory cache (60s TTL)
 const responseCache = new Map<string, { response: AIChatResponse; expires: number }>();
@@ -497,6 +499,109 @@ async function callOpenAIWithRetry(
 }
 
 /**
+ * Calls Lovable AI Gateway (fallback when Gemini quota exceeded)
+ * Uses LOVABLE_API_KEY which is pre-configured
+ */
+async function callLovableAIGateway(
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; max_tokens?: number; tools?: any[]; tool_choice?: any } = {},
+): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  
+  if (!apiKey || apiKey.length === 0) {
+    console.log("[ai] LOVABLE_API_KEY not configured, skipping fallback");
+    return {
+      data: null,
+      error: { code: "CONFIG_ERROR", message: "LOVABLE_API_KEY not configured", provider: "lovable", model: LOVABLE_AI_MODEL }
+    };
+  }
+
+  const requestBody: any = {
+    model: LOVABLE_AI_MODEL,
+    messages,
+    stream: false,
+  };
+
+  // Note: Lovable AI may not support all tool parameters, but we try
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
+    if (options.tool_choice) {
+      requestBody.tool_choice = options.tool_choice;
+    }
+  }
+  
+  try {
+    console.log(`[ai] fallback_request provider=lovable model=${LOVABLE_AI_MODEL}`);
+    const startTime = Date.now();
+    const response = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const latencyMs = Date.now() - startTime;
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[ai] fallback_success provider=lovable model=${LOVABLE_AI_MODEL} latency_ms=${latencyMs}`);
+      return { data, latency_ms: latencyMs };
+    }
+
+    const errorText = await response.text();
+    
+    if (response.status === 429) {
+      return {
+        data: null,
+        error: { 
+          code: "RATE_LIMITED", 
+          message: "Lovable AI rate limit exceeded. Please try again later.",
+          provider: "lovable",
+          model: LOVABLE_AI_MODEL,
+          retryAfter: 60
+        }
+      };
+    }
+
+    if (response.status === 402) {
+      return {
+        data: null,
+        error: { 
+          code: "QUOTA_EXCEEDED", 
+          message: "Payment required. Please add credits to your Lovable workspace.",
+          provider: "lovable",
+          model: LOVABLE_AI_MODEL
+        }
+      };
+    }
+
+    console.error("[ai] fallback_error provider=lovable", {
+      status: response.status,
+      error: errorText.slice(0, 200),
+      latency_ms: latencyMs,
+    });
+    
+    return {
+      data: null,
+      error: { 
+        code: "API_ERROR", 
+        message: `Lovable AI error: ${response.status}`,
+        provider: "lovable",
+        model: LOVABLE_AI_MODEL
+      }
+    };
+    
+  } catch (fetchError) {
+    console.error("[ai] fallback_network_error provider=lovable", fetchError);
+    return {
+      data: null,
+      error: { code: "API_ERROR", message: "Network error connecting to Lovable AI", provider: "lovable", model: LOVABLE_AI_MODEL }
+    };
+  }
+}
+
+/**
  * Main AI chat function with purpose-based routing
  * Returns token usage for cost tracking
  */
@@ -604,7 +709,49 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       requestBody.systemInstruction = { parts: [{ text: enhancedSystemMessage }] };
     }
 
-    const { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
+    let { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
+    
+    // Fallback to Lovable AI Gateway if Gemini quota exceeded
+    if (error && (error.code === "QUOTA_EXCEEDED" || error.code === "RATE_LIMITED")) {
+      console.log(`[ai] gemini_quota_exceeded, falling back to Lovable AI Gateway`);
+      
+      const openAIMessages = options.messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+      
+      const fallbackResult = await callLovableAIGateway(openAIMessages, {
+        temperature: options.temperature,
+        max_tokens: options.max_tokens,
+        tools: options.tools,
+        tool_choice: options.tool_choice,
+      });
+      
+      if (fallbackResult.data && !fallbackResult.error) {
+        // Successfully got response from Lovable AI
+        const text = fallbackResult.data.choices?.[0]?.message?.content || "";
+        const toolCall = fallbackResult.data.choices?.[0]?.message?.tool_calls?.[0];
+        const usage = extractOpenAIUsage(fallbackResult.data);
+        const latencyMs = fallbackResult.latency_ms || (Date.now() - startTime);
+        
+        console.log(`[ai] fallback_complete provider=lovable model=${LOVABLE_AI_MODEL} purpose=${options.purpose || 'default'} latency_ms=${latencyMs}`);
+        
+        const response: AIChatResponse = { 
+          text, 
+          raw: fallbackResult.data, 
+          provider: "gemini", // Keep as gemini for compatibility
+          model: LOVABLE_AI_MODEL,
+          usage,
+          latency_ms: latencyMs,
+        };
+        
+        setCache(cacheKey, response);
+        return response;
+      }
+      
+      // If Lovable AI also fails, use original Gemini error
+      console.log(`[ai] lovable_fallback_failed, returning original gemini error`);
+    }
     
     if (error) {
       throw new Error(JSON.stringify(error));
