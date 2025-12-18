@@ -65,6 +65,29 @@ export interface MiniQAResult {
 // Import FS Reality Check type
 import type { FSRealityCheckResult } from "./fsRealityCheck";
 
+// ============= Run History Types =============
+
+export interface ProofRun {
+  id: string;
+  tool_id: string;
+  started_at: string;
+  ended_at: string;
+  duration_ms: number;
+  ok: boolean;
+  error?: string;
+  console_warnings: string[];
+  console_errors: string[];
+}
+
+// ============= Validation Types =============
+
+export interface ValidationResult {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  proof_token: string;
+}
+
 /**
  * Evidence Pack - Comprehensive diagnostic snapshot
  * Proves what's true at runtime, no guessing.
@@ -75,6 +98,7 @@ export interface EvidencePack {
   app_version: string;
   build_timestamp: string;
   current_route: string;
+  proof_token: string;
   
   // ========== USER CONTEXT ==========
   user_id_masked: string;
@@ -104,11 +128,17 @@ export interface EvidencePack {
   // ========== EDGE ==========
   latest_edge_console_run: EdgeConsoleRun | null;
   
+  // ========== RUN HISTORY ==========
+  runs: ProofRun[];
+  
   // ========== RECURRING ==========
   recurring_issue_counts: Record<string, number>;
   
   // ========== BLOCKERS ==========
   human_actions_required: HumanActionRequired[];
+  
+  // ========== VALIDATION ==========
+  validation_result: ValidationResult | null;
 }
 
 // ============= Storage Keys =============
@@ -128,6 +158,7 @@ export function createEmptyEvidencePack(): EvidencePack {
     app_version: "1.0.0",
     build_timestamp: new Date().toISOString(),
     current_route: typeof window !== "undefined" ? window.location.pathname : "",
+    proof_token: "",
     
     // User context
     user_id_masked: "",
@@ -162,11 +193,17 @@ export function createEmptyEvidencePack(): EvidencePack {
     // Edge
     latest_edge_console_run: null,
     
+    // Run History
+    runs: [],
+    
     // Recurring
     recurring_issue_counts: {},
     
     // Blockers
     human_actions_required: [],
+    
+    // Validation
+    validation_result: null,
   };
 }
 
@@ -348,4 +385,194 @@ export function runMiniQA(context: {
     route_audit_runnable: context.auditRunnable,
     errors,
   };
+}
+
+// ============= Proof Token Generation =============
+
+/**
+ * Generate a stable hash from an object for proof token.
+ * Uses a simple but deterministic hash function.
+ */
+function stableHash(obj: unknown): string {
+  const str = JSON.stringify(obj, Object.keys(obj as object).sort());
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to hex and pad
+  const hexHash = Math.abs(hash).toString(16).padStart(8, '0');
+  return hexHash.toUpperCase();
+}
+
+/**
+ * Normalize an EvidencePack for hashing (remove volatile fields).
+ */
+function normalizeForHash(pack: EvidencePack): Record<string, unknown> {
+  return {
+    user_id_masked: pack.user_id_masked,
+    role_flags: pack.role_flags,
+    fs_imports_ok: pack.fs_reality_check?.all_imports_ok ?? false,
+    fs_failed_imports: pack.fs_reality_check?.failed_imports ?? [],
+    build_output_present: pack.build_output.present,
+    mini_qa_errors: pack.mini_qa?.errors ?? [],
+    route_audit_critical: pack.route_nav_audit?.summary.critical ?? 0,
+    human_actions_count: pack.human_actions_required.length,
+    recurring_issues: Object.keys(pack.recurring_issue_counts).filter(
+      k => pack.recurring_issue_counts[k] >= 2
+    ),
+  };
+}
+
+/**
+ * Generate proof token from EvidencePack.
+ */
+export function generateProofToken(pack: EvidencePack): string {
+  const normalized = normalizeForHash(pack);
+  const hash = stableHash(normalized);
+  const timestamp = pack.timestamp.replace(/[-:TZ.]/g, '').substring(0, 14);
+  return `PROOF-${timestamp}-${hash}`;
+}
+
+// ============= Evidence Pack Validation =============
+
+/**
+ * Validate an EvidencePack - PASS requires ok=true.
+ * This is the HARD enforcement gate.
+ */
+export function validateEvidencePack(pack: EvidencePack): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  
+  // CRITICAL: Must have FS Reality Check
+  if (!pack.fs_reality_check) {
+    errors.push("FS Reality Check not run - cannot verify file existence");
+  } else if (!pack.fs_reality_check.all_imports_ok) {
+    errors.push(`FS Reality Check FAIL: ${pack.fs_reality_check.failed_imports.join(", ")}`);
+  }
+  
+  // CRITICAL: Must have build output OR explicit human action
+  if (!pack.build_output.present) {
+    const hasBuildAction = pack.human_actions_required.some(
+      a => a.action.toLowerCase().includes("build output")
+    );
+    if (!hasBuildAction) {
+      errors.push("Build output missing - paste raw build output in Ops Center or add human_action_required");
+    }
+  }
+  
+  // CRITICAL: No unresolved contradictions
+  const contradictionCount = pack.recurring_issue_counts["proof_contradiction"] || 0;
+  if (contradictionCount > 0) {
+    errors.push(`Unresolved contradictions detected (${contradictionCount}x) - resolve before PASS`);
+  }
+  
+  // CRITICAL: Mini QA must pass
+  if (pack.mini_qa && pack.mini_qa.errors.length > 0) {
+    errors.push(`Mini QA errors: ${pack.mini_qa.errors.join("; ")}`);
+  }
+  
+  // CRITICAL: Route audit must have no critical issues
+  if (pack.route_nav_audit && pack.route_nav_audit.summary.critical > 0) {
+    errors.push(`Route audit has ${pack.route_nav_audit.summary.critical} critical issue(s)`);
+  }
+  
+  // CRITICAL: Must have at least one run recorded
+  if (pack.runs.length === 0) {
+    errors.push("No proof runs recorded - Evidence Pack appears fabricated");
+  }
+  
+  // WARNING: Unresolved human actions
+  const unresolvedActions = pack.human_actions_required.filter(a => !a.completed);
+  if (unresolvedActions.length > 0) {
+    warnings.push(`${unresolvedActions.length} unresolved human action(s) required`);
+  }
+  
+  // WARNING: Role not authenticated
+  if (!pack.role_flags.isAuthenticated) {
+    warnings.push("User not authenticated - some checks may be incomplete");
+  }
+  
+  // Generate proof token
+  const proof_token = generateProofToken(pack);
+  
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    proof_token,
+  };
+}
+
+// ============= Run History Helpers =============
+
+/**
+ * Create a new proof run entry.
+ */
+export function createProofRun(toolId: string): ProofRun {
+  return {
+    id: `run-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+    tool_id: toolId,
+    started_at: new Date().toISOString(),
+    ended_at: "",
+    duration_ms: 0,
+    ok: false,
+    console_warnings: [],
+    console_errors: [],
+  };
+}
+
+/**
+ * Complete a proof run.
+ */
+export function completeProofRun(
+  run: ProofRun, 
+  ok: boolean, 
+  error?: string,
+  consoleCapture?: { warnings: string[]; errors: string[] }
+): ProofRun {
+  const ended_at = new Date().toISOString();
+  const duration_ms = new Date(ended_at).getTime() - new Date(run.started_at).getTime();
+  
+  return {
+    ...run,
+    ended_at,
+    duration_ms,
+    ok,
+    error,
+    console_warnings: consoleCapture?.warnings ?? [],
+    console_errors: consoleCapture?.errors ?? [],
+  };
+}
+
+/**
+ * Capture console warnings and errors during a function execution.
+ */
+export async function captureConsole<T>(
+  fn: () => Promise<T>
+): Promise<{ result: T; warnings: string[]; errors: string[] }> {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  
+  console.warn = (...args) => {
+    warnings.push(args.map(String).join(" "));
+    originalWarn.apply(console, args);
+  };
+  
+  console.error = (...args) => {
+    errors.push(args.map(String).join(" "));
+    originalError.apply(console, args);
+  };
+  
+  try {
+    const result = await fn();
+    return { result, warnings, errors };
+  } finally {
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
 }

@@ -430,41 +430,55 @@ export default function OpsCenter() {
         </CardContent>
       </Card>
 
-      {/* Evidence Pack Summary */}
+      {/* Evidence Pack Summary with Proof Token */}
       {evidencePack && (
-        <Card>
+        <Card className={evidencePack.validation_result?.ok ? "border-green-500" : evidencePack.validation_result ? "border-destructive" : ""}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileJson className="h-5 w-5" />
                 Last Evidence Pack
+                {evidencePack.validation_result && (
+                  <Badge variant={evidencePack.validation_result.ok ? "default" : "destructive"}>
+                    {evidencePack.validation_result.ok ? "PASS" : "FAIL"}
+                  </Badge>
+                )}
               </CardTitle>
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => copyEvidencePackToClipboard(evidencePack).then(r => {
-                    if (r.success) toast.success("Copied!");
-                  })}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
+                <Button variant="outline" size="sm" onClick={() => copyEvidencePackToClipboard(evidencePack).then(r => { if (r.success) toast.success("Copied!"); })}>
+                  <Copy className="h-4 w-4 mr-2" />Copy
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => downloadEvidencePack(evidencePack)}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+                <Button variant="outline" size="sm" onClick={() => downloadEvidencePack(evidencePack)}>
+                  <Download className="h-4 w-4 mr-2" />Download
                 </Button>
               </div>
             </div>
-            <CardDescription>
-              Last run: {new Date(evidencePack.timestamp).toLocaleString()}
-            </CardDescription>
+            <CardDescription>Last run: {new Date(evidencePack.timestamp).toLocaleString()}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Proof Token Display */}
+            {evidencePack.proof_token && (
+              <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Proof Token:</span>
+                  <code className="font-mono text-sm bg-background px-2 py-1 rounded">{evidencePack.proof_token}</code>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(evidencePack.proof_token); toast.success("Token copied"); }}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {/* Run History */}
+            {evidencePack.runs && evidencePack.runs.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium flex items-center gap-2"><Clock className="h-4 w-4" />Run History ({evidencePack.runs.length} steps)</div>
+                <div className="flex gap-1 flex-wrap">
+                  {evidencePack.runs.map((run, i) => (
+                    <Badge key={i} variant={run.ok ? "default" : "destructive"} className="text-xs">{run.tool_id}: {run.duration_ms}ms</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-muted/50 rounded-lg">
                 <div className="text-lg font-bold">{evidencePack.tool_registry_snapshot.length}</div>

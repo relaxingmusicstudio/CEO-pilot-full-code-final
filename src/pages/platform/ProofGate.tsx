@@ -1,8 +1,8 @@
 /**
- * Proof Gate - One-click diagnostic orchestrator
+ * Proof Gate - One-click diagnostic orchestrator with HARD ENFORCEMENT
  * 
  * Runs sequential checks and produces a canonical Evidence Pack.
- * Includes FS Reality Check and Contradiction Detector.
+ * PASS requires validateEvidencePack().ok = true
  * "This is how we prove what's true."
  */
 
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, Loader2, Copy, Download, Play, AlertTriangle, Shield, RotateCcw, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, Download, Play, AlertTriangle, Shield, RotateCcw, Key, Clock, Hash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,7 +23,6 @@ import {
   SupportBundle, 
   PreflightReport, 
   createEmptyBundle, 
-  copyBundleToClipboard, 
   downloadBundle,
   EvidencePack,
   createEmptyEvidencePack,
@@ -38,6 +37,12 @@ import {
   resetIssueCounts,
   loadLatestEdgeRun,
   runMiniQA,
+  validateEvidencePack,
+  createProofRun,
+  completeProofRun,
+  captureConsole,
+  ValidationResult,
+  ProofRun,
 } from "@/lib/supportBundle";
 import { platformTools, getAllPlatformRoutes } from "@/lib/toolRegistry";
 import { getPlatformRouteGuards } from "@/lib/routeGuards";
@@ -71,16 +76,19 @@ export default function ProofGate() {
   const [steps, setSteps] = useState<Step[]>([
     { id: "access_check", name: "Access/Role Check", status: "pending" },
     { id: "fs_reality_check", name: "FS Reality Check (Existence + Env)", status: "pending" },
+    { id: "build_check", name: "Build Output Verification", status: "pending" },
     { id: "contradiction_check", name: "Contradiction Detector", status: "pending" },
     { id: "route_audit", name: "Route & Nav Audit", status: "pending" },
     { id: "db_doctor", name: "DB Doctor (preflight)", status: "pending" },
     { id: "edge_preflight", name: "Edge Preflight", status: "pending" },
     { id: "qa_check", name: "QA Access + Mini QA", status: "pending" },
     { id: "edge_capture", name: "Edge Console Capture", status: "pending" },
+    { id: "validation", name: "HARD VALIDATION GATE", status: "pending" },
     { id: "compose", name: "Compose Evidence Pack", status: "pending" },
   ]);
   
   const [evidencePack, setEvidencePack] = useState<EvidencePack | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [bundle, setBundle] = useState<SupportBundle | null>(null);
   const [showTextarea, setShowTextarea] = useState(false);
   const [preflightStatus, setPreflightStatus] = useState<PreflightReport | null>(null);
@@ -103,7 +111,12 @@ export default function ProofGate() {
   const runProofGate = async () => {
     setRunning(true);
     setShowTextarea(false);
+    setValidationResult(null);
     setSteps(steps.map(s => ({ ...s, status: "pending", result: undefined, error: undefined })));
+    
+    // Start proof run tracking
+    const proofRun = createProofRun("proof-gate");
+    const runs: ProofRun[] = [];
     
     // Initialize Evidence Pack
     const pack = createEmptyEvidencePack();
@@ -129,6 +142,7 @@ export default function ProofGate() {
 
     // === STEP 1: Access/Role Check ===
     updateStep("access_check", { status: "running" });
+    const accessRun = createProofRun("access_check");
     try {
       const accessResult = {
         authenticated: !!user,
@@ -137,24 +151,25 @@ export default function ProofGate() {
         isAdmin: isAdmin ?? false,
         isClient: isClient ?? false,
       };
+      runs.push(completeProofRun(accessRun, accessResult.authenticated));
       updateStep("access_check", { 
         status: accessResult.authenticated ? "pass" : "fail", 
         result: accessResult 
       });
     } catch (err) {
+      runs.push(completeProofRun(accessRun, false, String(err)));
       updateStep("access_check", { status: "fail", error: String(err) });
     }
 
     // === STEP 2: FS Reality Check ===
     updateStep("fs_reality_check", { status: "running" });
+    const fsRun = createProofRun("fs_reality_check");
     let fsResult: FSRealityCheckResult | null = null;
     try {
-      fsResult = await runFSRealityCheck();
+      const { result, warnings, errors } = await captureConsole(async () => runFSRealityCheck());
+      fsResult = result;
       pack.fs_reality_check = fsResult;
-      pack.build_output = { 
-        present: fsResult.build_output_present, 
-        text: loadBuildOutput() || null 
-      };
+      runs.push(completeProofRun(fsRun, fsResult.all_imports_ok, undefined, { warnings, errors }));
       updateStep("fs_reality_check", { 
         status: fsResult.all_imports_ok ? "pass" : "fail",
         result: { 
@@ -163,11 +178,40 @@ export default function ProofGate() {
         }
       });
     } catch (err) {
+      runs.push(completeProofRun(fsRun, false, String(err)));
       updateStep("fs_reality_check", { status: "fail", error: String(err) });
     }
 
-    // === STEP 3: Contradiction Detector ===
+    // === STEP 3: Build Output Verification ===
+    updateStep("build_check", { status: "running" });
+    const buildRun = createProofRun("build_check");
+    try {
+      const buildOutput = loadBuildOutput();
+      const buildPresent = buildOutput.length > 0;
+      pack.build_output = { present: buildPresent, text: buildOutput || null };
+      
+      if (!buildPresent) {
+        // Add human action required for missing build output
+        pack.human_actions_required.push({
+          action: "Paste raw build output in Ops Center → Build Proof section",
+          location: "/platform/ops",
+          value: "Required for PASS validation",
+        });
+      }
+      
+      runs.push(completeProofRun(buildRun, buildPresent));
+      updateStep("build_check", { 
+        status: buildPresent ? "pass" : "fail",
+        result: { present: buildPresent, length: buildOutput.length }
+      });
+    } catch (err) {
+      runs.push(completeProofRun(buildRun, false, String(err)));
+      updateStep("build_check", { status: "fail", error: String(err) });
+    }
+
+    // === STEP 4: Contradiction Detector ===
     updateStep("contradiction_check", { status: "running" });
+    const contradictionRun = createProofRun("contradiction_check");
     try {
       let hasContradiction = false;
       const contradictionDetails: string[] = [];
@@ -205,18 +249,24 @@ export default function ProofGate() {
           value: contradictionDetails.join("; "),
         });
         
+        runs.push(completeProofRun(contradictionRun, false, "proof_contradiction"));
         updateStep("contradiction_check", { 
           status: "fail", 
           result: { contradictions: contradictionDetails },
           error: "proof_contradiction"
         });
       } else {
+        runs.push(completeProofRun(contradictionRun, true));
         updateStep("contradiction_check", { status: "pass", result: { clean: true } });
       }
     } catch (err) {
+      runs.push(completeProofRun(contradictionRun, false, String(err)));
       updateStep("contradiction_check", { status: "skip", error: String(err) });
     }
+
+    // === STEP 5: Route & Nav Audit ===
     updateStep("route_audit", { status: "running" });
+    const routeRun = createProofRun("route_audit");
     try {
       // Populate routing snapshots
       pack.nav_routes_visible = getNavRoutesForRole(roleContext);
@@ -256,8 +306,10 @@ export default function ProofGate() {
         counters: newCounts,
       };
       
+      const routeOk = auditResult.summary.critical === 0;
+      runs.push(completeProofRun(routeRun, routeOk));
       updateStep("route_audit", { 
-        status: auditResult.summary.critical === 0 ? "pass" : "fail",
+        status: routeOk ? "pass" : "fail",
         result: { 
           critical: auditResult.summary.critical, 
           warning: auditResult.summary.warning,
@@ -265,24 +317,29 @@ export default function ProofGate() {
         }
       });
     } catch (err) {
+      runs.push(completeProofRun(routeRun, false, String(err)));
       updateStep("route_audit", { status: "fail", error: String(err) });
     }
 
-    // === STEP 3: DB Doctor ===
+    // === STEP 6: DB Doctor ===
     updateStep("db_doctor", { status: "running" });
+    const dbRun = createProofRun("db_doctor");
     try {
       const { data, error } = await (supabase.rpc as any)("qa_dependency_check");
       if (error) throw error;
       newBundle.db_doctor_report = data;
+      runs.push(completeProofRun(dbRun, data?.ok ?? false));
       updateStep("db_doctor", { status: data?.ok ? "pass" : "fail", result: data });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      runs.push(completeProofRun(dbRun, false, errMsg));
       updateStep("db_doctor", { status: "skip", error: errMsg });
       newBundle.db_doctor_report = { ok: false, error: errMsg };
     }
 
-    // === STEP 4: Edge Preflight ===
+    // === STEP 7: Edge Preflight ===
     updateStep("edge_preflight", { status: "running" });
+    const edgeRun = createProofRun("edge_preflight");
     try {
       const response = await fetch(`${edgeBaseUrl}/lead-normalize`, {
         method: "POST",
@@ -293,20 +350,21 @@ export default function ProofGate() {
       const report = data.report || data;
       newBundle.edge_preflight = report;
       setPreflightStatus(report);
+      runs.push(completeProofRun(edgeRun, report?.ok ?? false));
       updateStep("edge_preflight", { status: report?.ok ? "pass" : "fail", result: data });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      runs.push(completeProofRun(edgeRun, false, errMsg));
       updateStep("edge_preflight", { status: "fail", error: errMsg });
       newBundle.edge_preflight = { ok: false, error: errMsg };
     }
 
-    // === STEP 5: QA Access + Mini QA ===
+    // === STEP 8: QA Access + Mini QA ===
     updateStep("qa_check", { status: "running" });
+    const qaRun = createProofRun("qa_check");
     try {
-      // Try to access QA endpoint (this would fail if not authenticated properly)
       pack.qa_access_status = user ? "available" : "denied";
       
-      // Run Mini QA as fallback
       let auditRunnable = true;
       try {
         runRouteNavAudit(roleContext);
@@ -321,29 +379,61 @@ export default function ProofGate() {
       });
       pack.mini_qa = miniQA;
       
+      const qaOk = miniQA.errors.length === 0;
+      runs.push(completeProofRun(qaRun, qaOk));
       updateStep("qa_check", { 
-        status: miniQA.errors.length === 0 ? "pass" : "fail",
+        status: qaOk ? "pass" : "fail",
         result: miniQA,
       });
     } catch (err) {
       pack.qa_access_status = "denied";
+      runs.push(completeProofRun(qaRun, false, String(err)));
       updateStep("qa_check", { status: "skip", error: String(err) });
     }
 
-    // === STEP 6: Edge Console Capture ===
+    // === STEP 9: Edge Console Capture ===
     updateStep("edge_capture", { status: "running" });
+    const captureRun = createProofRun("edge_capture");
     try {
       const latestRun = loadLatestEdgeRun();
       pack.latest_edge_console_run = latestRun;
+      runs.push(completeProofRun(captureRun, !!latestRun));
       updateStep("edge_capture", { 
         status: latestRun ? "pass" : "skip",
         result: latestRun ? { function: latestRun.function_name, timestamp: latestRun.timestamp } : { reason: "No edge runs captured" },
       });
     } catch (err) {
+      runs.push(completeProofRun(captureRun, false, String(err)));
       updateStep("edge_capture", { status: "skip", error: String(err) });
     }
 
-    // === STEP 7: Compose Evidence Pack ===
+    // === Add all runs to pack ===
+    pack.runs = runs;
+    
+    // === STEP 10: HARD VALIDATION GATE ===
+    updateStep("validation", { status: "running" });
+    const validationRunEntry = createProofRun("validation");
+    
+    // Run validation
+    const validation = validateEvidencePack(pack);
+    pack.validation_result = validation;
+    pack.proof_token = validation.proof_token;
+    
+    setValidationResult(validation);
+    runs.push(completeProofRun(validationRunEntry, validation.ok, validation.errors.join("; ")));
+    
+    updateStep("validation", {
+      status: validation.ok ? "pass" : "fail",
+      result: { 
+        ok: validation.ok, 
+        errors: validation.errors.length,
+        warnings: validation.warnings.length,
+        proof_token: validation.proof_token,
+      },
+      error: validation.ok ? undefined : validation.errors[0],
+    });
+
+    // === STEP 11: Compose Evidence Pack ===
     updateStep("compose", { status: "running" });
     
     // Determine human actions required
@@ -351,7 +441,7 @@ export default function ProofGate() {
       const action = {
         action: "Run Fix SQL in Supabase",
         location: "Supabase Dashboard → SQL Editor",
-        value: newBundle.db_doctor_report?.suspects?.map(s => s.fix_sql).join("\n\n"),
+        value: newBundle.db_doctor_report?.suspects?.map((s: any) => s.fix_sql).join("\n\n"),
       };
       pack.human_actions_required.push(action);
       newBundle.human_actions_required.push(action);
@@ -373,7 +463,12 @@ export default function ProofGate() {
     
     updateStep("compose", { status: "pass" });
     setRunning(false);
-    toast.success("Proof Gate complete! Evidence Pack copied.");
+    
+    if (validation.ok) {
+      toast.success(`✅ PROOF GATE PASS - Token: ${validation.proof_token}`);
+    } else {
+      toast.error(`❌ PROOF GATE FAIL - ${validation.errors.length} error(s)`);
+    }
   };
 
   const handleResetCounters = () => {
@@ -384,22 +479,100 @@ export default function ProofGate() {
 
   const progress = (steps.filter(s => s.status !== "pending").length / steps.length) * 100;
   const hasBlockers = preflightStatus && (!preflightStatus.ok || (preflightStatus.suspect_count ?? 0) > 0);
-  const allPass = steps.every(s => s.status === "pass" || s.status === "skip");
   const recurringIssues = getRecurringIssues(issueCounts);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl space-y-6">
       <PlatformStatusBanner preflightStatus={preflightStatus} />
       
+      {/* PROOF TOKEN BANNER - Most prominent element */}
+      {validationResult && (
+        <Card className={validationResult.ok ? "border-green-500 border-2" : "border-destructive border-2"}>
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {validationResult.ok ? (
+                  <CheckCircle2 className="h-12 w-12 text-green-500" />
+                ) : (
+                  <XCircle className="h-12 w-12 text-destructive" />
+                )}
+                <div>
+                  <div className="text-2xl font-bold">
+                    {validationResult.ok ? "✅ PASS" : "❌ FAIL"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {validationResult.errors.length} error(s), {validationResult.warnings.length} warning(s)
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <Key className="h-4 w-4" />
+                  Proof Token
+                </div>
+                <div className="font-mono text-lg bg-muted px-3 py-1 rounded flex items-center gap-2">
+                  <Hash className="h-4 w-4" />
+                  {validationResult.proof_token}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(validationResult.proof_token);
+                      toast.success("Token copied");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Validation Errors */}
+            {validationResult.errors.length > 0 && (
+              <div className="mt-4 p-3 bg-destructive/10 rounded-lg">
+                <div className="text-sm font-medium text-destructive mb-2">Validation Errors (must fix for PASS):</div>
+                <ul className="text-sm space-y-1">
+                  {validationResult.errors.map((err, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <XCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                      {err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* Validation Warnings */}
+            {validationResult.warnings.length > 0 && (
+              <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg">
+                <div className="text-sm font-medium text-yellow-600 mb-2">Warnings:</div>
+                <ul className="text-sm space-y-1">
+                  {validationResult.warnings.map((warn, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                      {warn}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-6 w-6" />
             Proof Gate
+            {validationResult && (
+              <Badge variant={validationResult.ok ? "default" : "destructive"} className="ml-2">
+                {validationResult.ok ? "VALIDATED" : "INVALID"}
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
-            One-click diagnostic that runs checks, captures evidence, and copies the Evidence Pack.
-            "This is how we prove what's true."
+            One-click diagnostic with HARD enforcement. PASS requires validateEvidencePack().ok = true.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -445,6 +618,27 @@ export default function ProofGate() {
 
           {running && <Progress value={progress} className="h-2" />}
 
+          {/* Run History Summary */}
+          {evidencePack && evidencePack.runs.length > 0 && (
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <Clock className="h-4 w-4" />
+                Run History ({evidencePack.runs.length} steps)
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {evidencePack.runs.map((run, i) => (
+                  <Badge 
+                    key={i} 
+                    variant={run.ok ? "default" : "destructive"}
+                    className="text-xs"
+                  >
+                    {run.tool_id}: {run.duration_ms}ms
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Recurring Issues Banner */}
           {recurringIssues.length > 0 && (
             <Alert variant="destructive">
@@ -474,7 +668,9 @@ export default function ProofGate() {
                 {step.status === "fail" && <XCircle className="h-5 w-5 text-destructive" />}
                 {step.status === "skip" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
                 
-                <span className="flex-1">{step.name}</span>
+                <span className={`flex-1 ${step.id === "validation" ? "font-bold" : ""}`}>
+                  {step.name}
+                </span>
                 
                 <Badge variant={
                   step.status === "pass" ? "default" :
@@ -498,62 +694,44 @@ export default function ProofGate() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>🚨 BLOCKER FOUND</AlertTitle>
               <AlertDescription className="space-y-2">
-                <ul className="list-disc pl-4 mt-2">
-                  {bundle.db_doctor_report.suspects.map((s, i) => (
-                    <li key={i}><code>{s.object}</code> ({s.type})</li>
-                  ))}
-                </ul>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={() => {
-                    const sql = bundle.db_doctor_report?.suspects?.map(s => 
-                      `-- Fix: ${s.object}\n${s.fix_sql}`
-                    ).join("\n\n");
-                    navigator.clipboard.writeText(sql || "");
-                    toast.success("Fix SQL copied");
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Fix SQL
-                </Button>
+                <p>Found {bundle.db_doctor_report.suspect_count} suspect(s)</p>
+                <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+                  {bundle.db_doctor_report.suspects.map((s: any) => s.fix_sql).join("\n\n")}
+                </pre>
               </AlertDescription>
             </Alert>
           )}
 
-          {!running && allPass && evidencePack && (
-            <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertTitle>✅ Proof Gate PASS</AlertTitle>
-              <AlertDescription>
-                All checks passed. Evidence Pack has been copied to clipboard.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {evidencePack?.human_actions_required && evidencePack.human_actions_required.length > 0 && (
+          {/* Human Actions Required */}
+          {evidencePack && evidencePack.human_actions_required.length > 0 && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Human Action Required</AlertTitle>
+              <AlertTitle>Human Actions Required</AlertTitle>
               <AlertDescription>
-                {evidencePack.human_actions_required.map((action, i) => (
-                  <div key={i} className="mt-2 p-2 bg-muted rounded">
-                    <strong>{action.action}</strong>
-                    <div className="text-sm text-muted-foreground">{action.location}</div>
-                  </div>
-                ))}
+                <ul className="mt-2 space-y-2">
+                  {evidencePack.human_actions_required.map((action, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5">{i + 1}</Badge>
+                      <div>
+                        <div className="font-medium">{action.action}</div>
+                        <div className="text-xs text-muted-foreground">Location: {action.location}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </AlertDescription>
             </Alert>
           )}
 
           {showTextarea && evidencePack && (
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Clipboard access denied. Copy from below:</p>
-              <Textarea 
-                value={JSON.stringify(evidencePack, null, 2)} 
-                readOnly 
-                className="font-mono text-xs h-64"
+              <p className="text-sm text-muted-foreground">
+                Auto-copy failed. Select all and copy manually:
+              </p>
+              <Textarea
+                value={JSON.stringify(evidencePack, null, 2)}
+                readOnly
+                className="font-mono text-xs h-96"
                 onClick={(e) => (e.target as HTMLTextAreaElement).select()}
               />
             </div>
