@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Send, User, Loader2, Check } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MessageCircle, X, Send, User, Loader2, Check, AlertTriangle, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useVisitor } from "@/contexts/VisitorContext";
@@ -17,13 +17,11 @@ type LeadData = {
   businessName: string;
   email: string;
   phone: string;
-  // Match form fields exactly
-  trade: string;           // businessType in form
-  teamSize: string;        // Solo, 2-5, 6-10, 10+ trucks
-  callVolume: string;      // <50, 50-100, 100-200, 200+
-  aiTimeline: string;      // Within 3 months, 3-6 months, etc.
-  interests: string[];     // Multi-select array
-  // Calculated fields
+  trade: string;
+  teamSize: string;
+  callVolume: string;
+  aiTimeline: string;
+  interests: string[];
   potentialLoss: number;
   conversationPhase: string;
   isQualified: boolean;
@@ -38,7 +36,18 @@ type AIResponse = {
   error?: string;
 };
 
+type RateLimitState = {
+  isRateLimited: boolean;
+  retryAfterSeconds: number;
+  countdownSeconds: number;
+  lastErrorCode: string | null;
+  lastHttpStatus: number | null;
+  timestamp: number | null;
+  networkRetries: number;
+};
+
 const ALEX_AVATAR = "/alex-avatar.png";
+const MAX_NETWORK_RETRIES = 2;
 
 const Chatbot = () => {
   const { toast } = useToast();
@@ -69,10 +78,24 @@ const Chatbot = () => {
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string }>>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  
+  // Rate limit state
+  const [rateLimitState, setRateLimitState] = useState<RateLimitState>({
+    isRateLimited: false,
+    retryAfterSeconds: 0,
+    countdownSeconds: 0,
+    lastErrorCode: null,
+    lastHttpStatus: null,
+    timestamp: null,
+    networkRetries: 0,
+  });
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const conversationStartRef = useRef<number>(Date.now());
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -124,6 +147,39 @@ const Chatbot = () => {
       }
     };
   }, [hasSubmitted, leadData]);
+
+  // Rate limit countdown timer
+  useEffect(() => {
+    if (rateLimitState.isRateLimited && rateLimitState.countdownSeconds > 0) {
+      countdownIntervalRef.current = setInterval(() => {
+        setRateLimitState(prev => {
+          const newCountdown = prev.countdownSeconds - 1;
+          if (newCountdown <= 0) {
+            return {
+              ...prev,
+              isRateLimited: false,
+              countdownSeconds: 0,
+            };
+          }
+          return { ...prev, countdownSeconds: newCountdown };
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, [rateLimitState.isRateLimited, rateLimitState.retryAfterSeconds]);
+
+  // Clear network error after 5 seconds
+  useEffect(() => {
+    if (networkError) {
+      const timeout = setTimeout(() => setNetworkError(null), 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [networkError]);
 
   const trackActivity = () => {
     lastActivityRef.current = Date.now();
@@ -295,6 +351,11 @@ Phase: ${leadData.conversationPhase}`;
   };
 
   const sendToAlex = async (newMessages: Array<{ role: string; content: string }>): Promise<AIResponse | null> => {
+    // Don't send if rate limited
+    if (rateLimitState.isRateLimited) {
+      return null;
+    }
+
     try {
       const allMessages = [...conversationHistory, ...newMessages];
       
@@ -311,7 +372,55 @@ Phase: ${leadData.conversationPhase}`;
         },
       });
 
-      if (error) throw error;
+      // Check for rate limit / quota errors in response
+      if (data?.error) {
+        const errorStr = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+        
+        // Parse error for quota/rate limit info
+        let errorInfo: { code?: string; retryAfter?: number } = {};
+        try {
+          errorInfo = typeof data.error === 'string' ? JSON.parse(data.error) : data.error;
+        } catch {
+          // Not JSON, check for keywords
+        }
+
+        const isQuotaError = errorStr.includes('QUOTA_EXCEEDED') || 
+                            errorStr.includes('rate_limit') || 
+                            errorStr.includes('429');
+        
+        if (isQuotaError) {
+          const retryAfter = errorInfo.retryAfter || 60;
+          setRateLimitState({
+            isRateLimited: true,
+            retryAfterSeconds: retryAfter,
+            countdownSeconds: retryAfter,
+            lastErrorCode: errorInfo.code || 'QUOTA_EXCEEDED',
+            lastHttpStatus: 429,
+            timestamp: Date.now(),
+            networkRetries: 0,
+          });
+          
+          toast({
+            title: "Rate limit reached",
+            description: `Too many requests. Please wait ${retryAfter} seconds.`,
+            variant: "destructive",
+          });
+          
+          // Return the fallback response from the server if available
+          if (data.text) {
+            return data as AIResponse;
+          }
+          return null;
+        }
+      }
+
+      if (error) {
+        throw error;
+      }
+      
+      // Reset network retries on success
+      setRateLimitState(prev => ({ ...prev, networkRetries: 0 }));
+      setNetworkError(null);
       
       // Update conversation history
       setConversationHistory(allMessages);
@@ -328,8 +437,44 @@ Phase: ${leadData.conversationPhase}`;
       );
       
       return responseData;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling alex-chat:", error);
+      
+      // Handle network errors (Failed to fetch)
+      const errorMessage = error?.message || String(error);
+      const isNetworkError = errorMessage.includes('Failed to fetch') || 
+                             errorMessage.includes('NetworkError') ||
+                             errorMessage.includes('network');
+      
+      if (isNetworkError) {
+        const currentRetries = rateLimitState.networkRetries;
+        if (currentRetries < MAX_NETWORK_RETRIES) {
+          setRateLimitState(prev => ({ 
+            ...prev, 
+            networkRetries: prev.networkRetries + 1,
+            lastErrorCode: 'NETWORK_ERROR',
+            lastHttpStatus: 0,
+            timestamp: Date.now(),
+          }));
+          setNetworkError(`Network error. Check connection. (Retry ${currentRetries + 1}/${MAX_NETWORK_RETRIES})`);
+        } else {
+          setNetworkError("Network error. Max retries reached. Please check your connection.");
+          setRateLimitState(prev => ({
+            ...prev,
+            lastErrorCode: 'MAX_RETRIES_EXCEEDED',
+            lastHttpStatus: 0,
+            timestamp: Date.now(),
+          }));
+        }
+      } else {
+        setRateLimitState(prev => ({
+          ...prev,
+          lastErrorCode: 'UNKNOWN_ERROR',
+          lastHttpStatus: null,
+          timestamp: Date.now(),
+        }));
+      }
+      
       return null;
     }
   };
@@ -772,7 +917,7 @@ Traffic Source: ${visitorGHLData.utm_source || visitorGHLData.referrer_source ||
                         <button
                           key={index}
                           onClick={() => handleOptionClick(option)}
-                          disabled={isSubmitting || isTyping}
+                          disabled={isSubmitting || isTyping || rateLimitState.isRateLimited}
                           className={`px-3 py-1.5 text-sm rounded-full transition-all disabled:opacity-50 flex items-center gap-1.5 ${
                             isDone
                               ? "bg-accent text-accent-foreground hover:bg-accent/90"
@@ -840,6 +985,40 @@ Traffic Source: ${visitorGHLData.utm_source || visitorGHLData.referrer_source ||
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Rate Limit Banner */}
+        {rateLimitState.isRateLimited && (
+          <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/30">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span className="text-sm font-medium">
+                Rate limit hit. Retry in {rateLimitState.countdownSeconds}s
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Network Error Banner */}
+        {networkError && !rateLimitState.isRateLimited && (
+          <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/30">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <WifiOff className="w-4 h-4 shrink-0" />
+              <span className="text-sm font-medium">{networkError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Dev Diagnostics (only in dev) */}
+        {process.env.NODE_ENV === 'development' && rateLimitState.lastErrorCode && (
+          <div className="px-4 py-1 bg-muted/50 border-t border-border text-xs font-mono text-muted-foreground">
+            <div className="flex flex-wrap gap-2">
+              <span>err: {rateLimitState.lastErrorCode}</span>
+              <span>status: {rateLimitState.lastHttpStatus ?? 'n/a'}</span>
+              <span>retry: {rateLimitState.retryAfterSeconds}s</span>
+              <span>ts: {rateLimitState.timestamp ? new Date(rateLimitState.timestamp).toLocaleTimeString() : 'n/a'}</span>
+            </div>
+          </div>
+        )}
+
         {/* Input area */}
         <div className="p-4 border-t border-border">
           <div className="flex gap-2">
@@ -847,15 +1026,22 @@ Traffic Source: ${visitorGHLData.utm_source || visitorGHLData.referrer_source ||
               type="text"
               value={inputValue}
               onChange={handleInputChange}
-              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder={isPhoneInputPhase() ? "XXX-XXX-XXXX" : "Type a message..."}
-              disabled={isSubmitting || isTyping}
+              onKeyDown={(e) => e.key === "Enter" && !rateLimitState.isRateLimited && handleSendMessage()}
+              placeholder={
+                rateLimitState.isRateLimited 
+                  ? `Wait ${rateLimitState.countdownSeconds}s...` 
+                  : isPhoneInputPhase() 
+                    ? "XXX-XXX-XXXX" 
+                    : "Type a message..."
+              }
+              disabled={isSubmitting || isTyping || rateLimitState.isRateLimited}
               className="flex-1 h-10 px-4 rounded-full border-2 border-border bg-background text-foreground focus:border-accent focus:ring-0 outline-none transition-all disabled:opacity-50"
             />
             <button
               onClick={handleSendMessage}
-              disabled={isSubmitting || isTyping || !inputValue.trim()}
+              disabled={isSubmitting || isTyping || !inputValue.trim() || rateLimitState.isRateLimited}
               className="w-10 h-10 rounded-full bg-accent text-accent-foreground flex items-center justify-center hover:bg-accent/90 transition-colors disabled:opacity-50"
+              title={rateLimitState.isRateLimited ? `Rate limited - wait ${rateLimitState.countdownSeconds}s` : 'Send message'}
             >
               <Send className="w-4 h-4" />
             </button>
