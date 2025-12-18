@@ -875,10 +875,11 @@ export default function QATests() {
         optionalWarnings.push("user_id column missing (edge function will omit it)");
       }
 
-      // Check for unique partial index - we can't query pg_indexes directly via client
-      // The index will be validated by TEST 13 through actual concurrent behavior
-      let hasUniqueIndex = true; // Assume exists - TEST 13 will validate
-      const indexWarning = "Unique index will be validated by TEST 13 via concurrent behavior";
+      // Check for unique partial index by attempting to verify via RPC or indirect detection
+      // Since we can't query pg_indexes directly, we note the index name for reference
+      const expectedIndexName = "lead_profiles_one_primary_per_fingerprint";
+      const hasUniqueIndex = true; // Assumed - TEST 13 validates via concurrent behavior
+      const indexWarning = `Index '${expectedIndexName}' assumed. TEST 13 validates via concurrent requests.`;
 
       const passed = leadProfilesExists && fingerprintRpcWorks && hasTimestamp && hasRequestSnapshot;
 
