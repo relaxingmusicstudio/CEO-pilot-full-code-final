@@ -102,6 +102,14 @@ export default function QATests() {
       testResult?: unknown;
     }>;
   } | null>(null);
+  
+  // One-Click QA orchestrator state
+  const [oneClickRunning, setOneClickRunning] = useState(false);
+  const [oneClickStep, setOneClickStep] = useState<string | null>(null);
+  const [oneClickError, setOneClickError] = useState<string | null>(null);
+
+  // Sleep helper
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
   // Detect schema on mount
   useEffect(() => {
@@ -341,16 +349,16 @@ export default function QATests() {
     );
   }
 
-  const runAllTests = async () => {
+  const runAllTests = async (): Promise<TestOutput | null> => {
     if (!tenantIdA || !tenantIdB) {
       toast.error("Please provide both Tenant IDs");
-      return;
+      return null;
     }
 
     // Validate UUIDs
     if (!isValidUuid(tenantIdA) || !isValidUuid(tenantIdB)) {
       toast.error("Tenant IDs must be valid UUIDs");
-      return;
+      return null;
     }
 
     setRunning(true);
@@ -480,6 +488,7 @@ export default function QATests() {
 
     setResults(output);
     setRunning(false);
+    return output;
   };
 
   // Build filter based on discriminator
@@ -1824,9 +1833,10 @@ export default function QATests() {
     }
   };
 
-  const copyDebugJson = async () => {
-    if (!results) return;
-    const jsonStr = JSON.stringify(results, null, 2);
+  const copyDebugJson = async (resultsOverride?: TestOutput | null) => {
+    const data = resultsOverride ?? results;
+    if (!data) return;
+    const jsonStr = JSON.stringify(data, null, 2);
     try {
       await navigator.clipboard.writeText(jsonStr);
       toast.success("Debug JSON copied");
@@ -1834,6 +1844,43 @@ export default function QATests() {
     } catch {
       toast.error("Clipboard access denied. Expanding textarea.");
       setShowJsonTextarea(true);
+    }
+  };
+
+  // One-Click QA Orchestrator
+  const runQaOneClick = async () => {
+    setOneClickRunning(true);
+    setOneClickError(null);
+    setOneClickStep(null);
+    
+    try {
+      // Step 1: Auto-fill IDs
+      setOneClickStep("Step 1/4: Auto-filling IDs…");
+      await handleAutoFill();
+      await sleep(300); // Allow state to settle
+      
+      // Step 2: Check RPC dependencies
+      setOneClickStep("Step 2/4: Checking RPC dependencies…");
+      await runRpcSmokeTest();
+      await sleep(200);
+      
+      // Step 3: Run all tests
+      setOneClickStep("Step 3/4: Running all tests…");
+      const testResults = await runAllTests();
+      await sleep(200);
+      
+      // Step 4: Copy Debug JSON
+      setOneClickStep("Step 4/4: Copying Debug JSON…");
+      await copyDebugJson(testResults);
+      
+      setOneClickStep("Done ✅");
+      toast.success("QA complete — Debug JSON copied");
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setOneClickError(errMsg);
+      toast.error(`One-click QA failed: ${errMsg}`);
+    } finally {
+      setOneClickRunning(false);
     }
   };
 
@@ -1886,19 +1933,48 @@ export default function QATests() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* ===== ONE-CLICK QA PANEL ===== */}
+          <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">🚀 One-Click QA</div>
+              <Button 
+                onClick={runQaOneClick} 
+                disabled={oneClickRunning || autoFillLoading || running || rpcSmokeTestLoading}
+                size="sm"
+              >
+                {oneClickRunning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                Run QA One-Click
+              </Button>
+            </div>
+            {oneClickStep && (
+              <div className="text-sm text-muted-foreground font-mono bg-muted/50 px-3 py-2 rounded">
+                {oneClickStep}
+              </div>
+            )}
+            {oneClickError && (
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">{oneClickError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="text-xs text-muted-foreground">
+              <strong>Tip:</strong> If Tests 11–15 fail with 500 / error_code 42704, check Edge Functions → lead-normalize → Logs
+            </div>
+          </div>
+
           {/* ===== COMMAND BUTTONS - ALWAYS VISIBLE ===== */}
           <div className="bg-muted/50 border rounded-lg p-4 space-y-3">
-            <div className="text-sm font-medium text-muted-foreground">Command Buttons</div>
+            <div className="text-sm font-medium text-muted-foreground">Individual Commands</div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleAutoFill} disabled={autoFillLoading} variant="outline" size="sm">
+              <Button onClick={handleAutoFill} disabled={autoFillLoading || oneClickRunning} variant="outline" size="sm">
                 {autoFillLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Auto-fill IDs
               </Button>
-              <Button onClick={runAllTests} disabled={running || !tenantIdA || !tenantIdB} size="sm">
+              <Button onClick={runAllTests} disabled={running || !tenantIdA || !tenantIdB || oneClickRunning} size="sm">
                 {running ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                 Run All Tests
               </Button>
-              <Button variant="outline" onClick={copyDebugJson} disabled={!results} size="sm">
+              <Button variant="outline" onClick={() => copyDebugJson()} disabled={!results} size="sm">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Debug JSON
               </Button>
@@ -1906,11 +1982,11 @@ export default function QATests() {
                 <Download className="h-4 w-4 mr-2" />
                 Download Debug JSON
               </Button>
-              <Button variant="outline" onClick={runNetworkProbe} disabled={networkProbeLoading} size="sm">
+              <Button variant="outline" onClick={runNetworkProbe} disabled={networkProbeLoading || oneClickRunning} size="sm">
                 {networkProbeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Network className="h-4 w-4 mr-2" />}
                 Network Probe (lead-normalize)
               </Button>
-              <Button variant="outline" onClick={runRpcSmokeTest} disabled={rpcSmokeTestLoading} size="sm">
+              <Button variant="outline" onClick={runRpcSmokeTest} disabled={rpcSmokeTestLoading || oneClickRunning} size="sm">
                 {rpcSmokeTestLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wifi className="h-4 w-4 mr-2" />}
                 Check RPC Dependencies
               </Button>
@@ -2014,6 +2090,7 @@ export default function QATests() {
             <div className="space-y-2">
               <Label>Alert ID from Tenant B</Label>
               <Input value={alertIdFromTenantB} onChange={(e) => setAlertIdFromTenantB(e.target.value)} className="font-mono text-xs" placeholder="UUID (optional)" />
+              <p className="text-xs text-muted-foreground">Only needed for TEST 3. If none exists, test will SKIP.</p>
             </div>
           </div>
 
