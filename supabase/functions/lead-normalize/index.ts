@@ -305,6 +305,62 @@ serve(async (req: Request): Promise<Response> => {
 
   const startTime = Date.now();
 
+  // ==================== PREFLIGHT MODE ====================
+  // If request has { mode: "preflight" }, run qa_dependency_check and return
+  try {
+    const clonedReq = req.clone();
+    const preflightBody = await clonedReq.text();
+    if (preflightBody) {
+      try {
+        const parsed = JSON.parse(preflightBody);
+        if (parsed.mode === "preflight") {
+          console.log("[lead-normalize] Preflight mode requested");
+          
+          const supabaseUrl = Deno.env.get("SUPABASE_URL");
+          const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+          
+          if (!supabaseUrl || !supabaseServiceKey) {
+            return jsonResponse({
+              ok: false,
+              mode: "preflight",
+              error: "server_config_error",
+              duration_ms: Date.now() - startTime,
+            }, 500, corsHeaders);
+          }
+          
+          const supabasePreflight = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { persistSession: false },
+          });
+          
+          const { data: report, error: rpcError } = await supabasePreflight.rpc("qa_dependency_check");
+          
+          if (rpcError) {
+            console.error("[lead-normalize] Preflight RPC error:", rpcError);
+            return jsonResponse({
+              ok: false,
+              mode: "preflight",
+              error: "preflight_rpc_failed",
+              error_code: rpcError.code,
+              error_detail: rpcError.message,
+              duration_ms: Date.now() - startTime,
+            }, 500, corsHeaders);
+          }
+          
+          return jsonResponse({
+            ok: true,
+            mode: "preflight",
+            report,
+            duration_ms: Date.now() - startTime,
+          }, 200, corsHeaders);
+        }
+      } catch {
+        // Not JSON or no mode field, continue with normal flow
+      }
+    }
+  } catch {
+    // Clone/read failed, continue with normal flow
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -493,7 +549,29 @@ serve(async (req: Request): Promise<Response> => {
 
     if (rpcError) {
       safeLog("Atomic normalize RPC failed", { error: rpcError.message, code: rpcError.code });
-      return makeErrorResponse({ error: "normalize_failed", error_code: rpcError.code, tenant_id: body.tenant_id }, 500, corsHeaders, startTime);
+      
+      // Enhanced error response with suspect parsing for 42704
+      let missingObjectSuspect: string | null = null;
+      if (rpcError.code === "42704") {
+        // Parse error message for type/enum name
+        const match = rpcError.message.match(/type "([^"]+)" does not exist/i) ||
+                      rpcError.message.match(/enum "([^"]+)" does not exist/i) ||
+                      rpcError.message.match(/"([^"]+)" does not exist/i);
+        if (match) {
+          missingObjectSuspect = match[1];
+        }
+      }
+      
+      return jsonResponse({
+        ok: false,
+        rpc_used: true,
+        tenant_id: body.tenant_id,
+        error: "normalize_failed",
+        error_code: rpcError.code,
+        error_detail: rpcError.message,
+        missing_object_suspect: missingObjectSuspect,
+        duration_ms: Date.now() - startTime,
+      }, 500, corsHeaders);
     }
 
     // Type the RPC result
