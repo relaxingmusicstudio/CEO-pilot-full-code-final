@@ -41,6 +41,18 @@ export interface HumanActionRequired {
   completed?: boolean;
 }
 
+export interface RouteNavAuditResult {
+  summary: { critical: number; warning: number; passed: number; total_tools: number };
+  findings: Array<{
+    severity: string;
+    issue_code: string;
+    tool_id: string;
+    route: string;
+    description: string;
+  }>;
+  counters: Record<string, number>;
+}
+
 export interface SupportBundle {
   // Meta
   timestamp: string;
@@ -61,6 +73,7 @@ export interface SupportBundle {
   // Diagnostics
   db_doctor_report: PreflightReport | null;
   edge_preflight: PreflightReport | null;
+  route_nav_audit: RouteNavAuditResult | null;
   
   // Recent activity
   recent_audit_logs: unknown[];
@@ -100,6 +113,7 @@ export function createEmptyBundle(): SupportBundle {
     edge_base_url: edgeBaseUrl,
     db_doctor_report: null,
     edge_preflight: null,
+    route_nav_audit: null,
     recent_audit_logs: [],
     edge_console_runs: [],
     qa_debug_json: null,

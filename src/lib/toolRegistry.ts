@@ -3,7 +3,7 @@
  * Adding new tools is as simple as adding to this registry
  */
 
-import { Shield, Database, Terminal, Cloud, UserCheck, TestTube, Building2, Clock, Flag, Table, Search } from "lucide-react";
+import { Shield, Database, Terminal, Cloud, UserCheck, TestTube, Building2, Clock, Flag, Table, Search, Map } from "lucide-react";
 
 export type AccessLevel = "authenticated" | "owner" | "admin";
 
@@ -136,6 +136,16 @@ export const platformTools: PlatformTool[] = [
     description: "Detect placeholders, stubs, and false-done patterns in source files",
     route: "/platform/placeholder-scan",
     icon: Search,
+    requires: "authenticated",
+    category: "diagnostics",
+    canRunInline: true,
+  },
+  {
+    id: "route-nav-auditor",
+    name: "Route & Nav Auditor",
+    description: "Detect routing mismatches, missing nav entries, and role gating issues",
+    route: "/platform/route-nav-auditor",
+    icon: Map,
     requires: "authenticated",
     category: "diagnostics",
     canRunInline: true,

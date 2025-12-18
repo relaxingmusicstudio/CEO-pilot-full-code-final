@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { 
   Copy, Download, Wrench, Shield, CheckCircle2, XCircle, 
-  AlertTriangle, Clock, ExternalLink, Play, Info
+  AlertTriangle, Clock, ExternalLink, Play, Info, Search
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ export default function ToolsHub() {
   const [toolRuns, setToolRuns] = useState<ToolRunResult[]>([]);
   const [blockers, setBlockers] = useState<BlockerItem[]>([]);
   const [tenantIds, setTenantIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "(not set)";
   const edgeBaseUrl = supabaseUrl !== "(not set)" ? `${supabaseUrl}/functions/v1` : "(not set)";
@@ -59,6 +61,15 @@ export default function ToolsHub() {
   }, []);
 
   const availableTools = getToolsForAccessLevel(isAdmin ?? false, isOwner ?? false);
+  
+  // Filter tools based on search query
+  const filteredTools = searchQuery.trim()
+    ? availableTools.filter(t => 
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.route.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : availableTools;
 
   const copyAllContext = () => {
     const context = {
@@ -99,7 +110,7 @@ export default function ToolsHub() {
   };
 
   const getCategoryTools = (category: PlatformTool["category"]) => {
-    return availableTools.filter(t => t.category === category && t.id !== "tools-hub");
+    return filteredTools.filter(t => t.category === category && t.id !== "tools-hub");
   };
 
   const handleToolRerun = (toolId: string) => {
@@ -150,7 +161,18 @@ export default function ToolsHub() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Search Input - "Find My Page" */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Find a tool... (e.g., 'proof', 'route', 'schema')"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
           {/* Capabilities Panel */}
           <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
