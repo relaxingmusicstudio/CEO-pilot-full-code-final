@@ -118,10 +118,12 @@ export default function QATests() {
     const schemaCheck = await runSchemaSanityCheck();
     tests.push(schemaCheck);
 
-    // TEST 11 & 12: Only run if schema is valid
+    // TEST 11-14: Only run if schema is valid
     if (schemaCheck.status === "pass") {
       tests.push(await runLeadNormalizationTest(tenantIdA));
       tests.push(await runDedupProofTest(tenantIdA));
+      tests.push(await runPrimaryProfileUniquenessTest(tenantIdA));
+      tests.push(await runRateLimitTest(tenantIdA));
     } else {
       tests.push({
         name: "TEST 11 - Lead Normalization",
@@ -131,6 +133,18 @@ export default function QATests() {
       });
       tests.push({
         name: "TEST 12 - Dedup Proof",
+        status: "error",
+        details: { skipped: true, reason: "Schema sanity check failed" },
+        duration_ms: 0,
+      });
+      tests.push({
+        name: "TEST 13 - Primary Profile Uniqueness",
+        status: "error",
+        details: { skipped: true, reason: "Schema sanity check failed" },
+        duration_ms: 0,
+      });
+      tests.push({
+        name: "TEST 14 - Rate Limit",
         status: "error",
         details: { skipped: true, reason: "Schema sanity check failed" },
         duration_ms: 0,
@@ -861,6 +875,11 @@ export default function QATests() {
         optionalWarnings.push("user_id column missing (edge function will omit it)");
       }
 
+      // Check for unique partial index - we can't query pg_indexes directly via client
+      // The index will be validated by TEST 13 through actual concurrent behavior
+      let hasUniqueIndex = true; // Assume exists - TEST 13 will validate
+      const indexWarning = "Unique index will be validated by TEST 13 via concurrent behavior";
+
       const passed = leadProfilesExists && fingerprintRpcWorks && hasTimestamp && hasRequestSnapshot;
 
       return {
@@ -882,6 +901,10 @@ export default function QATests() {
             fingerprint_rpc_works: fingerprintRpcWorks,
             timestamp_column: hasTimestamp,
             request_snapshot_column: hasRequestSnapshot,
+          },
+          unique_index: {
+            assumed_exists: hasUniqueIndex,
+            warning: indexWarning,
           },
           optional_warnings: optionalWarnings.length > 0 ? optionalWarnings : undefined,
         },
@@ -1270,6 +1293,210 @@ export default function QATests() {
           })),
           has_audit_trail: hasAuditEntries,
         },
+        duration_ms: Date.now() - start,
+      };
+    } catch (err) {
+      return {
+        name,
+        status: "error",
+        details: { exception: err instanceof Error ? err.stack : String(err) },
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
+    }
+  };
+
+  // TEST 13: Primary Profile Uniqueness (concurrent requests)
+  const runPrimaryProfileUniquenessTest = async (tenantId: string): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 13 - Primary Profile Uniqueness";
+    const testNonce = `qa_uniq_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        return {
+          name,
+          status: "error",
+          details: { reason: "No auth session" },
+          error: "Must be logged in to run this test",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const testEmail = `unique_${testNonce}@qatest.local`;
+      const testPhone = "5551234567";
+
+      // Fire two simultaneous requests with same data
+      const makeRequest = () =>
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-normalize`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            lead: {
+              email: testEmail,
+              phone: testPhone,
+              source: "qa_uniqueness_test",
+            },
+          }),
+        }).then(async (r) => ({
+          ok: r.ok,
+          status: r.status,
+          body: await r.json().catch(() => ({})),
+        }));
+
+      // Fire both requests simultaneously
+      const [result1, result2] = await Promise.all([makeRequest(), makeRequest()]);
+
+      if (!result1.ok || !result2.ok) {
+        return {
+          name,
+          status: "fail",
+          details: { result1, result2 },
+          error: `One or both requests failed: r1=${result1.status}, r2=${result2.status}`,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const fingerprint = result1.body.fingerprint || result2.body.fingerprint;
+
+      // Verify only ONE primary profile exists
+      const { data: profiles, error: profileError } = await supabase
+        .from("lead_profiles")
+        .select("id, is_primary, fingerprint")
+        .eq("tenant_id", tenantId)
+        .eq("fingerprint", fingerprint)
+        .eq("is_primary", true);
+
+      if (profileError) {
+        return {
+          name,
+          status: "error",
+          details: { db_error: profileError.message },
+          error: profileError.message,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const primaryCount = profiles?.length || 0;
+      const statuses = [result1.body.status, result2.body.status].sort();
+
+      // One should be created, one should be deduped (or both deduped if very fast)
+      const validStatuses =
+        (statuses[0] === "created" && statuses[1] === "deduped") ||
+        (statuses[0] === "deduped" && statuses[1] === "deduped");
+
+      const passed = primaryCount === 1 && validStatuses;
+
+      return {
+        name,
+        status: passed ? "pass" : "fail",
+        details: {
+          result1_status: result1.body.status,
+          result2_status: result2.body.status,
+          fingerprint,
+          primary_profiles_found: primaryCount,
+          valid_status_combination: validStatuses,
+          profiles: profiles?.map((p) => ({ id: p.id, is_primary: p.is_primary })),
+        },
+        error: !passed
+          ? primaryCount !== 1
+            ? `Expected 1 primary profile, found ${primaryCount}. Missing unique partial index or non-atomic create path.`
+            : `Invalid status combination: ${statuses.join(", ")}`
+          : undefined,
+        duration_ms: Date.now() - start,
+      };
+    } catch (err) {
+      return {
+        name,
+        status: "error",
+        details: { exception: err instanceof Error ? err.stack : String(err) },
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
+    }
+  };
+
+  // TEST 14: Rate Limit
+  const runRateLimitTest = async (tenantId: string): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 14 - Rate Limit";
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        return {
+          name,
+          status: "error",
+          details: { reason: "No auth session" },
+          error: "Must be logged in to run this test",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const testNonce = `qa_rate_${Date.now()}`;
+      let got429 = false;
+      let totalRequests = 0;
+      const results: { status: number; ok: boolean }[] = [];
+
+      // Fire 70 requests rapidly
+      const makeRequest = (i: number) =>
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-normalize`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            lead: {
+              email: `rate_${testNonce}_${i}@qatest.local`,
+              phone: `555000${String(i).padStart(4, "0")}`,
+              source: "qa_rate_test",
+            },
+          }),
+        }).then((r) => {
+          totalRequests++;
+          if (r.status === 429) got429 = true;
+          return { status: r.status, ok: r.ok };
+        });
+
+      // Fire in batches to avoid connection limits
+      const batchSize = 10;
+      for (let batch = 0; batch < 7; batch++) {
+        const promises = [];
+        for (let i = 0; i < batchSize; i++) {
+          promises.push(makeRequest(batch * batchSize + i));
+        }
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+        
+        // Check if we got 429 already
+        if (got429) break;
+      }
+
+      const count429 = results.filter((r) => r.status === 429).length;
+      const countOk = results.filter((r) => r.ok).length;
+
+      return {
+        name,
+        status: got429 ? "pass" : "fail",
+        details: {
+          total_requests: totalRequests,
+          count_429: count429,
+          count_ok: countOk,
+          got_rate_limited: got429,
+          hint: !got429 ? "Rate limit not triggered - check RATE_LIMIT_MAX setting" : undefined,
+        },
+        error: !got429 ? `Expected at least one 429 response, got none after ${totalRequests} requests` : undefined,
         duration_ms: Date.now() - start,
       };
     } catch (err) {

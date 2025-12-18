@@ -6969,6 +6969,27 @@ export type Database = {
           },
         ]
       }
+      request_nonces: {
+        Row: {
+          created_at: string
+          id: string
+          nonce: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nonce: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nonce?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       revenue_attribution: {
         Row: {
           agent_contributions: Json | null

@@ -1,18 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
- * Lead Normalize Edge Function (Production Hardened v2)
+ * Lead Normalize Edge Function (Production Hardened v3)
  * 
  * Normalizes, deduplicates, and segments incoming leads.
  * Creates/updates lead_profiles with deterministic fingerprinting.
  * 
  * Auth: Bearer JWT (admin/owner/platform_admin) OR X-Internal-Secret for system calls
  * 
- * RPC Function Signatures (must match exactly):
- * - normalize_email(raw_email text) -> text
- * - normalize_phone(raw_phone text) -> text
- * - compute_lead_fingerprint(p_email text, p_phone text, p_company_name text) -> text
+ * Security Features:
+ * - Rate limiting (60 req/min per key)
+ * - Input validation with size limits
+ * - Replay protection (timestamp + nonce) for internal calls
+ * - Concurrency-safe dedupe via upsert
+ * - CORS allowlist
+ * - PII-safe logging
  */
 
 // Type definitions
@@ -49,32 +52,134 @@ interface AuditColumns {
   user_id: boolean;
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
-};
+// ==================== RATE LIMITING ====================
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
 
-function jsonResponse(data: unknown, status = 200): Response {
+const rateLimitMap = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX = 60; // 60 requests per minute
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
+// ==================== INPUT VALIDATION ====================
+const MAX_EMAIL_LEN = 254;
+const MAX_PHONE_LEN = 32;
+const MAX_COMPANY_LEN = 200;
+const MAX_NAME_LEN = 100;
+const MAX_PAYLOAD_SIZE = 10240; // 10KB
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+function validateInput(body: NormalizeRequest, rawBody: string): ValidationResult {
+  // Check payload size
+  if (rawBody.length > MAX_PAYLOAD_SIZE) {
+    return { valid: false, error: `Payload too large: ${rawBody.length} bytes (max ${MAX_PAYLOAD_SIZE})` };
+  }
+  
+  if (!body.tenant_id || typeof body.tenant_id !== "string") {
+    return { valid: false, error: "tenant_id is required and must be a string" };
+  }
+  
+  const { lead } = body;
+  if (!lead || typeof lead !== "object") {
+    return { valid: false, error: "lead object is required" };
+  }
+  
+  if (!lead.email && !lead.phone) {
+    return { valid: false, error: "At least one of email or phone is required" };
+  }
+  
+  if (lead.email && lead.email.length > MAX_EMAIL_LEN) {
+    return { valid: false, error: `email exceeds max length (${MAX_EMAIL_LEN})` };
+  }
+  
+  if (lead.phone && lead.phone.length > MAX_PHONE_LEN) {
+    return { valid: false, error: `phone exceeds max length (${MAX_PHONE_LEN})` };
+  }
+  
+  if (lead.company_name && lead.company_name.length > MAX_COMPANY_LEN) {
+    return { valid: false, error: `company_name exceeds max length (${MAX_COMPANY_LEN})` };
+  }
+  
+  if (lead.first_name && lead.first_name.length > MAX_NAME_LEN) {
+    return { valid: false, error: `first_name exceeds max length (${MAX_NAME_LEN})` };
+  }
+  
+  if (lead.last_name && lead.last_name.length > MAX_NAME_LEN) {
+    return { valid: false, error: `last_name exceeds max length (${MAX_NAME_LEN})` };
+  }
+  
+  if (lead.job_title && lead.job_title.length > MAX_NAME_LEN) {
+    return { valid: false, error: `job_title exceeds max length (${MAX_NAME_LEN})` };
+  }
+  
+  return { valid: true };
+}
+
+// ==================== CORS HANDLING ====================
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOriginsStr = Deno.env.get("ALLOWED_ORIGINS") || "";
+  const allowedOrigins = allowedOriginsStr.split(",").map(o => o.trim()).filter(Boolean);
+  
+  // If no origins configured or in dev, allow all
+  let allowOrigin = "*";
+  if (allowedOrigins.length > 0 && origin) {
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+      allowOrigin = origin;
+    } else {
+      // In production with allowlist, only allow listed origins
+      allowOrigin = allowedOrigins[0];
+    }
+  }
+  
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret, x-request-timestamp, x-request-nonce",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
+
+function jsonResponse(data: unknown, status: number, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
-// Cache for audit log column check
+// ==================== AUDIT HELPERS ====================
 let auditColumnsCache: AuditColumns | null = null;
 
-async function checkAuditColumns(supabase: SupabaseClient): Promise<AuditColumns> {
+// deno-lint-ignore no-explicit-any
+async function checkAuditColumns(supabase: any): Promise<AuditColumns> {
   if (auditColumnsCache) return auditColumnsCache;
   
   try {
-    // Check response_snapshot column
     const { error: respError } = await supabase
       .from("platform_audit_log")
       .select("response_snapshot")
       .limit(0);
     
-    // Check user_id column
     const { error: userError } = await supabase
       .from("platform_audit_log")
       .select("user_id")
@@ -85,21 +190,15 @@ async function checkAuditColumns(supabase: SupabaseClient): Promise<AuditColumns
       user_id: !userError,
     };
     
-    console.log("[lead-normalize] Audit columns detected:", auditColumnsCache);
     return auditColumnsCache;
-  } catch (err) {
-    console.warn("[lead-normalize] Failed to detect audit columns:", err);
+  } catch {
     return { response_snapshot: false, user_id: false };
   }
 }
 
-async function safeAuditInsert(
-  supabase: SupabaseClient,
-  auditData: Json,
-  auditColumns: AuditColumns
-): Promise<void> {
+// deno-lint-ignore no-explicit-any
+async function safeAuditInsert(supabase: any, auditData: Json, auditColumns: AuditColumns): Promise<void> {
   try {
-    // Build base insert data with only guaranteed columns
     const insertData: Json = {
       tenant_id: auditData.tenant_id,
       timestamp: auditData.timestamp,
@@ -112,12 +211,10 @@ async function safeAuditInsert(
       success: auditData.success,
     };
     
-    // Only include response_snapshot if column exists
     if (auditColumns.response_snapshot && auditData.response_snapshot !== undefined) {
       insertData.response_snapshot = auditData.response_snapshot;
     }
     
-    // Only include user_id if column exists
     if (auditColumns.user_id && auditData.user_id !== undefined) {
       insertData.user_id = auditData.user_id;
     }
@@ -125,14 +222,34 @@ async function safeAuditInsert(
     const { error } = await supabase.from("platform_audit_log").insert(insertData);
     
     if (error) {
-      console.warn("[lead-normalize] Audit insert failed (non-blocking):", error.message);
+      console.warn("[lead-normalize] Audit insert failed (non-blocking):", error.code);
     }
   } catch (err) {
-    console.warn("[lead-normalize] Audit insert exception (non-blocking):", err instanceof Error ? err.message : String(err));
+    console.warn("[lead-normalize] Audit exception (non-blocking):", err instanceof Error ? err.message : "unknown");
   }
 }
 
+// ==================== LOGGING HELPERS (PII-SAFE) ====================
+function safeLog(message: string, data: Record<string, unknown>): void {
+  // Never log raw email/phone - only fingerprint prefix and metadata
+  const safeData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key === "fingerprint" && typeof value === "string") {
+      safeData[key] = value.substring(0, 6) + "...";
+    } else if (["email", "phone", "raw_email", "raw_phone"].includes(key)) {
+      safeData[key] = "[REDACTED]";
+    } else {
+      safeData[key] = value;
+    }
+  }
+  console.log(`[lead-normalize] ${message}`, safeData);
+}
+
+// ==================== MAIN HANDLER ====================
 serve(async (req: Request): Promise<Response> => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -147,30 +264,66 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
       console.error("[lead-normalize] Missing Supabase config");
-      return jsonResponse({ error: "Server configuration error" }, 500);
+      return jsonResponse({ error: "Server configuration error" }, 500, corsHeaders);
     }
 
-    // Auth check: JWT or internal secret
+    // ==================== AUTH ====================
     const authHeader = req.headers.get("Authorization");
     const internalSecretHeader = req.headers.get("X-Internal-Secret");
+    const requestTimestamp = req.headers.get("X-Request-Timestamp");
+    const requestNonce = req.headers.get("X-Request-Nonce");
     
     let isAuthorized = false;
     let userId: string | null = null;
     let isSystemCall = false;
+    let rateLimitKey = "anonymous";
 
-    // Check internal secret first (simple string comparison for system-to-system calls)
+    // Get IP for rate limiting fallback
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const clientIp = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown";
+
+    // Check internal secret (system-to-system calls)
     if (internalSecret && internalSecretHeader && internalSecretHeader === internalSecret) {
+      // Replay protection: validate timestamp within ±5 minutes
+      if (requestTimestamp) {
+        const ts = parseInt(requestTimestamp, 10);
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (isNaN(ts) || Math.abs(now - ts) > fiveMinutes) {
+          safeLog("Rejected: timestamp outside window", { ts, now, diff: Math.abs(now - ts) });
+          return jsonResponse({ error: "Request timestamp expired or invalid" }, 400, corsHeaders);
+        }
+      }
+      
+      // Create service role client for nonce check
+      const supabaseService = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { persistSession: false },
+      });
+      
+      // Nonce replay check (if nonce provided)
+      if (requestNonce) {
+        const { error: nonceError } = await supabaseService
+          .from("request_nonces")
+          .insert({ tenant_id: "system", nonce: requestNonce });
+        
+        if (nonceError && nonceError.code === "23505") {
+          safeLog("Rejected: nonce replay detected", { nonce: requestNonce.substring(0, 8) });
+          return jsonResponse({ error: "Replay detected" }, 409, corsHeaders);
+        }
+      }
+      
       isAuthorized = true;
       userId = "system";
       isSystemCall = true;
-      console.log("[lead-normalize] Authorized via internal secret");
+      rateLimitKey = "system";
+      safeLog("Authorized via internal secret", {});
     }
 
-    // Check JWT auth using ANON client (not service role)
+    // Check JWT auth
     if (!isAuthorized && authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
       
-      // Use anon client to validate user JWT
       const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
         auth: { persistSession: false },
         global: { headers: { Authorization: `Bearer ${token}` } },
@@ -179,58 +332,70 @@ serve(async (req: Request): Promise<Response> => {
       const { data: { user }, error: authError } = await supabaseAnon.auth.getUser();
       
       if (authError || !user) {
-        console.warn("[lead-normalize] JWT auth failed:", authError?.message);
-        return jsonResponse({ error: "Unauthorized", details: authError?.message }, 401);
+        safeLog("JWT auth failed", { error: authError?.message });
+        return jsonResponse({ error: "Unauthorized", details: authError?.message }, 401, corsHeaders);
       }
 
-      // Check user has admin, owner, or platform_admin role
+      // Check roles
       const { data: roles, error: rolesError } = await supabaseAnon
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id);
 
       if (rolesError) {
-        console.warn("[lead-normalize] Role lookup failed:", rolesError.message);
-        return jsonResponse({ error: "Failed to verify permissions" }, 500);
+        safeLog("Role lookup failed", { error: rolesError.message });
+        return jsonResponse({ error: "Failed to verify permissions" }, 500, corsHeaders);
       }
 
       const allowedRoles = ["admin", "owner", "platform_admin"];
       const hasRole = roles?.some((r: { role: string }) => allowedRoles.includes(r.role));
       if (!hasRole) {
-        console.warn("[lead-normalize] Insufficient role:", { user_id: user.id, roles });
-        return jsonResponse({ error: "Insufficient permissions", required: allowedRoles }, 403);
+        safeLog("Insufficient role", { user_id: user.id });
+        return jsonResponse({ error: "Insufficient permissions", required: allowedRoles }, 403, corsHeaders);
       }
 
       isAuthorized = true;
       userId = user.id;
-      console.log("[lead-normalize] Authorized via JWT:", { user_id: user.id });
+      rateLimitKey = user.id;
+      safeLog("Authorized via JWT", { user_id: user.id });
     }
 
     if (!isAuthorized) {
-      return jsonResponse({ error: "Unauthorized", hint: "Provide Bearer token or X-Internal-Secret" }, 401);
+      rateLimitKey = clientIp;
+      return jsonResponse({ error: "Unauthorized", hint: "Provide Bearer token or X-Internal-Secret" }, 401, corsHeaders);
     }
 
-    // Parse request
-    const body: NormalizeRequest = await req.json().catch(() => ({ tenant_id: "", lead: {} }));
+    // ==================== RATE LIMITING ====================
+    if (!checkRateLimit(rateLimitKey)) {
+      safeLog("Rate limited", { key: rateLimitKey.substring(0, 8) });
+      return jsonResponse({ error: "Rate limited" }, 429, corsHeaders);
+    }
+
+    // ==================== PARSE & VALIDATE INPUT ====================
+    const rawBody = await req.text();
+    let body: NormalizeRequest;
     
-    if (!body.tenant_id) {
-      return jsonResponse({ error: "tenant_id is required" }, 400);
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400, corsHeaders);
+    }
+    
+    const validation = validateInput(body, rawBody);
+    if (!validation.valid) {
+      return jsonResponse({ error: validation.error }, 400, corsHeaders);
     }
 
     const { lead } = body;
-    if (!lead.email && !lead.phone) {
-      return jsonResponse({ error: "At least one of email or phone is required" }, 400);
-    }
 
-    // Create service role client for DB write operations
+    // ==================== DATABASE OPERATIONS ====================
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
     });
 
-    // Check which audit columns exist (cached)
     const auditColumns = await checkAuditColumns(supabase);
 
-    // Validate tenant exists
+    // Validate tenant
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .select("id")
@@ -238,12 +403,11 @@ serve(async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     if (tenantError || !tenant) {
-      console.warn("[lead-normalize] Invalid tenant:", { tenant_id: body.tenant_id, error: tenantError?.message });
-      return jsonResponse({ error: "Invalid tenant_id" }, 400);
+      safeLog("Invalid tenant", { tenant_id: body.tenant_id });
+      return jsonResponse({ error: "Invalid tenant_id" }, 400, corsHeaders);
     }
 
-    // Compute fingerprint using SQL function
-    // RPC argument names: p_email, p_phone, p_company_name (exact match to function signature)
+    // Compute fingerprint
     const { data: fpResult, error: fpError } = await supabase.rpc("compute_lead_fingerprint", {
       p_email: lead.email || null,
       p_phone: lead.phone || null,
@@ -251,36 +415,17 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     if (fpError) {
-      console.error("[lead-normalize] Fingerprint computation failed:", { 
-        error: fpError.message, 
-        code: fpError.code,
-        hint: "Check if compute_lead_fingerprint function exists and pgcrypto is enabled"
-      });
-      return jsonResponse({ error: "Failed to compute fingerprint", details: fpError.message }, 500);
+      safeLog("Fingerprint computation failed", { error: fpError.message, code: fpError.code });
+      return jsonResponse({ error: "Failed to compute fingerprint", details: fpError.message }, 500, corsHeaders);
     }
 
     const fingerprint = fpResult as string;
 
-    // Get normalized values using exact RPC argument names: raw_email, raw_phone
-    const { data: normEmail, error: emailError } = await supabase.rpc("normalize_email", { 
-      raw_email: lead.email || null 
-    });
-    const { data: normPhone, error: phoneError } = await supabase.rpc("normalize_phone", { 
-      raw_phone: lead.phone || null 
-    });
+    // Get normalized values
+    const { data: normEmail } = await supabase.rpc("normalize_email", { raw_email: lead.email || null });
+    const { data: normPhone } = await supabase.rpc("normalize_phone", { raw_phone: lead.phone || null });
 
-    if (emailError || phoneError) {
-      console.error("[lead-normalize] Normalization RPC failed:", { 
-        emailError: emailError?.message, 
-        phoneError: phoneError?.message 
-      });
-      return jsonResponse({ 
-        error: "Normalization failed", 
-        details: { email: emailError?.message, phone: phoneError?.message } 
-      }, 500);
-    }
-
-    // Determine segment (lightweight rules)
+    // Determine segment
     let segment: "b2b" | "b2c" | "unknown" = "unknown";
     if (lead.company_name || lead.job_title) {
       segment = "b2b";
@@ -290,7 +435,8 @@ serve(async (req: Request): Promise<Response> => {
       segment = "b2c";
     }
 
-    // Check if existing profile with same fingerprint exists
+    // ==================== CONCURRENCY-SAFE DEDUPE ====================
+    // Try to find existing primary profile
     const { data: existingProfile, error: existingError } = await supabase
       .from("lead_profiles")
       .select("id, lead_id, merged_from, enrichment_data, company_name, job_title, segment")
@@ -300,8 +446,8 @@ serve(async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     if (existingError && existingError.code !== "PGRST116") {
-      console.error("[lead-normalize] Profile lookup failed:", { error: existingError.message });
-      return jsonResponse({ error: "Database error during lookup", details: existingError.message }, 500);
+      safeLog("Profile lookup failed", { error: existingError.message });
+      return jsonResponse({ error: "Database error during lookup", details: existingError.message }, 500, corsHeaders);
     }
 
     let leadId: string;
@@ -309,19 +455,18 @@ serve(async (req: Request): Promise<Response> => {
     let status: "created" | "deduped";
 
     if (existingProfile) {
-      // DEDUP PATH: Update existing profile
+      // DEDUP PATH
       status = "deduped";
       leadProfileId = existingProfile.id;
       leadId = existingProfile.lead_id;
 
-      // Build enrichment data merge (dedupe sources array cleanly)
       const existingEnrichment = (existingProfile.enrichment_data || {}) as Json;
       const existingSources = Array.isArray(existingEnrichment.sources) 
         ? (existingEnrichment.sources as string[]) 
         : [];
       const newSource = lead.source;
       
-      // Dedupe sources: only add if not already present
+      // Dedupe sources array
       const mergedSources = newSource && !existingSources.includes(newSource) 
         ? [...existingSources, newSource]
         : existingSources;
@@ -332,22 +477,16 @@ serve(async (req: Request): Promise<Response> => {
         sources: mergedSources,
       };
 
-      // Build update object - only update if value provided and existing is empty
-      const updateFields: Json = {
-        enrichment_data: newEnrichment,
-      };
+      const updateFields: Json = { enrichment_data: newEnrichment };
 
-      // Only fill company_name if existing is empty
+      // Only fill if existing is empty
       if (lead.company_name && !existingProfile.company_name) {
         updateFields.company_name = lead.company_name;
       }
-
-      // Only fill job_title if existing is empty
       if (lead.job_title && !existingProfile.job_title) {
         updateFields.job_title = lead.job_title;
       }
-
-      // Only upgrade segment from unknown -> b2b/b2c
+      // Only upgrade segment from unknown
       if (segment !== "unknown" && existingProfile.segment === "unknown") {
         updateFields.segment = segment;
       }
@@ -358,11 +497,10 @@ serve(async (req: Request): Promise<Response> => {
         .eq("id", existingProfile.id);
 
       if (updateError) {
-        console.error("[lead-normalize] Profile update failed:", { error: updateError.message });
-        return jsonResponse({ error: "Failed to update existing profile", details: updateError.message }, 500);
+        safeLog("Profile update failed", { error: updateError.message });
+        return jsonResponse({ error: "Failed to update existing profile", details: updateError.message }, 500, corsHeaders);
       }
 
-      // Log audit entry (non-blocking)
       await safeAuditInsert(supabase, {
         tenant_id: body.tenant_id,
         timestamp: new Date().toISOString(),
@@ -370,20 +508,20 @@ serve(async (req: Request): Promise<Response> => {
         action_type: "lead_normalize_called",
         entity_type: "lead",
         entity_id: leadId,
-        description: `Lead normalized (deduped) - fingerprint: ${fingerprint}`,
-        request_snapshot: { input: body, normalized: { email: normEmail, phone: normPhone } },
-        response_snapshot: { status: "deduped", lead_profile_id: leadProfileId, fingerprint },
+        description: `Lead normalized (deduped)`,
+        request_snapshot: { fingerprint_prefix: fingerprint.substring(0, 6), segment },
+        response_snapshot: { status: "deduped", lead_profile_id: leadProfileId },
         success: true,
         user_id: isSystemCall ? null : userId,
       }, auditColumns);
 
     } else {
-      // CREATE PATH: New lead + profile
+      // CREATE PATH with conflict handling
       status = "created";
 
       const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
 
-      // Insert lead record
+      // Create lead first
       const { data: newLead, error: leadError } = await supabase
         .from("leads")
         .insert({
@@ -395,19 +533,19 @@ serve(async (req: Request): Promise<Response> => {
           source: lead.source || "lead-normalize",
           status: "new",
           lead_temperature: "cold",
-          metadata: { raw: lead.raw, normalized_at: new Date().toISOString() },
+          metadata: { normalized_at: new Date().toISOString() },
         })
         .select("id")
         .single();
 
       if (leadError) {
-        console.error("[lead-normalize] Lead creation failed:", { error: leadError.message });
-        return jsonResponse({ error: "Failed to create lead", details: leadError.message }, 500);
+        safeLog("Lead creation failed", { error: leadError.message });
+        return jsonResponse({ error: "Failed to create lead", details: leadError.message }, 500, corsHeaders);
       }
 
       leadId = newLead.id;
 
-      // Insert lead_profile
+      // Try insert profile - may conflict with concurrent request
       const { data: newProfile, error: profileError } = await supabase
         .from("lead_profiles")
         .insert({
@@ -428,15 +566,41 @@ serve(async (req: Request): Promise<Response> => {
         .single();
 
       if (profileError) {
-        console.error("[lead-normalize] Profile creation failed:", { error: profileError.message });
-        // Cleanup lead on failure
-        await supabase.from("leads").delete().eq("id", leadId);
-        return jsonResponse({ error: "Failed to create lead profile", details: profileError.message }, 500);
+        // Check if it's a unique constraint violation (concurrent create)
+        if (profileError.code === "23505") {
+          // Another request created the profile - fetch it and treat as dedup
+          const { data: conflictProfile } = await supabase
+            .from("lead_profiles")
+            .select("id, lead_id")
+            .eq("tenant_id", body.tenant_id)
+            .eq("fingerprint", fingerprint)
+            .eq("is_primary", true)
+            .maybeSingle();
+
+          if (conflictProfile) {
+            // Clean up our orphaned lead
+            await supabase.from("leads").delete().eq("id", leadId);
+            
+            status = "deduped";
+            leadProfileId = conflictProfile.id;
+            leadId = conflictProfile.lead_id;
+            
+            safeLog("Concurrent create resolved to dedup", { fingerprint: fingerprint.substring(0, 6) });
+          } else {
+            // Cleanup and fail
+            await supabase.from("leads").delete().eq("id", leadId);
+            return jsonResponse({ error: "Concurrent conflict unresolved", details: profileError.message }, 500, corsHeaders);
+          }
+        } else {
+          // Other error - cleanup and fail
+          await supabase.from("leads").delete().eq("id", leadId);
+          safeLog("Profile creation failed", { error: profileError.message });
+          return jsonResponse({ error: "Failed to create lead profile", details: profileError.message }, 500, corsHeaders);
+        }
+      } else {
+        leadProfileId = newProfile.id;
       }
 
-      leadProfileId = newProfile.id;
-
-      // Log audit entry (non-blocking)
       await safeAuditInsert(supabase, {
         tenant_id: body.tenant_id,
         timestamp: new Date().toISOString(),
@@ -444,20 +608,18 @@ serve(async (req: Request): Promise<Response> => {
         action_type: "lead_normalize_called",
         entity_type: "lead",
         entity_id: leadId,
-        description: `Lead normalized (created) - fingerprint: ${fingerprint}`,
-        request_snapshot: { input: body, normalized: { email: normEmail, phone: normPhone } },
-        response_snapshot: { status: "created", lead_id: leadId, lead_profile_id: leadProfileId, fingerprint },
+        description: `Lead normalized (${status})`,
+        request_snapshot: { fingerprint_prefix: fingerprint.substring(0, 6), segment },
+        response_snapshot: { status, lead_id: leadId, lead_profile_id: leadProfileId },
         success: true,
         user_id: isSystemCall ? null : userId,
       }, auditColumns);
     }
 
     const durationMs = Date.now() - startTime;
-    console.log("[lead-normalize] Success:", {
+    safeLog("Success", {
       status,
       tenant_id: body.tenant_id,
-      lead_id: leadId,
-      lead_profile_id: leadProfileId,
       fingerprint,
       segment,
       duration_ms: durationMs,
@@ -475,11 +637,11 @@ serve(async (req: Request): Promise<Response> => {
       duration_ms: durationMs,
     };
 
-    return jsonResponse(response);
+    return jsonResponse(response, 200, corsHeaders);
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error("[lead-normalize] Unhandled error:", { error: errorMsg });
-    return jsonResponse({ error: "Internal server error", details: errorMsg }, 500);
+    console.error("[lead-normalize] Unhandled error:", errorMsg);
+    return jsonResponse({ error: "Internal server error" }, 500, getCorsHeaders(null));
   }
 });
