@@ -9821,6 +9821,12 @@ export type Database = {
         }
         Returns: string
       }
+      qa_dependency_check: { Args: never; Returns: Json }
+      qa_seed_ceo_alerts: { Args: { p_tenant_id: string }; Returns: string }
+      qa_seed_minimal_lead_data: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       reconcile_scheduler_pg_net: { Args: never; Returns: Json }
       record_budget_usage: {
         Args: {
