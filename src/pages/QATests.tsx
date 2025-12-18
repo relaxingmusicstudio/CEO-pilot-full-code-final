@@ -54,6 +54,8 @@ interface EscapeHatchBundle {
   timestamp: string;
   user_id: string | null;
   role: string | null;
+  isOwner: boolean;
+  isAdmin: boolean;
   supabase_url: string | null;
   edge_base_url: string | null;
   preflight_report: PreflightReport | null;
@@ -299,6 +301,8 @@ export default function QATests() {
       timestamp: new Date().toISOString(),
       user_id: user?.id || null,
       role: role || null,
+      isOwner: isOwner ?? false,
+      isAdmin: isAdmin ?? false,
       supabase_url: supabaseUrl,
       edge_base_url: edgeBaseUrl,
       preflight_report: preflight,
@@ -475,18 +479,14 @@ Filter by recent errors or search for "normalize_failed"`;
               <ExternalLink className="h-4 w-4 mr-2" />
               Copy Logs Instruction
             </Button>
-            {results && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => copyBundle(generateBundle(preflightReport, seedResults, results))}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Bundle
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => downloadBundle(generateBundle(preflightReport, seedResults, results))}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Bundle
-                </Button>
-              </>
-            )}
+            <Button variant="outline" size="sm" onClick={() => copyBundle(generateBundle(preflightReport, seedResults, results))}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy Bundle
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadBundle(generateBundle(preflightReport, seedResults, results))}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Bundle
+            </Button>
           </div>
           
           {escapeHatchStep && (
