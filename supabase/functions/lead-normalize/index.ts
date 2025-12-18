@@ -141,15 +141,29 @@ function validateInput(body: NormalizeRequest, rawBody: string): ValidationResul
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOriginsStr = Deno.env.get("ALLOWED_ORIGINS") || "";
   const allowedOrigins = allowedOriginsStr.split(",").map(o => o.trim()).filter(Boolean);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   
-  // If no origins configured or in dev, allow all
-  let allowOrigin = "*";
-  if (allowedOrigins.length > 0 && origin) {
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+  let allowOrigin: string;
+  
+  if (allowedOrigins.length > 0) {
+    // Explicit allowlist configured
+    if (origin && (allowedOrigins.includes(origin) || allowedOrigins.includes("*"))) {
       allowOrigin = origin;
     } else {
-      // In production with allowlist, only allow listed origins
+      // Origin not in allowlist - use first allowed origin (blocks CORS for unknown origins)
       allowOrigin = allowedOrigins[0];
+    }
+  } else {
+    // No allowlist configured - production safety: only allow same Supabase project origin
+    // This prevents defaulting to "*" in production
+    if (origin && supabaseUrl && origin.includes(new URL(supabaseUrl).hostname.split('.')[0])) {
+      allowOrigin = origin;
+    } else if (origin) {
+      // Unknown origin with no allowlist - reject by returning mismatched origin
+      allowOrigin = "https://blocked.invalid";
+    } else {
+      // No origin header (same-origin or server-to-server) - allow
+      allowOrigin = "*";
     }
   }
   
