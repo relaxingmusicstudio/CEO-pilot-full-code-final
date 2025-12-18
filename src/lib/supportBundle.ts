@@ -1,0 +1,147 @@
+/**
+ * Support Bundle - The Loop Killer
+ * Canonical JSON object that captures ALL diagnostic evidence
+ */
+
+export interface PreflightReport {
+  ok: boolean;
+  checked_at?: string;
+  types?: Record<string, boolean>;
+  functions?: Record<string, boolean>;
+  permissions?: Record<string, boolean>;
+  tables?: Record<string, boolean>;
+  suspects?: Array<{ object: string; type: string; fix_sql: string }>;
+  suspect_count?: number;
+  error?: string;
+  error_code?: string;
+  error_detail?: string;
+}
+
+export interface EdgeConsoleRun {
+  timestamp: string;
+  function_name: string;
+  request: {
+    method: string;
+    headers: Record<string, string>;
+    body: unknown;
+  };
+  response: {
+    status: number;
+    headers: Record<string, string>;
+    body: unknown;
+  };
+  duration_ms: number;
+}
+
+export interface HumanActionRequired {
+  action: string;
+  location: string;
+  value?: string;
+  validation_endpoint?: string;
+  completed?: boolean;
+}
+
+export interface SupportBundle {
+  // Meta
+  timestamp: string;
+  app_version: string;
+  build_timestamp: string;
+  
+  // User context
+  user_id: string | null;
+  role: string | null;
+  tenant_ids: string[];
+  isOwner: boolean;
+  isAdmin: boolean;
+  
+  // Environment
+  supabase_url: string;
+  edge_base_url: string;
+  
+  // Diagnostics
+  db_doctor_report: PreflightReport | null;
+  edge_preflight: PreflightReport | null;
+  
+  // Recent activity
+  recent_audit_logs: unknown[];
+  edge_console_runs: EdgeConsoleRun[];
+  
+  // QA
+  qa_debug_json: unknown | null;
+  
+  // Human actions
+  human_actions_required: HumanActionRequired[];
+  
+  // Counts
+  ceo_alerts_count: number;
+  lead_profiles_count: number;
+  
+  // Last errors
+  last_edge_error: unknown | null;
+  
+  // URLs used
+  urls_used: Record<string, string>;
+}
+
+export function createEmptyBundle(): SupportBundle {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "(undefined)";
+  const edgeBaseUrl = supabaseUrl !== "(undefined)" ? `${supabaseUrl}/functions/v1` : "(undefined)";
+  
+  return {
+    timestamp: new Date().toISOString(),
+    app_version: "1.0.0",
+    build_timestamp: new Date().toISOString(),
+    user_id: null,
+    role: null,
+    tenant_ids: [],
+    isOwner: false,
+    isAdmin: false,
+    supabase_url: supabaseUrl,
+    edge_base_url: edgeBaseUrl,
+    db_doctor_report: null,
+    edge_preflight: null,
+    recent_audit_logs: [],
+    edge_console_runs: [],
+    qa_debug_json: null,
+    human_actions_required: [],
+    ceo_alerts_count: 0,
+    lead_profiles_count: 0,
+    last_edge_error: null,
+    urls_used: {
+      lead_normalize: `${edgeBaseUrl}/lead-normalize`,
+      ceo_scheduler: `${edgeBaseUrl}/ceo-scheduler`,
+    },
+  };
+}
+
+export async function copyBundleToClipboard(bundle: SupportBundle): Promise<{ success: boolean; fallbackText?: string }> {
+  const jsonStr = JSON.stringify(bundle, null, 2);
+  try {
+    await navigator.clipboard.writeText(jsonStr);
+    return { success: true };
+  } catch {
+    return { success: false, fallbackText: jsonStr };
+  }
+}
+
+export function downloadBundle(bundle: SupportBundle): void {
+  const jsonStr = JSON.stringify(bundle, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `support-bundle-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function generateSecretValue(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}

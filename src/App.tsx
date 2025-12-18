@@ -54,6 +54,11 @@ import AdminTenants from "./pages/AdminTenants";
 import QATests from "./pages/QATests";
 import SchedulerControl from "./pages/platform/SchedulerControl";
 import SchedulerDocs from "./pages/platform/SchedulerDocs";
+import ProofGate from "./pages/platform/ProofGate";
+import CloudWizard from "./pages/platform/CloudWizard";
+import EdgeConsole from "./pages/platform/EdgeConsole";
+import DbDoctor from "./pages/platform/DbDoctor";
+import Access from "./pages/platform/Access";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -150,6 +155,11 @@ const App = () => (
                   <Route path="/platform/qa-tests" element={<ProtectedRoute><QATests /></ProtectedRoute>} />
                   <Route path="/platform/scheduler" element={<ProtectedRoute requireAdmin><SchedulerControl /></ProtectedRoute>} />
                   <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
+                  <Route path="/platform/proof-gate" element={<ProtectedRoute><ProofGate /></ProtectedRoute>} />
+                  <Route path="/platform/cloud-wizard" element={<ProtectedRoute><CloudWizard /></ProtectedRoute>} />
+                  <Route path="/platform/edge-console" element={<ProtectedRoute><EdgeConsole /></ProtectedRoute>} />
+                  <Route path="/platform/db-doctor" element={<ProtectedRoute><DbDoctor /></ProtectedRoute>} />
+                  <Route path="/platform/access" element={<ProtectedRoute><Access /></ProtectedRoute>} />
                   
                   {/* Legacy /admin/* redirects to /app/* */}
                   <Route path="/admin" element={<Navigate to="/app" replace />} />
