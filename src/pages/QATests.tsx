@@ -640,7 +640,7 @@ export default function QATests() {
 
   const runReconciliationProofTest = async (): Promise<TestResult> => {
     const start = Date.now();
-    const name = "TEST 10 - PG_NET Reconciliation Proof";
+    const name = "TEST 10 - PG_NET Reconciliation Proof (Strict)";
     
     try {
       // Call the reconciliation RPC function
@@ -657,15 +657,14 @@ export default function QATests() {
         };
       }
 
-      // Query recent pg_net audit logs to check for delivery proof
-      // Use select('*') to avoid type issues with metadata column
+      // Query recent pg_net audit logs
       const { data: auditLogs, error: auditError } = await supabase
         .from("platform_audit_log")
         .select("*")
         .eq("entity_type", "scheduler")
         .eq("action_type", "cron_invocation_finished")
         .order("timestamp", { ascending: false })
-        .limit(10);
+        .limit(20);
 
       if (auditError) {
         return {
@@ -677,25 +676,50 @@ export default function QATests() {
         };
       }
 
-      // Cast to any to handle dynamic metadata field
       const logs = auditLogs as Array<Record<string, unknown>> | null;
 
-      // Check for pg_net logs and their delivery status
+      // Filter pg_net logs
       const pgNetLogs = logs?.filter(l => {
         const meta = l.metadata as Record<string, unknown> | null;
         return meta?.method === 'pg_net';
       }) || [];
 
-      const deliveredLogs = pgNetLogs.filter(l => {
+      // Count delivered statuses
+      const deliveredTrueLogs = pgNetLogs.filter(l => {
         const meta = l.metadata as Record<string, unknown> | null;
-        return meta?.delivered === 'true' || meta?.delivered === 'unknown';
+        return meta?.delivered === 'true';
       });
 
-      const hasReconciliation = reconcileResult !== null;
+      const deliveredUnknownLogs = pgNetLogs.filter(l => {
+        const meta = l.metadata as Record<string, unknown> | null;
+        return meta?.delivered === 'unknown';
+      });
+
+      // Check for at least one TRULY delivered log with status code or delivered_at
+      const hasProvenDelivery = deliveredTrueLogs.some(l => {
+        const meta = l.metadata as Record<string, unknown> | null;
+        return meta?.delivered_status_code !== undefined || meta?.delivered_at !== undefined;
+      });
+
       const result = reconcileResult as Record<string, unknown> | null;
-      
-      // Pass if reconciliation ran successfully
-      const passed = hasReconciliation && (result?.scanned !== undefined);
+
+      // STRICT MODE: Must have at least one proven delivery (delivered=true with status code)
+      const passed = hasProvenDelivery;
+
+      // Build sample logs with full detail
+      const sampleLogs = pgNetLogs.slice(0, 5).map(l => {
+        const meta = l.metadata as Record<string, unknown> | null;
+        return {
+          id: l.id,
+          entity_id: l.entity_id,
+          request_id: meta?.request_id,
+          method: meta?.method,
+          delivered: meta?.delivered,
+          delivered_status_code: meta?.delivered_status_code,
+          delivered_at: meta?.delivered_at,
+          delivered_error: meta?.delivered_error,
+        };
+      });
 
       return {
         name,
@@ -703,16 +727,19 @@ export default function QATests() {
         details: {
           reconcile_result: reconcileResult,
           pg_net_logs_found: pgNetLogs.length,
-          delivered_logs: deliveredLogs.length,
-          sample_logs: pgNetLogs.slice(0, 3).map(l => ({
-            id: l.id,
-            entity_id: l.entity_id,
-            method: (l.metadata as Record<string, unknown>)?.method,
-            delivered: (l.metadata as Record<string, unknown>)?.delivered,
-            request_id: (l.metadata as Record<string, unknown>)?.request_id,
-          })),
+          delivered_true_count: deliveredTrueLogs.length,
+          delivered_unknown_count: deliveredUnknownLogs.length,
+          has_proven_delivery: hasProvenDelivery,
+          sample_logs: sampleLogs,
+          strict_mode: true,
+          pass_criteria: "At least one log with delivered=true AND (delivered_status_code OR delivered_at)",
         },
-        error: passed ? undefined : "Reconciliation function did not return expected results",
+        error: passed ? undefined : 
+          pgNetLogs.length === 0 
+            ? "No pg_net cron_invocation_finished logs found. Run scheduler first." 
+            : deliveredUnknownLogs.length > 0 && deliveredTrueLogs.length === 0
+              ? "Only delivered=unknown logs found. pg_net response table may not be available."
+              : "No proven delivery found. Need delivered=true with status_code or delivered_at.",
         duration_ms: Date.now() - start,
       };
     } catch (err) {
