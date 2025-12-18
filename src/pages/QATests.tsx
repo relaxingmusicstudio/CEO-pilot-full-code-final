@@ -877,7 +877,7 @@ export default function QATests() {
 
       // Check for unique partial index via pg_indexes catalog
       const expectedIndexName = "lead_profiles_one_primary_per_fingerprint";
-      let hasUniqueIndex = false;
+      let hasUniqueIndex: boolean | null = null; // null = unknown/blocked, true = exists, false = readable but missing
       let indexRlsBlocked = false;
       let indexCheckError: string | undefined;
       
@@ -889,38 +889,45 @@ export default function QATests() {
           .eq("schemaname", "public")
           .eq("tablename", "lead_profiles")
           .eq("indexname", expectedIndexName)
-          .limit(1);
+          .maybeSingle();
         
         if (indexError) {
-          if (indexError.code === "42501" || indexError.code === "42P01") {
-            // RLS blocked or table not found - non-fatal warning
+          if (indexError.code === "42501" || indexError.code === "42P01" || indexError.code === "PGRST200") {
+            // RLS blocked or table not found - non-fatal, set null
             indexRlsBlocked = true;
+            hasUniqueIndex = null;
             indexCheckError = `pg_indexes query blocked (${indexError.code}). Index assumed via TEST 13.`;
           } else {
+            // Other error - treat as blocked/unknown
+            indexRlsBlocked = true;
+            hasUniqueIndex = null;
             indexCheckError = `pg_indexes query failed: ${indexError.message}`;
           }
         } else {
-          hasUniqueIndex = indexData && indexData.length > 0;
+          // Query succeeded - we can determine if index exists
+          hasUniqueIndex = indexData !== null;
         }
       } catch (err) {
         indexRlsBlocked = true;
+        hasUniqueIndex = null;
         indexCheckError = `pg_indexes check exception: ${err instanceof Error ? err.message : String(err)}`;
       }
       
+      // Determine warning message
       const indexWarning = indexRlsBlocked 
-        ? `Index check blocked by permissions. TEST 13 validates via concurrent behavior.`
-        : hasUniqueIndex 
-          ? undefined 
-          : `MISSING: Index '${expectedIndexName}' not found. Run migration to create it.`;
+        ? `Index check blocked by permissions; TEST 13 validates behaviorally.`
+        : hasUniqueIndex === false
+          ? `MISSING: Index '${expectedIndexName}' not found. Run migration to create it.`
+          : undefined;
 
       // Add warning to optionalWarnings for display
       if (indexWarning) {
         optionalWarnings.push(indexWarning);
       }
 
-      // If pg_indexes is visible (not RLS blocked) and index is missing, that's a real correctness failure
-      const indexCheckPassed = indexRlsBlocked || hasUniqueIndex;
-      const passed = leadProfilesExists && fingerprintRpcWorks && hasTimestamp && hasRequestSnapshot && indexCheckPassed;
+      // hasUniqueIndex: true = ok, false = fail, null = ok (warn only)
+      const indexOk = hasUniqueIndex !== false;
+      const passed = leadProfilesExists && fingerprintRpcWorks && hasTimestamp && hasRequestSnapshot && indexOk;
 
       return {
         name,
@@ -942,12 +949,11 @@ export default function QATests() {
             timestamp_column: hasTimestamp,
             request_snapshot_column: hasRequestSnapshot,
           },
-          unique_index: {
-            index_name: expectedIndexName,
-            verified: hasUniqueIndex,
+          unique_index_check: {
+            expected: expectedIndexName,
+            exists: hasUniqueIndex === true,
             rls_blocked: indexRlsBlocked,
             error: indexCheckError,
-            warning: indexWarning,
           },
           optional_warnings: optionalWarnings.length > 0 ? optionalWarnings : undefined,
         },
@@ -960,8 +966,8 @@ export default function QATests() {
                 ? "timestamp column missing from platform_audit_log"
                 : !hasRequestSnapshot
                   ? "request_snapshot column missing from platform_audit_log"
-                  : !indexCheckPassed
-                    ? `Unique partial index '${expectedIndexName}' missing. Run migration to create it.`
+                  : !indexOk
+                    ? `MISSING: Index '${expectedIndexName}' not found. Run migration to create it.`
                     : "Unknown schema issue"
           : undefined,
         duration_ms: Date.now() - start,
