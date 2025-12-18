@@ -39,7 +39,7 @@ export interface NavItem {
 }
 
 // Owner navigation - Full CEO Command Center
-const OWNER_NAV_ITEMS: NavItem[] = [
+export const OWNER_NAV_ITEMS: NavItem[] = [
   {
     label: "Dashboard",
     href: "/app",
@@ -97,7 +97,7 @@ const OWNER_NAV_ITEMS: NavItem[] = [
 ];
 
 // Client navigation - Limited portal access
-const CLIENT_NAV_ITEMS: NavItem[] = [
+export const CLIENT_NAV_ITEMS: NavItem[] = [
   {
     label: "Portal",
     href: "/app/portal",
@@ -147,7 +147,7 @@ const OWNER_MOBILE_NAV = OWNER_NAV_ITEMS.slice(0, 5);
 const CLIENT_MOBILE_NAV = CLIENT_NAV_ITEMS.slice(0, 5);
 
 // Platform Tools - Available to all authenticated users
-const PLATFORM_NAV_ITEM: NavItem = {
+export const PLATFORM_NAV_ITEM: NavItem = {
   label: "Platform Tools",
   href: "/platform/tools",
   icon: Wrench,
@@ -155,7 +155,7 @@ const PLATFORM_NAV_ITEM: NavItem = {
 };
 
 // Admin-only navigation items (platform admins)
-const ADMIN_NAV_ITEMS: NavItem[] = [
+export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     label: "Tenants",
     href: "/platform/tenants",
@@ -169,6 +169,36 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "Tenant isolation tests",
   },
 ];
+
+/**
+ * Pure function to get nav items for a role context.
+ * Used by RouteNavAuditor to check nav visibility.
+ */
+export function getNavItemsForRole(context: {
+  isAdmin: boolean;
+  isOwner: boolean;
+  isClient: boolean;
+}): NavItem[] {
+  if (context.isClient) return CLIENT_NAV_ITEMS;
+  if (context.isOwner) {
+    if (context.isAdmin) {
+      return [...OWNER_NAV_ITEMS, PLATFORM_NAV_ITEM, ...ADMIN_NAV_ITEMS];
+    }
+    return [...OWNER_NAV_ITEMS, PLATFORM_NAV_ITEM];
+  }
+  return [];
+}
+
+/**
+ * Get all nav routes for a role context.
+ */
+export function getNavRoutesForRole(context: {
+  isAdmin: boolean;
+  isOwner: boolean;
+  isClient: boolean;
+}): string[] {
+  return getNavItemsForRole(context).map(item => item.href);
+}
 
 export function useRoleNavigation() {
   const { isOwner, isClient, isAdmin, isLoading } = useUserRole();

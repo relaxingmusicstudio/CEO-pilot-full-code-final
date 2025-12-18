@@ -152,12 +152,39 @@ export const platformTools: PlatformTool[] = [
   },
 ];
 
+/**
+ * Get tools visible for a specific access level.
+ * This is the canonical function used by ToolsHub and RouteNavAuditor.
+ */
 export function getToolsForAccessLevel(isAdmin: boolean, isOwner: boolean): PlatformTool[] {
   return platformTools.filter(tool => {
     if (tool.requires === "admin") return isAdmin;
     if (tool.requires === "owner") return isOwner || isAdmin;
     return true; // authenticated
   });
+}
+
+/**
+ * Get visible tools for a role context (pure function for auditing).
+ */
+export function getVisibleTools(context: {
+  isAdmin: boolean;
+  isOwner: boolean;
+  isAuthenticated: boolean;
+}): PlatformTool[] {
+  if (!context.isAuthenticated) return [];
+  return platformTools.filter(tool => {
+    if (tool.requires === "admin") return context.isAdmin;
+    if (tool.requires === "owner") return context.isOwner || context.isAdmin;
+    return true;
+  });
+}
+
+/**
+ * Get all platform tool routes.
+ */
+export function getAllPlatformRoutes(): string[] {
+  return platformTools.map(t => t.route);
 }
 
 export function getToolById(id: string): PlatformTool | undefined {

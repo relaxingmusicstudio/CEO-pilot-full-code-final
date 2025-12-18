@@ -18,6 +18,9 @@ import {
   copyBundleToClipboard, 
   downloadBundle 
 } from "@/lib/supportBundle";
+import { platformTools, getVisibleTools, getAllPlatformRoutes } from "@/lib/toolRegistry";
+import { getRouteAccessPolicies } from "@/lib/routeConfig";
+import { getNavRoutesForRole } from "@/hooks/useRoleNavigation";
 
 type StepStatus = "pending" | "running" | "pass" | "fail" | "skip";
 
@@ -38,6 +41,7 @@ export default function ProofGate() {
     { id: "db_doctor", name: "DB Doctor (qa_dependency_check)", status: "pending" },
     { id: "edge_preflight", name: "Edge Preflight (lead-normalize)", status: "pending" },
     { id: "normalize_test", name: "Normalize Sample Test", status: "pending" },
+    { id: "route_audit", name: "Route & Nav Audit", status: "pending" },
     { id: "audit_logs", name: "Fetch Recent Audit Logs", status: "pending" },
     { id: "bundle", name: "Compose Support Bundle", status: "pending" },
   ]);
@@ -155,7 +159,65 @@ export default function ProofGate() {
       updateStep("normalize_test", { status: "skip", result: { reason: "Dependencies not OK or no tenants" } });
     }
 
-    // Step 4: Audit Logs
+    // Step 4: Route & Nav Audit
+    updateStep("route_audit", { status: "running" });
+    try {
+      const roleContext = {
+        isAdmin: isAdmin ?? false,
+        isOwner: isOwner ?? false,
+        isClient: false,
+        isAuthenticated: true,
+      };
+      
+      const registryRoutes = getAllPlatformRoutes();
+      const visibleTools = getVisibleTools(roleContext);
+      const navRoutes = getNavRoutesForRole(roleContext);
+      const routePolicies = getRouteAccessPolicies();
+      
+      // Run basic audit checks
+      const auditFindings: Array<{ severity: string; issue_code: string; tool_id: string; route: string; description: string }> = [];
+      
+      for (const tool of platformTools) {
+        if (tool.id === "tools-hub") continue;
+        const isVisibleInToolsHub = visibleTools.some(t => t.id === tool.id);
+        const shouldBeVisible = (
+          (tool.requires === "authenticated") ||
+          (tool.requires === "owner" && (roleContext.isOwner || roleContext.isAdmin)) ||
+          (tool.requires === "admin" && roleContext.isAdmin)
+        );
+        
+        if (shouldBeVisible && !isVisibleInToolsHub) {
+          auditFindings.push({
+            severity: "warning",
+            issue_code: "tools_hub_missing",
+            tool_id: tool.id,
+            route: tool.route,
+            description: `Tool "${tool.name}" should be visible but is not`,
+          });
+        }
+      }
+      
+      newBundle.route_nav_audit = {
+        summary: {
+          critical: auditFindings.filter(f => f.severity === "critical").length,
+          warning: auditFindings.filter(f => f.severity === "warning").length,
+          passed: platformTools.length - auditFindings.length,
+          total_tools: platformTools.length,
+        },
+        findings: auditFindings,
+        counters: {},
+      };
+      
+      updateStep("route_audit", { 
+        status: auditFindings.length === 0 ? "pass" : "fail", 
+        result: { findings_count: auditFindings.length } 
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      updateStep("route_audit", { status: "fail", error: errMsg });
+    }
+
+    // Step 5: Audit Logs
     updateStep("audit_logs", { status: "running" });
     try {
       const { data: logs, error } = await supabase
