@@ -156,9 +156,9 @@ const App = () => (
                   <Route path="/platform/scheduler" element={<ProtectedRoute requireAdmin><SchedulerControl /></ProtectedRoute>} />
                   <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
                   <Route path="/platform/proof-gate" element={<ProtectedRoute><ProofGate /></ProtectedRoute>} />
-                  <Route path="/platform/cloud-wizard" element={<ProtectedRoute><CloudWizard /></ProtectedRoute>} />
-                  <Route path="/platform/edge-console" element={<ProtectedRoute><EdgeConsole /></ProtectedRoute>} />
-                  <Route path="/platform/db-doctor" element={<ProtectedRoute><DbDoctor /></ProtectedRoute>} />
+                  <Route path="/platform/cloud-wizard" element={<ProtectedRoute requireOwner><CloudWizard /></ProtectedRoute>} />
+                  <Route path="/platform/edge-console" element={<ProtectedRoute requireOwner><EdgeConsole /></ProtectedRoute>} />
+                  <Route path="/platform/db-doctor" element={<ProtectedRoute requireOwner><DbDoctor /></ProtectedRoute>} />
                   <Route path="/platform/access" element={<ProtectedRoute><Access /></ProtectedRoute>} />
                   
                   {/* Legacy /admin/* redirects to /app/* */}

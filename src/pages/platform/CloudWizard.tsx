@@ -13,6 +13,7 @@ import { generateSecretValue, PreflightReport } from "@/lib/supportBundle";
 
 export default function CloudWizard() {
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
+  const [secretToValidate, setSecretToValidate] = useState<string>("");
   const [secretCopied, setSecretCopied] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -25,6 +26,7 @@ export default function CloudWizard() {
   const handleGenerateSecret = () => {
     const secret = generateSecretValue();
     setGeneratedSecret(secret);
+    setSecretToValidate(secret);
     setSecretCopied(false);
     toast.success("Secret generated! Copy it before leaving this page.");
   };
@@ -42,9 +44,17 @@ export default function CloudWizard() {
     toast.success("Secret name copied");
   };
 
+  const copySecretValue = () => {
+    if (secretToValidate) {
+      navigator.clipboard.writeText(secretToValidate);
+      toast.success("Secret value copied");
+    }
+  };
+
   const validateSchedulerSecret = async () => {
-    if (!generatedSecret) {
-      toast.error("Generate a secret first");
+    const secretValue = secretToValidate || generatedSecret;
+    if (!secretValue) {
+      toast.error("Enter or generate a secret first");
       return;
     }
     
@@ -56,7 +66,7 @@ export default function CloudWizard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Internal-Secret": generatedSecret,
+          "X-Internal-Secret": secretValue,
         },
         body: JSON.stringify({ action: "health_check" }),
       });
@@ -166,6 +176,26 @@ export default function CloudWizard() {
                   )}
                 </div>
 
+                {/* Secret to Validate (can paste existing) */}
+                <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
+                  <span className="text-sm font-medium">Secret to Validate</span>
+                  <p className="text-xs text-muted-foreground">
+                    Paste your existing secret from Supabase, or use the generated one above.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={secretToValidate}
+                      onChange={(e) => setSecretToValidate(e.target.value)}
+                      placeholder="Paste existing secret here..."
+                      className="font-mono text-xs"
+                      type="password"
+                    />
+                    <Button onClick={copySecretValue} variant="outline" size="icon" disabled={!secretToValidate}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
                 <Alert>
                   <Settings className="h-4 w-4" />
                   <AlertTitle>Where to Add This Secret</AlertTitle>
@@ -186,14 +216,12 @@ export default function CloudWizard() {
                   </AlertDescription>
                 </Alert>
 
-                {generatedSecret && (
-                  <div className="flex gap-2">
-                    <Button onClick={validateSchedulerSecret} disabled={validating} variant="outline">
-                      {validating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                      Validate Secret
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Button onClick={validateSchedulerSecret} disabled={validating || !secretToValidate} variant="outline">
+                    {validating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                    Validate Secret
+                  </Button>
+                </div>
 
                 {validationResult && (
                   <Alert variant={validationResult.ok ? "default" : "destructive"}>
