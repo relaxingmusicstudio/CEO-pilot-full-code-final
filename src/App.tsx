@@ -59,6 +59,9 @@ import CloudWizard from "./pages/platform/CloudWizard";
 import EdgeConsole from "./pages/platform/EdgeConsole";
 import DbDoctor from "./pages/platform/DbDoctor";
 import Access from "./pages/platform/Access";
+import ToolsHub from "./pages/platform/ToolsHub";
+import FeatureFlags from "./pages/platform/FeatureFlags";
+import SchemaSnapshot from "./pages/platform/SchemaSnapshot";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -150,16 +153,23 @@ const App = () => (
                     <Route path="ceo-dashboard" element={<ProtectedRoute requireOwner><CeoDashboard /></ProtectedRoute>} />
                   </Route>
                   
-                  {/* Platform Admin - Under /platform, restricted */}
-                  <Route path="/platform/tenants" element={<ProtectedRoute requireAdmin><AdminTenants /></ProtectedRoute>} />
-                  <Route path="/platform/qa-tests" element={<ProtectedRoute><QATests /></ProtectedRoute>} />
-                  <Route path="/platform/scheduler" element={<ProtectedRoute requireAdmin><SchedulerControl /></ProtectedRoute>} />
-                  <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
+                  {/* Platform Tools - Central hub for diagnostics */}
+                  <Route path="/platform/tools" element={<ProtectedRoute><ToolsHub /></ProtectedRoute>} />
                   <Route path="/platform/proof-gate" element={<ProtectedRoute><ProofGate /></ProtectedRoute>} />
+                  <Route path="/platform/access" element={<ProtectedRoute><Access /></ProtectedRoute>} />
+                  <Route path="/platform/qa-tests" element={<ProtectedRoute><QATests /></ProtectedRoute>} />
+                  <Route path="/platform/feature-flags" element={<ProtectedRoute><FeatureFlags /></ProtectedRoute>} />
+                  <Route path="/platform/schema-snapshot" element={<ProtectedRoute><SchemaSnapshot /></ProtectedRoute>} />
+                  
+                  {/* Platform Tools - Owner required */}
                   <Route path="/platform/cloud-wizard" element={<ProtectedRoute requireOwner><CloudWizard /></ProtectedRoute>} />
                   <Route path="/platform/edge-console" element={<ProtectedRoute requireOwner><EdgeConsole /></ProtectedRoute>} />
                   <Route path="/platform/db-doctor" element={<ProtectedRoute requireOwner><DbDoctor /></ProtectedRoute>} />
-                  <Route path="/platform/access" element={<ProtectedRoute><Access /></ProtectedRoute>} />
+                  
+                  {/* Platform Admin - Admin only */}
+                  <Route path="/platform/tenants" element={<ProtectedRoute requireAdmin><AdminTenants /></ProtectedRoute>} />
+                  <Route path="/platform/scheduler" element={<ProtectedRoute requireAdmin><SchedulerControl /></ProtectedRoute>} />
+                  <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
                   
                   {/* Legacy /admin/* redirects to /app/* */}
                   <Route path="/admin" element={<Navigate to="/app" replace />} />

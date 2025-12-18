@@ -28,6 +28,7 @@ import {
   Bell,
   ShieldCheck,
   Building2,
+  Wrench,
 } from "lucide-react";
 
 export interface NavItem {
@@ -145,6 +146,14 @@ const CLIENT_NAV_ITEMS: NavItem[] = [
 const OWNER_MOBILE_NAV = OWNER_NAV_ITEMS.slice(0, 5);
 const CLIENT_MOBILE_NAV = CLIENT_NAV_ITEMS.slice(0, 5);
 
+// Platform Tools - Available to all authenticated users
+const PLATFORM_NAV_ITEM: NavItem = {
+  label: "Platform Tools",
+  href: "/platform/tools",
+  icon: Wrench,
+  description: "Diagnostics & dev tools",
+};
+
 // Admin-only navigation items (platform admins)
 const ADMIN_NAV_ITEMS: NavItem[] = [
   {
@@ -168,11 +177,12 @@ export function useRoleNavigation() {
     if (isLoading) return [];
     if (isClient) return CLIENT_NAV_ITEMS;
     if (isOwner) {
-      // Admin gets owner nav + admin-only items
+      // Admin gets owner nav + admin-only items + platform tools
       if (isAdmin) {
-        return [...OWNER_NAV_ITEMS, ...ADMIN_NAV_ITEMS];
+        return [...OWNER_NAV_ITEMS, PLATFORM_NAV_ITEM, ...ADMIN_NAV_ITEMS];
       }
-      return OWNER_NAV_ITEMS;
+      // Owner gets nav + platform tools
+      return [...OWNER_NAV_ITEMS, PLATFORM_NAV_ITEM];
     }
     return [];
   }, [isOwner, isClient, isAdmin, isLoading]);
