@@ -9666,6 +9666,7 @@ export type Database = {
         }
         Returns: string
       }
+      reconcile_scheduler_pg_net: { Args: never; Returns: Json }
       record_budget_usage: {
         Args: {
           p_amount_cents: number

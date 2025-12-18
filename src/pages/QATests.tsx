@@ -111,6 +111,9 @@ export default function QATests() {
     // TEST 9: Admin Scheduler Trigger (real)
     tests.push(await runAdminSchedulerTest(tenantIdA));
 
+    // TEST 10: PG_NET Reconciliation Proof
+    tests.push(await runReconciliationProofTest());
+
     const output: TestOutput = {
       timestamp: new Date().toISOString(),
       tests,
@@ -552,7 +555,6 @@ export default function QATests() {
         };
       }
 
-      // Record timestamp before triggering
       const triggerTimestamp = new Date().toISOString();
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-run-scheduler`, {
@@ -569,7 +571,6 @@ export default function QATests() {
 
       const responseBody = await response.json().catch(() => ({}));
       
-      // For admins, should NOT be 401/403
       if (response.status === 401 || response.status === 403) {
         return {
           name,
@@ -580,10 +581,8 @@ export default function QATests() {
         };
       }
 
-      // Wait a moment for audit logs to be written
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Verify BOTH cron_invocation_started and cron_invocation_finished audit records
       const { data: auditLogs, error: auditError } = await supabase
         .from("platform_audit_log")
         .select("id, action_type, entity_id, success, timestamp")
@@ -626,6 +625,94 @@ export default function QATests() {
           !response.ok ? `Scheduler returned ${response.status}` :
           !hasStarted ? "Missing cron_invocation_started audit log" :
           !hasFinished ? "Missing cron_invocation_finished audit log" : undefined,
+        duration_ms: Date.now() - start,
+      };
+    } catch (err) {
+      return {
+        name,
+        status: "error",
+        details: {},
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
+    }
+  };
+
+  const runReconciliationProofTest = async (): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 10 - PG_NET Reconciliation Proof";
+    
+    try {
+      // Call the reconciliation RPC function
+      const { data: reconcileResult, error: reconcileError } = await supabase
+        .rpc('reconcile_scheduler_pg_net');
+
+      if (reconcileError) {
+        return {
+          name,
+          status: "error",
+          details: { rpc_error: reconcileError.message, code: reconcileError.code },
+          error: `RPC failed: ${reconcileError.message}`,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // Query recent pg_net audit logs to check for delivery proof
+      // Use select('*') to avoid type issues with metadata column
+      const { data: auditLogs, error: auditError } = await supabase
+        .from("platform_audit_log")
+        .select("*")
+        .eq("entity_type", "scheduler")
+        .eq("action_type", "cron_invocation_finished")
+        .order("timestamp", { ascending: false })
+        .limit(10);
+
+      if (auditError) {
+        return {
+          name,
+          status: "error",
+          details: { audit_error: auditError.message },
+          error: "Failed to query audit logs",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // Cast to any to handle dynamic metadata field
+      const logs = auditLogs as Array<Record<string, unknown>> | null;
+
+      // Check for pg_net logs and their delivery status
+      const pgNetLogs = logs?.filter(l => {
+        const meta = l.metadata as Record<string, unknown> | null;
+        return meta?.method === 'pg_net';
+      }) || [];
+
+      const deliveredLogs = pgNetLogs.filter(l => {
+        const meta = l.metadata as Record<string, unknown> | null;
+        return meta?.delivered === 'true' || meta?.delivered === 'unknown';
+      });
+
+      const hasReconciliation = reconcileResult !== null;
+      const result = reconcileResult as Record<string, unknown> | null;
+      
+      // Pass if reconciliation ran successfully
+      const passed = hasReconciliation && (result?.scanned !== undefined);
+
+      return {
+        name,
+        status: passed ? "pass" : "fail",
+        details: {
+          reconcile_result: reconcileResult,
+          pg_net_logs_found: pgNetLogs.length,
+          delivered_logs: deliveredLogs.length,
+          sample_logs: pgNetLogs.slice(0, 3).map(l => ({
+            id: l.id,
+            entity_id: l.entity_id,
+            method: (l.metadata as Record<string, unknown>)?.method,
+            delivered: (l.metadata as Record<string, unknown>)?.delivered,
+            request_id: (l.metadata as Record<string, unknown>)?.request_id,
+          })),
+        },
+        error: passed ? undefined : "Reconciliation function did not return expected results",
         duration_ms: Date.now() - start,
       };
     } catch (err) {
