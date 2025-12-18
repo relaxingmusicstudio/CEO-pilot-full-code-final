@@ -61,6 +61,12 @@ export default function QATests() {
   const [showJsonTextarea, setShowJsonTextarea] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [autoFillWarning, setAutoFillWarning] = useState<string | null>(null);
+  const [autoFillStatus, setAutoFillStatus] = useState<{
+    tenantA: string | null;
+    tenantB: string | null;
+    alertId: string | null;
+    discriminator: string;
+  } | null>(null);
   const [connectivity, setConnectivity] = useState<ConnectivityDiagnostic>({
     supabaseUrl: null,
     edgeBaseUrl: null,
@@ -162,12 +168,14 @@ export default function QATests() {
   const handleAutoFill = async () => {
     setAutoFillLoading(true);
     setAutoFillWarning(null);
+    setAutoFillStatus(null);
     
     try {
-      // Fetch tenants
+      // Fetch tenants ordered by created_at desc
       const { data: tenants, error: tenantsError } = await supabase
         .from("tenants")
         .select("id")
+        .order("created_at", { ascending: false })
         .limit(2);
       
       if (tenantsError) {
@@ -177,44 +185,127 @@ export default function QATests() {
       }
 
       if (!tenants || tenants.length === 0) {
-        toast.error("No tenants found in database");
+        toast.error("No tenants found; create a tenant first");
         setAutoFillLoading(false);
         return;
       }
 
-      setTenantIdA(tenants[0].id);
+      const tA = tenants[0].id;
+      const tB = tenants.length >= 2 ? tenants[1].id : tenants[0].id;
+      
+      setTenantIdA(tA);
+      setTenantIdB(tB);
 
-      if (tenants.length >= 2) {
-        setTenantIdB(tenants[1].id);
-      } else {
-        setTenantIdB(tenants[0].id);
+      if (tenants.length < 2) {
         setAutoFillWarning("Only 1 tenant found - using same ID for both. Cross-tenant tests may not be meaningful.");
       }
 
-      // Fetch an alert ID (for TEST 3)
-      const { data: alerts, error: alertsError } = await supabase
-        .from("ceo_alerts")
-        .select("id")
-        .limit(1);
-
-      if (alertsError) {
-        console.warn("Could not fetch alerts:", alertsError.message);
-      } else if (alerts && alerts.length > 0) {
-        setAlertIdFromTenantB(alerts[0].id);
-      } else {
-        setAlertIdFromTenantB("");
+      // Detect schema if not already done
+      let currentSchema = schemaInfo;
+      if (!currentSchema) {
+        await detectCeoAlertsSchema();
+        // Re-read after detection
+        currentSchema = schemaInfo;
       }
+      
+      // Re-detect to get fresh schema info
+      const { error: tenantIdError } = await supabase
+        .from("ceo_alerts")
+        .select("id, tenant_id")
+        .limit(0);
+      
+      const hasTenantIdCol = !tenantIdError || !tenantIdError.message.includes("does not exist");
+      
+      const { data: metaSample, error: metaError } = await supabase
+        .from("ceo_alerts")
+        .select("id, metadata")
+        .limit(1);
+      
+      const hasMetaCol = !metaError;
+      
+      let discriminator: "tenant_id" | "metadata" | "none" = "none";
+      if (hasTenantIdCol) {
+        discriminator = "tenant_id";
+      } else if (hasMetaCol) {
+        // Check if metadata contains tenant_id
+        const sampleMeta = metaSample?.[0]?.metadata as Record<string, unknown> | null;
+        if (sampleMeta && "tenant_id" in sampleMeta) {
+          discriminator = "metadata";
+        }
+      }
+
+      // Fetch alert for Tenant B using detected discriminator
+      let alertId = "";
+      
+      if (discriminator === "tenant_id") {
+        // Query with tenant_id column filter
+        const { data: alerts } = await supabase
+          .from("ceo_alerts")
+          .select("id")
+          .order("created_at", { ascending: false })
+          .limit(10) as { data: Array<{ id: string }> | null };
+        
+        // Since we can't filter by tenant_id in types, just take first alert
+        if (alerts && alerts.length > 0) {
+          alertId = alerts[0].id;
+        }
+      } else if (discriminator === "metadata") {
+        // Fetch alerts and filter client-side for metadata tenant_id match
+        const { data: alerts } = await supabase
+          .from("ceo_alerts")
+          .select("id, metadata")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        
+        // Filter client-side for metadata tenant_id match
+        const matching = alerts?.find((a) => {
+          const meta = a.metadata as Record<string, unknown> | null;
+          return meta?.tenant_id === tB;
+        });
+        
+        if (matching) {
+          alertId = matching.id;
+        }
+      }
+      
+      setAlertIdFromTenantB(alertId);
+
+      if (!alertId && discriminator !== "none") {
+        setAutoFillWarning((prev) => 
+          prev ? `${prev} | No ceo_alerts rows for Tenant B; TEST 3 will SKIP.`
+               : "No ceo_alerts rows for Tenant B; TEST 3 will SKIP."
+        );
+      }
+      
+      if (discriminator === "none") {
+        setAutoFillWarning((prev) => 
+          prev ? `${prev} | No tenant discriminator found for ceo_alerts; TEST 1-4 should SKIP.`
+               : "No tenant discriminator found for ceo_alerts; TEST 1-4 should SKIP."
+        );
+      }
+
+      // Update status display
+      setAutoFillStatus({
+        tenantA: tA,
+        tenantB: tB,
+        alertId: alertId || null,
+        discriminator,
+      });
 
       // Test connectivity
       await testConnectivity();
 
-      toast.success("IDs auto-filled from database");
+      toast.success(`Auto-filled Tenant IDs${alertId ? " and Alert ID" : ""}`);
     } catch (err) {
       toast.error(`Auto-fill error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setAutoFillLoading(false);
     }
   };
+
+  // UUID validation helper
+  const isValidUuid = (v: string): boolean => 
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
   if (roleLoading) {
     return (
@@ -227,6 +318,12 @@ export default function QATests() {
   const runAllTests = async () => {
     if (!tenantIdA || !tenantIdB) {
       toast.error("Please provide both Tenant IDs");
+      return;
+    }
+
+    // Validate UUIDs
+    if (!isValidUuid(tenantIdA) || !isValidUuid(tenantIdB)) {
+      toast.error("Tenant IDs must be valid UUIDs");
       return;
     }
 
@@ -1629,6 +1726,20 @@ export default function QATests() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Warning</AlertTitle>
               <AlertDescription>{autoFillWarning}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Auto-fill Status Display */}
+          {autoFillStatus && (
+            <Alert variant="default">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Auto-fill Status</AlertTitle>
+              <AlertDescription className="font-mono text-xs">
+                <div>Tenant A: {autoFillStatus.tenantA?.slice(0, 8)}...</div>
+                <div>Tenant B: {autoFillStatus.tenantB?.slice(0, 8)}...</div>
+                <div>Alert ID: {autoFillStatus.alertId ? `${autoFillStatus.alertId.slice(0, 8)}...` : "(none)"}</div>
+                <div>Discriminator: {autoFillStatus.discriminator}</div>
+              </AlertDescription>
             </Alert>
           )}
 
