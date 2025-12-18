@@ -145,9 +145,9 @@ const App = () => (
                     <Route path="ceo-dashboard" element={<ProtectedRoute requireOwner><CeoDashboard /></ProtectedRoute>} />
                   </Route>
                   
-                  {/* Platform Admin - Under /platform, requires admin role */}
+                  {/* Platform Admin - Under /platform, restricted */}
                   <Route path="/platform/tenants" element={<ProtectedRoute requireAdmin><AdminTenants /></ProtectedRoute>} />
-                  <Route path="/platform/qa-tests" element={<ProtectedRoute requireAdmin><QATests /></ProtectedRoute>} />
+                  <Route path="/platform/qa-tests" element={<ProtectedRoute><QATests /></ProtectedRoute>} />
                   <Route path="/platform/scheduler" element={<ProtectedRoute requireAdmin><SchedulerControl /></ProtectedRoute>} />
                   <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
                   

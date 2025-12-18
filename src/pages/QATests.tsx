@@ -12,6 +12,7 @@ import { CheckCircle2, XCircle, Loader2, Copy, Play, AlertTriangle, ShieldX, Clo
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TestResult {
   name: string;
@@ -33,7 +34,8 @@ interface TestOutput {
 }
 
 export default function QATests() {
-  const { isOwner, isLoading: roleLoading } = useUserRole();
+  const { user } = useAuth();
+  const { role, isOwner, isAdmin, isLoading: roleLoading } = useUserRole();
   const [tenantIdA, setTenantIdA] = useState("");
   const [tenantIdB, setTenantIdB] = useState("");
   const [alertIdFromTenantB, setAlertIdFromTenantB] = useState("");
@@ -41,7 +43,7 @@ export default function QATests() {
   const [results, setResults] = useState<TestOutput | null>(null);
   const [showJsonTextarea, setShowJsonTextarea] = useState(false);
 
-  // Admin-only guard
+  // Owner/Admin-only guard
   if (roleLoading) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-4xl flex items-center justify-center min-h-[400px]">
@@ -52,13 +54,20 @@ export default function QATests() {
 
   if (!isOwner) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-4xl">
+      <div className="container mx-auto py-8 px-4 max-w-4xl space-y-4">
+        <Alert>
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Role detection</AlertTitle>
+          <AlertDescription className="font-mono text-xs">
+            user_id={user?.id ?? "(none)"} • role={role ?? "(null)"} • isOwner={String(isOwner)} • isAdmin={String(isAdmin)}
+          </AlertDescription>
+        </Alert>
+
         <Alert variant="destructive">
           <ShieldX className="h-5 w-5" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            This page is restricted to platform administrators only.
-            You do not have permission to access QA Tests.
+            This page is restricted to Owner/Admin users only.
           </AlertDescription>
         </Alert>
       </div>
@@ -1858,6 +1867,14 @@ export default function QATests() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <Alert>
+            <Clock className="h-4 w-4" />
+            <AlertTitle>Role detection</AlertTitle>
+            <AlertDescription className="font-mono text-xs">
+              user_id={user?.id ?? "(none)"} • role={role ?? "(null)"} • isOwner={String(isOwner)} • isAdmin={String(isAdmin)}
+            </AlertDescription>
+          </Alert>
+
           {/* Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
