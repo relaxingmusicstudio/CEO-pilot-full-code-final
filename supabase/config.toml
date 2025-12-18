@@ -367,6 +367,9 @@ verify_jwt = true
 [functions.lead-webhook]
 verify_jwt = false
 
+[functions.lead-normalize]
+verify_jwt = false
+
 [functions.meta-lead-webhook]
 verify_jwt = false
 
