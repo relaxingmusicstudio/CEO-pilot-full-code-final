@@ -140,39 +140,49 @@ function validateInput(body: NormalizeRequest, rawBody: string): ValidationResul
 // ==================== CORS HANDLING ====================
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOriginsStr = Deno.env.get("ALLOWED_ORIGINS") || "";
-  const allowedOrigins = allowedOriginsStr.split(",").map(o => o.trim()).filter(Boolean);
-  const isDev = Deno.env.get("DENO_ENV") === "development" || Deno.env.get("NODE_ENV") === "development";
-  
+  const allowedOrigins = allowedOriginsStr
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const isDev =
+    Deno.env.get("DENO_ENV") === "development" ||
+    Deno.env.get("NODE_ENV") === "development";
+
   let allowOrigin: string | null = null;
-  
+  let varyOrigin = false;
+
   if (allowedOrigins.length > 0) {
     // Explicit allowlist configured
     if (origin && (allowedOrigins.includes(origin) || allowedOrigins.includes("*"))) {
       allowOrigin = origin;
+      varyOrigin = true;
     }
-    // If origin not in allowlist, allowOrigin stays null (CORS blocked)
+    // else: do NOT set allow-origin (blocked)
   } else if (isDev) {
-    // Development mode with no allowlist - permit all
-    allowOrigin = origin || "*";
+    // Development with no allowlist
+    allowOrigin = "*";
   } else {
-    // Production with no allowlist - only allow server-to-server (no Origin header)
-    if (!origin) {
-      // No Origin header means same-origin or server-to-server request - allow
-      allowOrigin = "*";
-    }
-    // If origin exists but no allowlist in production, allowOrigin stays null (blocked)
+    // Production with no allowlist
+    // - If Origin exists: do NOT set allow-origin (blocked)
+    // - If Origin missing: do NOT set allow-origin (CORS irrelevant to server-to-server)
+    allowOrigin = null;
   }
-  
+
   const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret, x-request-timestamp, x-request-nonce",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-internal-secret, x-request-timestamp, x-request-nonce",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
-  
-  // Only include Allow-Origin if we have a valid value (omitting blocks CORS properly)
+
   if (allowOrigin) {
     headers["Access-Control-Allow-Origin"] = allowOrigin;
   }
-  
+
+  if (varyOrigin) {
+    headers["Vary"] = "Origin";
+  }
+
   return headers;
 }
 

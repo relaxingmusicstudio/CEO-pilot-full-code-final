@@ -9745,13 +9745,15 @@ export type Database = {
       get_user_role: { Args: { _user_id: string }; Returns: string }
       get_user_tenant_id: { Args: never; Returns: string }
       get_user_tenant_status: { Args: never; Returns: string }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_emergency_stop_active: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_rpc_context: { Args: never; Returns: boolean }
