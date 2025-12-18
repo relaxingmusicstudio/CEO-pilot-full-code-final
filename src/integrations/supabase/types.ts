@@ -9766,6 +9766,19 @@ export type Database = {
         Returns: undefined
       }
       normalize_email: { Args: { raw_email: string }; Returns: string }
+      normalize_lead_atomic: {
+        Args: {
+          p_company_name?: string
+          p_email?: string
+          p_first_name?: string
+          p_job_title?: string
+          p_last_name?: string
+          p_phone?: string
+          p_source?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       normalize_phone: { Args: { raw_phone: string }; Returns: string }
       provision_tenant: {
         Args: {

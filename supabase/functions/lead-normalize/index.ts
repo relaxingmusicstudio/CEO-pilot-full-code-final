@@ -422,14 +422,14 @@ serve(async (req: Request): Promise<Response> => {
 
     const { lead } = body;
 
-    // ==================== DATABASE OPERATIONS ====================
+    // ==================== DATABASE OPERATIONS (ATOMIC RPC) ====================
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
     });
 
     const auditColumns = await checkAuditColumns(supabase);
 
-    // Validate tenant
+    // Validate tenant first
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .select("id")
@@ -441,233 +441,82 @@ serve(async (req: Request): Promise<Response> => {
       return jsonResponse({ error: "Invalid tenant_id" }, 400, corsHeaders);
     }
 
-    // Compute fingerprint
-    const { data: fpResult, error: fpError } = await supabase.rpc("compute_lead_fingerprint", {
+    // Call atomic normalize RPC (handles dedupe + create in one transaction)
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("normalize_lead_atomic", {
+      p_tenant_id: body.tenant_id,
       p_email: lead.email || null,
       p_phone: lead.phone || null,
       p_company_name: lead.company_name || null,
+      p_first_name: lead.first_name || null,
+      p_last_name: lead.last_name || null,
+      p_job_title: lead.job_title || null,
+      p_source: lead.source || "lead-normalize",
     });
 
-    if (fpError) {
-      safeLog("Fingerprint computation failed", { error: fpError.message, code: fpError.code });
-      return jsonResponse({ error: "Failed to compute fingerprint", details: fpError.message }, 500, corsHeaders);
+    if (rpcError) {
+      safeLog("Atomic normalize RPC failed", { error: rpcError.message, code: rpcError.code });
+      return jsonResponse({ error: "Normalization failed", details: rpcError.message }, 500, corsHeaders);
     }
 
-    const fingerprint = fpResult as string;
+    // Type the RPC result
+    const result = rpcResult as {
+      ok: boolean;
+      status?: "created" | "deduped";
+      lead_id?: string;
+      lead_profile_id?: string;
+      fingerprint?: string;
+      segment?: string;
+      normalized?: { email: string | null; phone: string | null };
+      error?: string;
+      error_code?: string;
+    };
 
-    // Get normalized values
-    const { data: normEmail } = await supabase.rpc("normalize_email", { raw_email: lead.email || null });
-    const { data: normPhone } = await supabase.rpc("normalize_phone", { raw_phone: lead.phone || null });
-
-    // Determine segment
-    let segment: "b2b" | "b2c" | "unknown" = "unknown";
-    if (lead.company_name || lead.job_title) {
-      segment = "b2b";
-    } else if (lead.email && !lead.email.includes("@gmail.") && !lead.email.includes("@yahoo.") && !lead.email.includes("@hotmail.")) {
-      segment = "b2b";
-    } else if (lead.email || lead.phone) {
-      segment = "b2c";
+    if (!result.ok) {
+      safeLog("Atomic normalize returned error", { 
+        error: result.error, 
+        fingerprint_prefix: result.fingerprint?.substring(0, 6) 
+      });
+      return jsonResponse({ 
+        error: result.error || "Normalization failed", 
+        code: result.error_code 
+      }, 500, corsHeaders);
     }
 
-    // ==================== CONCURRENCY-SAFE DEDUPE ====================
-    // Try to find existing primary profile
-    const { data: existingProfile, error: existingError } = await supabase
-      .from("lead_profiles")
-      .select("id, lead_id, merged_from, enrichment_data, company_name, job_title, segment")
-      .eq("tenant_id", body.tenant_id)
-      .eq("fingerprint", fingerprint)
-      .eq("is_primary", true)
-      .maybeSingle();
+    const { status, lead_id: leadId, lead_profile_id: leadProfileId, fingerprint, segment, normalized } = result;
 
-    if (existingError && existingError.code !== "PGRST116") {
-      safeLog("Profile lookup failed", { error: existingError.message });
-      return jsonResponse({ error: "Database error during lookup", details: existingError.message }, 500, corsHeaders);
-    }
-
-    let leadId: string;
-    let leadProfileId: string;
-    let status: "created" | "deduped";
-
-    if (existingProfile) {
-      // DEDUP PATH
-      status = "deduped";
-      leadProfileId = existingProfile.id;
-      leadId = existingProfile.lead_id;
-
-      const existingEnrichment = (existingProfile.enrichment_data || {}) as Json;
-      const existingSources = Array.isArray(existingEnrichment.sources) 
-        ? (existingEnrichment.sources as string[]) 
-        : [];
-      const newSource = lead.source;
-      
-      // Dedupe sources array
-      const mergedSources = newSource && !existingSources.includes(newSource) 
-        ? [...existingSources, newSource]
-        : existingSources;
-
-      const newEnrichment: Json = {
-        ...existingEnrichment,
-        last_seen_at: new Date().toISOString(),
-        sources: mergedSources,
-      };
-
-      const updateFields: Json = { enrichment_data: newEnrichment };
-
-      // Only fill if existing is empty
-      if (lead.company_name && !existingProfile.company_name) {
-        updateFields.company_name = lead.company_name;
-      }
-      if (lead.job_title && !existingProfile.job_title) {
-        updateFields.job_title = lead.job_title;
-      }
-      // Only upgrade segment from unknown
-      if (segment !== "unknown" && existingProfile.segment === "unknown") {
-        updateFields.segment = segment;
-      }
-
-      const { error: updateError } = await supabase
-        .from("lead_profiles")
-        .update(updateFields)
-        .eq("id", existingProfile.id);
-
-      if (updateError) {
-        safeLog("Profile update failed", { error: updateError.message });
-        return jsonResponse({ error: "Failed to update existing profile", details: updateError.message }, 500, corsHeaders);
-      }
-
-      await safeAuditInsert(supabase, {
-        tenant_id: body.tenant_id,
-        timestamp: new Date().toISOString(),
-        agent_name: "lead-normalize",
-        action_type: "lead_normalize_called",
-        entity_type: "lead",
-        entity_id: leadId,
-        description: `Lead normalized (deduped)`,
-        request_snapshot: { fingerprint_prefix: fingerprint.substring(0, 6), segment },
-        response_snapshot: { status: "deduped", lead_profile_id: leadProfileId },
-        success: true,
-        user_id: isSystemCall ? null : userId,
-      }, auditColumns);
-
-    } else {
-      // CREATE PATH with conflict handling
-      status = "created";
-
-      const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
-
-      // Create lead first
-      const { data: newLead, error: leadError } = await supabase
-        .from("leads")
-        .insert({
-          tenant_id: body.tenant_id,
-          name: leadName,
-          email: normEmail,
-          phone: normPhone,
-          business_name: lead.company_name,
-          source: lead.source || "lead-normalize",
-          status: "new",
-          lead_temperature: "cold",
-          metadata: { normalized_at: new Date().toISOString() },
-        })
-        .select("id")
-        .single();
-
-      if (leadError) {
-        safeLog("Lead creation failed", { error: leadError.message });
-        return jsonResponse({ error: "Failed to create lead", details: leadError.message }, 500, corsHeaders);
-      }
-
-      leadId = newLead.id;
-
-      // Try insert profile - may conflict with concurrent request
-      const { data: newProfile, error: profileError } = await supabase
-        .from("lead_profiles")
-        .insert({
-          lead_id: leadId,
-          tenant_id: body.tenant_id,
-          fingerprint,
-          segment,
-          temperature: "ice_cold",
-          company_name: lead.company_name || null,
-          job_title: lead.job_title || null,
-          is_primary: true,
-          enrichment_data: {
-            sources: lead.source ? [lead.source] : [],
-            created_at: new Date().toISOString(),
-          },
-        })
-        .select("id")
-        .single();
-
-      if (profileError) {
-        // Check if it's a unique constraint violation (concurrent create)
-        if (profileError.code === "23505") {
-          // Another request created the profile - fetch it and treat as dedup
-          const { data: conflictProfile } = await supabase
-            .from("lead_profiles")
-            .select("id, lead_id")
-            .eq("tenant_id", body.tenant_id)
-            .eq("fingerprint", fingerprint)
-            .eq("is_primary", true)
-            .maybeSingle();
-
-          if (conflictProfile) {
-            // Clean up our orphaned lead
-            await supabase.from("leads").delete().eq("id", leadId);
-            
-            status = "deduped";
-            leadProfileId = conflictProfile.id;
-            leadId = conflictProfile.lead_id;
-            
-            safeLog("Concurrent create resolved to dedup", { fingerprint: fingerprint.substring(0, 6) });
-          } else {
-            // Cleanup and fail
-            await supabase.from("leads").delete().eq("id", leadId);
-            return jsonResponse({ error: "Concurrent conflict unresolved", details: profileError.message }, 500, corsHeaders);
-          }
-        } else {
-          // Other error - cleanup and fail
-          await supabase.from("leads").delete().eq("id", leadId);
-          safeLog("Profile creation failed", { error: profileError.message });
-          return jsonResponse({ error: "Failed to create lead profile", details: profileError.message }, 500, corsHeaders);
-        }
-      } else {
-        leadProfileId = newProfile.id;
-      }
-
-      await safeAuditInsert(supabase, {
-        tenant_id: body.tenant_id,
-        timestamp: new Date().toISOString(),
-        agent_name: "lead-normalize",
-        action_type: "lead_normalize_called",
-        entity_type: "lead",
-        entity_id: leadId,
-        description: `Lead normalized (${status})`,
-        request_snapshot: { fingerprint_prefix: fingerprint.substring(0, 6), segment },
-        response_snapshot: { status, lead_id: leadId, lead_profile_id: leadProfileId },
-        success: true,
-        user_id: isSystemCall ? null : userId,
-      }, auditColumns);
-    }
+    // Audit log
+    await safeAuditInsert(supabase, {
+      tenant_id: body.tenant_id,
+      timestamp: new Date().toISOString(),
+      agent_name: "lead-normalize",
+      action_type: "lead_normalize_called",
+      entity_type: "lead",
+      entity_id: leadId || "",
+      description: `Lead normalized (${status})`,
+      request_snapshot: { fingerprint_prefix: fingerprint?.substring(0, 6), segment },
+      response_snapshot: { status, lead_id: leadId, lead_profile_id: leadProfileId },
+      success: true,
+      user_id: isSystemCall ? null : userId,
+    }, auditColumns);
 
     const durationMs = Date.now() - startTime;
     safeLog("Success", {
       status,
       tenant_id: body.tenant_id,
-      fingerprint,
+      fingerprint_prefix: fingerprint?.substring(0, 6),
       segment,
       duration_ms: durationMs,
     });
 
     const response: NormalizeResponse = {
       ok: true,
-      status,
+      status: status!,
       tenant_id: body.tenant_id,
-      lead_id: leadId,
-      lead_profile_id: leadProfileId,
-      fingerprint,
-      segment,
-      normalized: { email: normEmail as string | null, phone: normPhone as string | null },
+      lead_id: leadId!,
+      lead_profile_id: leadProfileId!,
+      fingerprint: fingerprint!,
+      segment: segment as "b2b" | "b2c" | "unknown",
+      normalized: normalized || { email: null, phone: null },
       duration_ms: durationMs,
     };
 

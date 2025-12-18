@@ -118,12 +118,13 @@ export default function QATests() {
     const schemaCheck = await runSchemaSanityCheck();
     tests.push(schemaCheck);
 
-    // TEST 11-14: Only run if schema is valid
+    // TEST 11-15: Only run if schema is valid
     if (schemaCheck.status === "pass") {
       tests.push(await runLeadNormalizationTest(tenantIdA));
       tests.push(await runDedupProofTest(tenantIdA));
       tests.push(await runPrimaryProfileUniquenessTest(tenantIdA));
       tests.push(await runRateLimitTest(tenantIdA));
+      tests.push(await runAtomicNormalizeRpcTest(tenantIdA));
     } else {
       tests.push({
         name: "TEST 11 - Lead Normalization",
@@ -145,6 +146,12 @@ export default function QATests() {
       });
       tests.push({
         name: "TEST 14 - Rate Limit",
+        status: "error",
+        details: { skipped: true, reason: "Schema sanity check failed" },
+        duration_ms: 0,
+      });
+      tests.push({
+        name: "TEST 15 - Atomic Normalize RPC",
         status: "error",
         details: { skipped: true, reason: "Schema sanity check failed" },
         duration_ms: 0,
@@ -1548,6 +1555,168 @@ export default function QATests() {
           hint: !got429 ? "Rate limit not triggered - check RATE_LIMIT_MAX setting" : undefined,
         },
         error: !got429 ? `Expected at least one 429 response, got none after ${totalRequests} requests` : undefined,
+        duration_ms: Date.now() - start,
+      };
+    } catch (err) {
+      return {
+        name,
+        status: "error",
+        details: { exception: err instanceof Error ? err.stack : String(err) },
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - start,
+      };
+    }
+  };
+
+  // TEST 15: Atomic Normalize RPC
+  const runAtomicNormalizeRpcTest = async (tenantId: string): Promise<TestResult> => {
+    const start = Date.now();
+    const name = "TEST 15 - Atomic Normalize RPC";
+    const testNonce = `qa_atomic_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        return {
+          name,
+          status: "error",
+          details: { reason: "No auth session" },
+          error: "Must be logged in to run this test",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // First check if the RPC exists
+      const { data: rpcCheck, error: rpcCheckError } = await supabase.rpc("normalize_lead_atomic", {
+        p_tenant_id: tenantId,
+        p_email: `rpc_check_${testNonce}@qatest.local`,
+        p_phone: null,
+        p_company_name: null,
+        p_first_name: "RPC",
+        p_last_name: "Check",
+        p_job_title: null,
+        p_source: "qa_rpc_check",
+      });
+
+      if (rpcCheckError) {
+        return {
+          name,
+          status: "fail",
+          details: { 
+            rpc_error: rpcCheckError.message,
+            hint: "normalize_lead_atomic RPC may not exist or has permission issues"
+          },
+          error: `RPC call failed: ${rpcCheckError.message}`,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // Verify RPC returned expected structure
+      const checkResult = rpcCheck as { ok?: boolean; status?: string; fingerprint?: string };
+      if (!checkResult.ok || !checkResult.fingerprint) {
+        return {
+          name,
+          status: "fail",
+          details: { rpc_result: checkResult },
+          error: "RPC did not return expected structure (ok, fingerprint)",
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      // Now test concurrent calls via edge function (which now uses the RPC)
+      const testEmail = `atomic_${testNonce}@qatest.local`;
+      const testPhone = "5559876543";
+
+      const makeRequest = () =>
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-normalize`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            lead: {
+              email: testEmail,
+              phone: testPhone,
+              first_name: "Atomic",
+              last_name: "Test",
+              source: "qa_atomic_test",
+            },
+          }),
+        }).then(async (r) => ({
+          ok: r.ok,
+          status: r.status,
+          body: await r.json().catch(() => ({})),
+        }));
+
+      // Fire two simultaneous requests
+      const [result1, result2] = await Promise.all([makeRequest(), makeRequest()]);
+
+      if (!result1.ok || !result2.ok) {
+        return {
+          name,
+          status: "fail",
+          details: { result1, result2 },
+          error: `One or both requests failed: r1=${result1.status}, r2=${result2.status}`,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const fingerprint = result1.body.fingerprint || result2.body.fingerprint;
+      const fingerprintsMatch = result1.body.fingerprint === result2.body.fingerprint;
+
+      // Verify only ONE primary profile exists
+      const { data: profiles, error: profileError } = await supabase
+        .from("lead_profiles")
+        .select("id, is_primary, fingerprint")
+        .eq("tenant_id", tenantId)
+        .eq("fingerprint", fingerprint)
+        .eq("is_primary", true);
+
+      if (profileError) {
+        return {
+          name,
+          status: "error",
+          details: { db_error: profileError.message },
+          error: profileError.message,
+          duration_ms: Date.now() - start,
+        };
+      }
+
+      const primaryCount = profiles?.length || 0;
+      const statuses = [result1.body.status, result2.body.status].sort();
+
+      // One should be created, one should be deduped (or both deduped if very fast)
+      const validStatuses =
+        (statuses[0] === "created" && statuses[1] === "deduped") ||
+        (statuses[0] === "deduped" && statuses[1] === "deduped");
+
+      const passed = primaryCount === 1 && validStatuses && fingerprintsMatch;
+
+      return {
+        name,
+        status: passed ? "pass" : "fail",
+        details: {
+          rpc_exists: true,
+          rpc_initial_check: { ok: checkResult.ok, status: checkResult.status },
+          result1_status: result1.body.status,
+          result2_status: result2.body.status,
+          fingerprint,
+          fingerprints_match: fingerprintsMatch,
+          primary_profiles_found: primaryCount,
+          valid_status_combination: validStatuses,
+          profiles: profiles?.map((p) => ({ id: p.id, is_primary: p.is_primary })),
+        },
+        error: !passed
+          ? primaryCount !== 1
+            ? `Expected 1 primary profile, found ${primaryCount}. Atomic RPC may have race issue.`
+            : !fingerprintsMatch
+            ? "Fingerprints do not match between concurrent calls"
+            : `Invalid status combination: ${statuses.join(", ")}`
+          : undefined,
         duration_ms: Date.now() - start,
       };
     } catch (err) {
