@@ -160,8 +160,13 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
     }
     // else: do NOT set allow-origin (blocked)
   } else if (isDev) {
-    // Development with no allowlist
-    allowOrigin = "*";
+    // Development with no allowlist: echo origin for consistency
+    if (origin) {
+      allowOrigin = origin;
+      varyOrigin = true;
+    } else {
+      allowOrigin = "*";
+    }
   } else {
     // Production with no allowlist
     // - If Origin exists: do NOT set allow-origin (blocked)
