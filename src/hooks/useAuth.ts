@@ -52,8 +52,7 @@ export function useAuth() {
   const [state, setState] = useState<AuthState>(DEFAULT_STATE);
   const isMockAuth =
     import.meta.env.VITE_MOCK_AUTH === "true" ||
-    (typeof window !== "undefined" &&
-      window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
+    (typeof window !== "undefined" && window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
 
   // Loop-killer: prevent repeated noisy logging + repeated RPC calls
   const roleCheckedForUserRef = useRef<string | null>(null);
