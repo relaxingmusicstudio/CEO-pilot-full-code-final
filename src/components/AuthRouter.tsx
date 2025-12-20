@@ -13,7 +13,7 @@
  * - authenticated + onboarding_complete=true + role=owner/admin -> /app
  * 
  * LEGACY REDIRECTS:
- * - /app/onboarding -> /app (onboarding is now in-dashboard)
+ * - (none)
  * 
  * TEST CHECKLIST:
  * - New user -> auth -> /app (shows onboarding card) -> completes -> dashboard appears
