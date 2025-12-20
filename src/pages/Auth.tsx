@@ -17,9 +17,11 @@ export default function Auth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (isAuthenticated) {
-    navigate("/ceo", { replace: true });
-  }
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/app", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +40,7 @@ export default function Auth() {
         return;
       }
 
-      const goTo = location?.state?.from ?? "/ceo";
+      const goTo = location?.state?.from ?? "/app";
       navigate(goTo, { replace: true });
     } finally {
       setIsSubmitting(false);

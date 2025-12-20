@@ -26,9 +26,9 @@ test("mock auth flow signs in and out", async ({ page }) => {
   await page.getByLabel(/email/i).fill("ceo@example.com");
   await page.getByLabel(/password/i).fill("password123");
   await page.getByTestId("sign-in").click();
-  await expect(page).toHaveURL(/\/ceo/);
+  await expect(page).toHaveURL(/\/app/);
   await expect(page.getByTestId("ceo-home")).toBeVisible();
   await page.getByTestId("sign-out").click();
-  await expect(page).toHaveURL(/\/auth/);
+  await expect(page).toHaveURL(/\/login/);
   expect(errors, errors.join("\n")).toEqual([]);
 });

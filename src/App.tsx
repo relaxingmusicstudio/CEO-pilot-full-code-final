@@ -118,6 +118,7 @@ const App = () => (
                   <Route path="/cookies" element={<CookiePolicy />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/login" element={<Auth />} />
+                  <Route path="/ceo" element={<ProtectedRoute><CEOHome /></ProtectedRoute>} />
                   
                   {/* Onboarding - New user flow (AuthRouter handles routing) */}
                   <Route path="/app/onboarding" element={<ProtectedRoute><OnboardingConversation /></ProtectedRoute>} />
