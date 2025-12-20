@@ -53,7 +53,7 @@ export default function Integrations() {
         setStatus("Saved");
         setApiKey("");
       } else {
-        setTestResult(`Success â€¢ ${data.provider ?? provider} â€¢ ${data.latencyMs ?? 0}ms`);
+        setTestResult(`Success GÇó ${data.provider ?? provider} GÇó ${data.latencyMs ?? 0}ms`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong";
@@ -81,7 +81,7 @@ export default function Integrations() {
       });
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error(data?.error || "Gateway failed");
-      setLlmResult(`Gateway ok â€¢ ${data.provider} â€¢ ${data.output ?? data.sampleText ?? "ok"}`);
+      setLlmResult(`Gateway ok GÇó ${data.provider} GÇó ${data.output ?? data.sampleText ?? "ok"}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gateway error";
       setLlmResult(`Error: ${message}`);

@@ -7,13 +7,16 @@ const corsHeaders = {
 };
 
 const PROVIDERS = ["openai", "gemini"] as const;
+type Provider = (typeof PROVIDERS)[number];
 
 const getEncryptionKey = async (): Promise<CryptoKey> => {
   const secret =
     Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY") ||
     Deno.env.get("VAULT_ENCRYPTION_KEY") ||
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!secret) throw new Error("Missing encryption secret");
+  if (!secret) {
+    throw new Error("Missing encryption secret");
+  }
   const keyMaterial = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
   return crypto.subtle.importKey("raw", keyMaterial, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 };
@@ -38,6 +41,33 @@ const decrypt = async (ciphertext: string): Promise<string> => {
   return new TextDecoder().decode(plain);
 };
 
+const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  try {
+    // @ts-ignore AbortSignal may be unused for some callers
+    const result = await promise;
+    clearTimeout(timeout);
+    return result;
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
+  }
+};
+
+const fetchWithAbort = async (input: string | URL, init: RequestInit, timeoutMs: number) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(input, { ...init, signal: controller.signal });
+    clearTimeout(timeout);
+    return res;
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -56,6 +86,7 @@ serve(async (req) => {
     }
 
     const { action, provider, apiKey, prompt } = await req.json();
+
     if (!PROVIDERS.includes(provider)) {
       return new Response(JSON.stringify({ ok: false, error: "Unsupported provider" }), {
         status: 400,
@@ -136,7 +167,7 @@ serve(async (req) => {
         .select("api_key_ciphertext")
         .eq("user_id", user.id)
         .eq("provider", provider)
-        .maybeSingle();
+        .single();
 
       if (error || !row) {
         return new Response(JSON.stringify({ ok: false, error: "No key saved" }), {
@@ -145,14 +176,83 @@ serve(async (req) => {
         });
       }
 
+      const key = await decrypt(row.api_key_ciphertext);
+      const textPrompt = typeof prompt === "string" && prompt.trim().length > 0 ? prompt : "Hello";
+
       try {
-        const key = await decrypt(row.api_key_ciphertext);
-        return new Response(
-          JSON.stringify({ ok: true, provider, latencyMs: Date.now() - start, sampleText: "encrypted-ok", keyLength: key.length }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        if (provider === "openai") {
+          const resp = await fetchWithAbort(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${key}`,
+              },
+              body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "user", content: textPrompt }],
+                max_tokens: 10,
+              }),
+            },
+            8000
+          );
+          const latencyMs = Date.now() - start;
+          if (!resp.ok) {
+            const errText = await resp.text();
+            return new Response(JSON.stringify({ ok: false, error: errText.slice(0, 300) || resp.statusText }), {
+              status: resp.status,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const data = await resp.json();
+          const sampleText = data?.choices?.[0]?.message?.content ?? "";
+          return new Response(
+            JSON.stringify({ ok: true, provider, latencyMs, sampleText }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (provider === "gemini") {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(
+            key
+          )}`;
+          const resp = await fetchWithAbort(
+            url,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: textPrompt }] }],
+              }),
+            },
+            8000
+          );
+          const latencyMs = Date.now() - start;
+          if (!resp.ok) {
+            const errText = await resp.text();
+            return new Response(JSON.stringify({ ok: false, error: errText.slice(0, 300) || resp.statusText }), {
+              status: resp.status,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const data = await resp.json();
+          const sampleText =
+            data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            data?.candidates?.[0]?.output ||
+            "";
+          return new Response(
+            JSON.stringify({ ok: true, provider, latencyMs, sampleText }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(JSON.stringify({ ok: false, error: "Unsupported provider" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Decrypt failed";
+        const message = err instanceof Error ? err.message : "Test failed";
         return new Response(JSON.stringify({ ok: false, error: message }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -166,7 +266,7 @@ serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ ok: false, error: message }), {
+    return new Response(JSON.stringify({ ok: false, error: message, latencyMs: Date.now() - start }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

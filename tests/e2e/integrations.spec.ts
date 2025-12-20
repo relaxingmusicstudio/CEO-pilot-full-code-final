@@ -25,10 +25,11 @@ test.beforeEach(async ({ page }) => {
       JSON.stringify({ enhanced_analytics: false, marketing_emails: false, personalization: false })
     );
     window.localStorage.setItem("enhanced_tracking_asked", "true");
-    window.localStorage.setItem(
-      "onboarding_v1::mock-user",
-      JSON.stringify({ status: "complete", data: {}, updatedAt: new Date().toISOString() })
-    );
+    window.localStorage.setItem("onboarding_v1::mock-user", JSON.stringify({
+      status: "complete",
+      data: {},
+      updatedAt: new Date().toISOString(),
+    }));
   });
 });
 

@@ -72,6 +72,21 @@ export default function CEOHome() {
         Sign out
       </button>
 
+      <button
+        data-testid="go-integrations"
+        onClick={() => navigate("/app/integrations")}
+        style={{
+          padding: "10px 14px",
+          borderRadius: 10,
+          border: "1px solid rgba(0,0,0,0.15)",
+          cursor: "pointer",
+          fontWeight: 700,
+          marginLeft: 12,
+        }}
+      >
+        Integrations
+      </button>
+
       <hr style={{ margin: "24px 0", opacity: 0.2 }} />
 
       <div style={{ opacity: 0.85 }}>
