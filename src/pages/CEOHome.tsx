@@ -1,332 +1,49 @@
-﻿/**
- * CEO Home - Unified Command Center
- * 
- * THE single landing page after login.
- * - Shows onboarding card if onboarding_complete=false
- * - Shows intelligence grid if onboarding complete
- * - CEO chat is always visible at bottom
- * 
- * ONBOARDING FLOW:
- * - processAgentResponse in useOnboardingOrchestrator handles ALL completion logic
- * - This component ONLY passes the response to processAgentResponse
- * - NO separate completeOnboarding call from this component
+﻿// src/pages/CEOHome.tsx
+/**
+ * PHASE 1 LOCK ✅
+ * - [LOCKED] Page renders without crashing
+ * - [LOCKED] Helmet works because main.tsx provides <HelmetProvider>
+ * - [TODO-P2] Mount CEO agent chat + onboarding panels once Phase 1 stable
  */
 
-import { useState, useEffect, useCallback } from "react";
+import React from "react";
 import { Helmet } from "react-helmet-async";
-import { supabase } from "@/integrations/supabase/client";
-import { CEOChatFixed } from "@/components/ceo/CEOChatFixed";
-import { IntelligenceCard, CardState } from "@/components/ceo/IntelligenceCard";
-import { OnboardingCard } from "@/components/OnboardingCard";
-import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
-import { useOnboardingOrchestrator } from "@/hooks/useOnboardingOrchestrator";
-import { 
-  Target, 
-  MessageSquare, 
-  TrendingUp, 
-  DollarSign, 
-  FileText, 
-  CheckCircle2 
-} from "lucide-react";
-
-interface GridMetrics {
-  pipeline: { leads: number; stalled: number; state: CardState };
-  communications: { missed: number; unread: number; state: CardState };
-  growth: { visitors: number; delta: string; state: CardState };
-  finance: { overdue: number; mrr: number; state: CardState };
-  content: { pending: number; published: number; state: CardState };
-  decisions: { pending: number; urgent: number; state: CardState };
-}
-
-const ONBOARDING_SYSTEM_PROMPT = `You are helping a new user set up their AI CEO Command Center. Have a friendly, conversational exchange to gather their business information.
-
-Ask these questions one at a time (wait for their response before the next):
-1. "What's your business name?"
-2. "What industry are you in? (e.g., HVAC, plumbing, landscaping, etc.)"
-3. "What's your biggest challenge right now? (e.g., getting more leads, managing time, following up with customers)"
-4. "What's your primary goal - generating more leads, improving customer retention, creating content, or streamlining operations?"
-
-After they answer all questions, summarize what you learned and tell them their Command Center is ready.
-
-When you have all the information, include this exact tag in your response:
-[ONBOARDING_COMPLETE:{"businessName":"NAME","industry":"INDUSTRY","biggestChallenge":"CHALLENGE","primaryGoal":"GOAL"}]
-
-Be warm, encouraging, and keep responses brief. Start by warmly greeting them and asking for their business name.`;
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CEOHome() {
-  const { isOnboardingComplete, isLoading: onboardingLoading, refetch: refetchOnboardingStatus } = useOnboardingStatus();
-  
-  // Use the orchestrator with a completion callback to refetch status
-  const { currentStep, totalSteps, processAgentResponse, isComplete: orchestratorComplete } = useOnboardingOrchestrator({
-    onComplete: () => {
-      // When orchestrator marks complete, refetch the onboarding status
-      refetchOnboardingStatus();
-    }
-  });
-  
-  const [metrics, setMetrics] = useState<GridMetrics | null>(null);
-  const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
-  const [showOnboardingChat, setShowOnboardingChat] = useState(false);
-  const [onboardingMessage, setOnboardingMessage] = useState<string | undefined>();
-
-  // Determine if we should show dashboard based on either hook or orchestrator
-  const shouldShowDashboard = isOnboardingComplete || orchestratorComplete;
-
-  useEffect(() => {
-    if (shouldShowDashboard) {
-      fetchMetrics();
-      
-      // Set up realtime subscriptions for key tables
-      const channel = supabase
-        .channel("ceo-home-updates")
-        .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, fetchMetrics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "content" }, fetchMetrics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "action_queue" }, fetchMetrics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "ceo_action_queue" }, fetchMetrics)
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [shouldShowDashboard]);
-
-  const fetchMetrics = async () => {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-
-      // Fetch all data in parallel - NO AI CALLS
-      const [
-        leadsRes,
-        contentRes,
-        decisionsRes,
-        ceoDecisionsRes,
-        callsRes
-      ] = await Promise.all([
-        supabase.from("leads").select("id, lead_score, lead_temperature, status, created_at").gte("created_at", yesterday.toISOString()),
-        supabase.from("content").select("id, status"),
-        supabase.from("action_queue").select("id, priority, status").eq("status", "pending_approval"),
-        supabase.from("ceo_action_queue").select("id, priority, status").eq("status", "pending_approval"),
-        supabase.from("call_logs").select("id, status").gte("created_at", yesterday.toISOString())
-      ]);
-
-      const leads = leadsRes.data || [];
-      const content = contentRes.data || [];
-      const decisions = decisionsRes.data || [];
-      const ceoDecisions = ceoDecisionsRes.data || [];
-      const calls = callsRes.data || [];
-
-      // Calculate pipeline metrics
-      const hotLeads = leads.filter(l => l.lead_score >= 70 || l.lead_temperature === "hot").length;
-      const stalledLeads = leads.filter(l => l.status === "stalled" || l.status === "cold").length;
-      const pipelineState: CardState = stalledLeads > 3 ? "urgent" : hotLeads > 0 ? "attention" : "healthy";
-
-      // Calculate communications metrics
-      const missedCalls = calls.filter(c => c.status === "missed" || c.status === "no-answer").length;
-      const commsState: CardState = missedCalls > 5 ? "urgent" : missedCalls > 0 ? "attention" : "healthy";
-
-      // Calculate growth metrics (placeholder - would need analytics data)
-      const growthState: CardState = "healthy";
-
-      // Calculate finance metrics (placeholder - would need billing data)
-      const financeState: CardState = "healthy";
-
-      // Calculate content metrics
-      const pendingContent = content.filter(c => c.status === "pending").length;
-      const publishedContent = content.filter(c => c.status === "published").length;
-      const contentState: CardState = pendingContent > 5 ? "attention" : "healthy";
-
-      // Calculate decisions metrics
-      const allDecisions = [...decisions, ...ceoDecisions];
-      const pendingCount = allDecisions.length;
-      const urgentCount = allDecisions.filter(d => typeof d.priority === 'number' && d.priority >= 8).length;
-      const decisionsState: CardState = urgentCount > 0 ? "urgent" : pendingCount > 0 ? "attention" : "healthy";
-
-      setMetrics({
-        pipeline: {
-          leads: hotLeads,
-          stalled: stalledLeads,
-          state: pipelineState
-        },
-        communications: {
-          missed: missedCalls,
-          unread: 0,
-          state: commsState
-        },
-        growth: {
-          visitors: 0,
-          delta: "—",
-          state: growthState
-        },
-        finance: {
-          overdue: 0,
-          mrr: 0,
-          state: financeState
-        },
-        content: {
-          pending: pendingContent,
-          published: publishedContent,
-          state: contentState
-        },
-        decisions: {
-          pending: pendingCount,
-          urgent: urgentCount,
-          state: decisionsState
-        }
-      });
-    } catch (error) {
-      console.error("Error fetching metrics:", error);
-    } finally {
-      setIsLoadingMetrics(false);
-    }
-  };
-
-  const handleStartOnboarding = useCallback(() => {
-    setShowOnboardingChat(true);
-    setOnboardingMessage("Hi! I'm excited to get started with my new AI CEO Command Center.");
-  }, []);
-
-  // CRITICAL: Only pass response to processAgentResponse - NO separate completeOnboarding call
-  const handleAgentResponse = useCallback((response: string) => {
-    processAgentResponse(response);
-  }, [processAgentResponse]);
-
-  const isLoading = onboardingLoading || (shouldShowDashboard && isLoadingMetrics);
-  const showOnboarding = !shouldShowDashboard && !onboardingLoading;
+  const { email, role, signOut } = useAuth();
 
   return (
-    <>
+    <div data-testid="ceo-home" style={{ padding: 24, fontFamily: "system-ui" }}>
       <Helmet>
-        <title>CEO Command Center</title>
-        <meta name="description" content="Your AI-powered business command center" />
+        <title>PipelinePRO — CEO</title>
       </Helmet>
 
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)] overflow-hidden">
-        {/* Intelligence Grid - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 pb-64 md:pb-4">
-          <div className="max-w-5xl mx-auto">
-            {/* Onboarding Card - Only shown when onboarding incomplete */}
-            {showOnboarding && (
-              <div className="mb-6">
-                <OnboardingCard
-                  currentStep={currentStep}
-                  totalSteps={totalSteps}
-                  onContinue={handleStartOnboarding}
-                  isLoading={showOnboardingChat}
-                />
-              </div>
-            )}
-
-            {/* Normal Dashboard Content */}
-            {shouldShowDashboard && (
-              <>
-                <div className="mb-4">
-                  <h1 className="text-lg font-semibold text-foreground">Good {getTimeOfDay()}</h1>
-                  <p className="text-sm text-muted-foreground">Here's what needs your attention</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Pipeline Card */}
-                  <IntelligenceCard
-                    title="Pipeline"
-                    icon={Target}
-                    primaryMetric={metrics?.pipeline.leads ?? 0}
-                    primaryLabel="hot leads"
-                    secondaryMetric={metrics?.pipeline.stalled ? `${metrics.pipeline.stalled} stalled` : undefined}
-                    cta="Review pipeline"
-                    state={metrics?.pipeline.state ?? "inactive"}
-                    navigateTo="/app/pipeline"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Communications Card */}
-                  <IntelligenceCard
-                    title="Communications"
-                    icon={MessageSquare}
-                    primaryMetric={metrics?.communications.missed ?? 0}
-                    primaryLabel="missed calls today"
-                    secondaryMetric={metrics?.communications.unread ? `${metrics.communications.unread} unread` : undefined}
-                    cta="Check inbox"
-                    state={metrics?.communications.state ?? "inactive"}
-                    navigateTo="/app/inbox"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Growth Card */}
-                  <IntelligenceCard
-                    title="Growth"
-                    icon={TrendingUp}
-                    primaryMetric={metrics?.growth.visitors ?? 0}
-                    primaryLabel="new visitors"
-                    secondaryMetric={metrics?.growth.delta !== "â€”" ? `Funnel ${metrics?.growth.delta}` : undefined}
-                    cta="See insights"
-                    state={metrics?.growth.state ?? "inactive"}
-                    navigateTo="/app/analytics"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Finance Card */}
-                  <IntelligenceCard
-                    title="Finance"
-                    icon={DollarSign}
-                    primaryMetric={metrics?.finance.overdue ?? 0}
-                    primaryLabel="overdue invoices"
-                    secondaryMetric={metrics?.finance.mrr ? `MRR: $${metrics.finance.mrr.toLocaleString()}` : undefined}
-                    cta="View finances"
-                    state={metrics?.finance.state ?? "inactive"}
-                    navigateTo="/app/billing"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Content Card */}
-                  <IntelligenceCard
-                    title="Content"
-                    icon={FileText}
-                    primaryMetric={metrics?.content.pending ?? 0}
-                    primaryLabel="pending review"
-                    secondaryMetric={metrics?.content.published ? `${metrics.content.published} published` : undefined}
-                    cta="Review queue"
-                    state={metrics?.content.state ?? "inactive"}
-                    navigateTo="/app/content"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Decisions Card */}
-                  <IntelligenceCard
-                    title="Decisions"
-                    icon={CheckCircle2}
-                    primaryMetric={metrics?.decisions.pending ?? 0}
-                    primaryLabel="pending approval"
-                    secondaryMetric={metrics?.decisions.urgent ? `${metrics.decisions.urgent} urgent` : undefined}
-                    cta="Review all"
-                    state={metrics?.decisions.state ?? "inactive"}
-                    navigateTo="/app/decisions"
-                    isLoading={isLoading}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* CEO Chat - Fixed Bottom */}
-        <CEOChatFixed
-          systemPrompt={showOnboardingChat ? ONBOARDING_SYSTEM_PROMPT : undefined}
-          onAgentResponse={showOnboardingChat ? handleAgentResponse : undefined}
-          autoExpand={showOnboardingChat}
-          initialMessage={onboardingMessage}
-        />
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>CEO Home</h1>
+      <div style={{ opacity: 0.8, marginBottom: 16 }}>
+        Signed in as <b>{email ?? "unknown"}</b> — role: <b>{role}</b>
       </div>
-    </>
+
+      <button
+        data-testid="sign-out"
+        onClick={() => signOut()}
+        style={{
+          padding: "10px 14px",
+          borderRadius: 10,
+          border: "1px solid rgba(0,0,0,0.15)",
+          cursor: "pointer",
+          fontWeight: 700,
+        }}
+      >
+        Sign out
+      </button>
+
+      <hr style={{ margin: "24px 0", opacity: 0.2 }} />
+
+      <div style={{ opacity: 0.85 }}>
+        ✅ Phase 1: routing + auth + stability is the mission.  
+        Next: we plug in the CEO Agent panel without breaking the app.
+      </div>
+    </div>
   );
 }
-
-function getTimeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-}
-

@@ -1,227 +1,113 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { z } from "zod";
-import { Loader2, Mail, Lock, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+// [LOCKED:PHASE1] Simple auth UI. No extra dependencies.
+// If you want your fancy UI back later, we’ll swap it in after stability.
 
-const emailSchema = z.string().email("Please enter a valid email address");
-const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
-const Auth = () => {
+export default function Auth() {
+  const { signIn, signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { signIn, signUp, isAuthenticated, isLoading: authLoading } = useAuth();
-  
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation() as any;
+
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  // Redirect if already authenticated - go through proper routing
-  useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      navigate("/app", { replace: true });
-    }
-  }, [isAuthenticated, authLoading, navigate]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    const emailResult = emailSchema.safeParse(email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
-    }
-    
-    const passwordResult = passwordSchema.safeParse(password);
-    if (!passwordResult.success) {
-      newErrors.password = passwordResult.error.errors[0].message;
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  if (isAuthenticated) {
+    navigate("/ceo", { replace: true });
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
+    setErrorMsg(null);
+    setIsSubmitting(true);
+
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              title: "Login failed",
-              description: "Invalid email or password. Please try again.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Login failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-        
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
-        });
-        navigate("/app", { replace: true });
-      } else {
-        const { error } = await signUp(email, password);
-        
-        if (error) {
-          if (error.message.includes("already registered")) {
-            toast({
-              title: "Account exists",
-              description: "This email is already registered. Please log in instead.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Sign up failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-        
-        toast({
-          title: "Account created!",
-          description: "Please check your email to confirm your account, or log in if email confirmation is disabled.",
-        });
-        setIsLogin(true);
+      const res =
+        mode === "login"
+          ? await signIn({ email, password })
+          : await signUp({ email, password });
+
+      if (res.error) {
+        setErrorMsg(res.error.message);
+        setIsSubmitting(false);
+        return;
       }
+
+      const goTo = location?.state?.from ?? "/ceo";
+      navigate(goTo, { replace: true });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/")}
-          className="mb-6 gap-2"
+    <div style={{ padding: 24, maxWidth: 420, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800 }}>
+        {mode === "login" ? "Sign In" : "Create Account"}
+      </h1>
+
+      <form data-testid="auth-form" onSubmit={handleSubmit} style={{ marginTop: 16, display: "grid", gap: 12 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Email</span>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Password</span>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            required
+            minLength={6}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
+          />
+        </label>
+
+        {errorMsg && (
+          <div style={{ color: "crimson", fontSize: 14 }}>{errorMsg}</div>
+        )}
+
+        <button
+          data-testid="sign-in"
+          type="submit"
+          disabled={isSubmitting}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "none",
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to site
-        </Button>
+          {isSubmitting ? "Working…" : mode === "login" ? "Sign In" : "Sign Up"}
+        </button>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">
-              {isLogin ? "Admin Login" : "Create Account"}
-            </CardTitle>
-            <CardDescription>
-              {isLogin
-                ? "Sign in to access the CEO Agent dashboard"
-                : "Create an account to get started"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@example.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrors((prev) => ({ ...prev, email: undefined }));
-                    }}
-                    className="pl-10"
-                    disabled={isLoading}
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrors((prev) => ({ ...prev, password: undefined }));
-                    }}
-                    className="pl-10"
-                    disabled={isLoading}
-                  />
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
-                )}
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {isLogin ? "Signing in..." : "Creating account..."}
-                  </>
-                ) : isLogin ? (
-                  "Sign In"
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:underline"
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up"
-                  : "Already have an account? Sign in"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Only authorized administrators can access the dashboard.
-        </p>
-      </div>
+        <button
+          type="button"
+          onClick={() => setMode(mode === "login" ? "signup" : "login")}
+          style={{
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid #ccc",
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        >
+          {mode === "login" ? "Need an account? Sign up" : "Have an account? Sign in"}
+        </button>
+      </form>
     </div>
   );
-};
-
-export default Auth;
+}

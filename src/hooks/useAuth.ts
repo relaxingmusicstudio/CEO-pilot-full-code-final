@@ -1,116 +1,208 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { User, Session } from "@supabase/supabase-js";
+// src/hooks/useAuth.ts
+/**
+ * PHASE 1 LOCK ✅
+ * - [LOCKED] signIn/signUp/signOut are ALWAYS functions
+ * - [LOCKED] Auth state initializes once and updates on Supabase events
+ * - [LOCKED] Role checking:
+ *    - Never blocks login
+ *    - Never loops/spams
+ *    - Caches results per session
+ * - [TODO-P2] Fix PGRST203 at DB layer (duplicate has_role overloads)
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "moderator" | "user";
+type Role = "admin" | "owner" | "user";
 
-/**
- * useAuth — STABLE VERSION
- * - No PowerShell artifacts
- * - No direct profiles table queries (avoids 406 loop)
- * - Tenant resolved via RPC
- */
-export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+type AuthState = {
+  userId: string | null;
+  email: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  role: Role;
+};
 
-  const tenantPromise = useRef<Promise<string | null> | null>(null);
+type Credentials = {
+  email: string;
+  password: string;
+};
 
-  const resolveTenant = useCallback(async (sess: Session | null) => {
-    if (!sess?.user) {
-      setTenantId(null);
-      return null;
+const DEFAULT_STATE: AuthState = {
+  userId: null,
+  email: null,
+  isAuthenticated: false,
+  isLoading: true,
+  role: "user",
+};
+
+const DEFAULT_MOCK_STATE: AuthState = {
+  ...DEFAULT_STATE,
+  isLoading: false,
+};
+
+let mockAuthState: AuthState = DEFAULT_MOCK_STATE;
+const mockAuthSubscribers = new Set<(state: AuthState) => void>();
+
+const notifyMockAuth = () => {
+  mockAuthSubscribers.forEach((listener) => listener(mockAuthState));
+};
+
+export function useAuth() {
+  const [state, setState] = useState<AuthState>(DEFAULT_STATE);
+  const isMockAuth =
+    import.meta.env.VITE_MOCK_AUTH === "true" ||
+    (typeof window !== "undefined" &&
+      window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
+
+  // Loop-killer: prevent repeated noisy logging + repeated RPC calls
+  const roleCheckedForUserRef = useRef<string | null>(null);
+  const hasRoleErrorLoggedRef = useRef(false);
+
+  const hydrateFromSession = useCallback(async () => {
+    setState((s) => ({ ...s, isLoading: true }));
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.user) {
+      setState({ ...DEFAULT_STATE, isLoading: false });
+      return;
     }
 
-    const existing = (sess.user.user_metadata as any)?.tenant_id;
-    if (existing) {
-      setTenantId(existing);
-      setUser(sess.user);
-      return existing;
-    }
-
-    if (tenantPromise.current) return tenantPromise.current;
-
-    tenantPromise.current = (async () => {
-      const { data, error } = await supabase.rpc("get_user_tenant_id");
-      if (error) {
-        console.error("get_user_tenant_id failed", error);
-        return null;
-      }
-
-      const tid = String(data);
-      setTenantId(tid);
-
-      const patchedUser: User = {
-        ...sess.user,
-        user_metadata: {
-          ...(sess.user.user_metadata ?? {}),
-          tenant_id: tid,
-        },
-      };
-
-      setUser(patchedUser);
-      tenantPromise.current = null;
-      return tid;
-    })();
-
-    return tenantPromise.current;
+    const user = data.session.user;
+    setState((s) => ({
+      ...s,
+      userId: user.id,
+      email: user.email ?? null,
+      isAuthenticated: true,
+      isLoading: false,
+    }));
   }, []);
 
-  const checkAdminRole = useCallback(async (userId: string) => {
-    const { data, error } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin" as AppRole,
-    });
+  // Non-blocking best-effort role check (loop-safe)
+  const checkRole = useCallback(async (userId: string) => {
+    if (roleCheckedForUserRef.current === userId) return;
+    roleCheckedForUserRef.current = userId;
 
-    if (error) {
-      console.warn("has_role error", error);
-      return false;
-    }
-
-    return data === true;
-  }, []);
-
-  const applySession = useCallback(
-    async (sess: Session | null) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      setIsLoading(false);
-
-      if (!sess?.user) {
-        setIsAdmin(false);
-        setTenantId(null);
-        return;
-      }
-
-      await resolveTenant(sess);
-      checkAdminRole(sess.user.id).then(setIsAdmin);
-    },
-    [resolveTenant, checkAdminRole]
-  );
-
-  useEffect(() => {
-    const { data: { subscription } } =
-      supabase.auth.onAuthStateChange((_e, sess) => {
-        applySession(sess);
+    try {
+      // If your DB has has_role overload conflicts, this can error (PGRST203).
+      // We do NOT block the app on it.
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
       });
 
-    supabase.auth.getSession().then(({ data }) => {
-      applySession(data.session ?? null);
+      if (error) throw error;
+      const isAdmin = Boolean(data);
+
+      setState((s) => ({ ...s, role: isAdmin ? "admin" : "user" }));
+    } catch (err: any) {
+      if (!hasRoleErrorLoggedRef.current) {
+        hasRoleErrorLoggedRef.current = true;
+        console.warn("[useAuth] has_role error (non-fatal)", err);
+      }
+      // Default to user role without blocking
+      setState((s) => ({ ...s, role: "user" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isMockAuth) {
+      setState(mockAuthState);
+      const listener = (nextState: AuthState) => setState(nextState);
+      mockAuthSubscribers.add(listener);
+      return () => {
+        mockAuthSubscribers.delete(listener);
+      };
+    }
+
+    let mounted = true;
+
+    (async () => {
+      if (!mounted) return;
+      await hydrateFromSession();
+
+      const session = (await supabase.auth.getSession()).data.session;
+      const uid = session?.user?.id;
+      if (uid) void checkRole(uid);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const uid = session?.user?.id ?? null;
+
+      setState((s) => ({
+        ...s,
+        userId: uid,
+        email: session?.user?.email ?? null,
+        isAuthenticated: Boolean(uid),
+        isLoading: false,
+        role: "user",
+      }));
+
+      if (uid) {
+        // reset loop-killer for new session/user
+        roleCheckedForUserRef.current = null;
+        hasRoleErrorLoggedRef.current = false;
+        void checkRole(uid);
+      }
     });
 
-    return () => subscription.unsubscribe();
-  }, [applySession]);
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [hydrateFromSession, checkRole, isMockAuth]);
 
-  return {
-    user,
-    session,
-    tenantId,
-    isAdmin,
-    isLoading,
-    isAuthenticated: !!session,
-  };
-};
+  const applyMockAuth = useCallback((email: string) => {
+    mockAuthState = {
+      ...mockAuthState,
+      userId: "mock-user",
+      email,
+      isAuthenticated: true,
+      isLoading: false,
+      role: "user",
+    };
+    notifyMockAuth();
+    return { data: { user: { id: "mock-user", email } }, error: null };
+  }, []);
+
+  const signIn = useCallback(
+    async ({ email, password }: Credentials) => {
+      if (isMockAuth) {
+        return applyMockAuth(email);
+      }
+      return supabase.auth.signInWithPassword({ email, password });
+    },
+    [applyMockAuth, isMockAuth]
+  );
+
+  const signUp = useCallback(
+    async ({ email, password }: Credentials) => {
+      if (isMockAuth) {
+        return applyMockAuth(email);
+      }
+      return supabase.auth.signUp({ email, password });
+    },
+    [applyMockAuth, isMockAuth]
+  );
+
+  const signOut = useCallback(async () => {
+    if (isMockAuth) {
+      mockAuthState = DEFAULT_MOCK_STATE;
+      notifyMockAuth();
+      return { error: null };
+    }
+    return supabase.auth.signOut();
+  }, [isMockAuth]);
+
+  return useMemo(
+    () => ({
+      ...state,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [state, signIn, signUp, signOut]
+  );
+}
+
+export default useAuth;
