@@ -8,7 +8,7 @@
  * 
  * ROUTING RULES:
  * - !isAuthenticated -> /login
- * - authenticated + onboarding_complete=false -> /app (onboarding happens inside dashboard)
+ * - authenticated + onboarding_complete=false -> /app/onboarding
  * - authenticated + onboarding_complete=true + role=client -> /app/portal
  * - authenticated + onboarding_complete=true + role=owner/admin -> /app
  * 
@@ -40,9 +40,7 @@ const PUBLIC_ROUTES = ["/", "/login", "/auth", "/blog", "/privacy", "/terms", "/
 const CLIENT_ROUTES = ["/app/portal"];
 
 // Legacy routes that redirect
-const LEGACY_REDIRECTS: Record<string, string> = {
-  "/app/onboarding": "/app",
-};
+const LEGACY_REDIRECTS: Record<string, string> = {};
 
 // Check if path starts with any of the given prefixes
 function matchesAnyRoute(path: string, routes: string[]): boolean {
@@ -75,9 +73,12 @@ export function AuthRouter({ children }: AuthRouterProps) {
     // Rule 1: Not authenticated -> /login
     if (!isAuthenticated) return "/login";
 
+    // If onboarding is complete, keep users out of the onboarding route
+    if (isOnboardingComplete === true && currentPath === "/app/onboarding") {
+      return "/app";
+    }
+
     // Rule 2: Authenticated - determine proper destination based on role
-    // Note: Onboarding now happens inside /app, so no separate route needed
-    
     if (isOnboardingComplete === true) {
       // Client role
       if (isClient) {
@@ -103,17 +104,12 @@ export function AuthRouter({ children }: AuthRouterProps) {
       }
     }
 
-    // Authenticated but onboarding not complete - allow access to /app
-    // (onboarding happens inside the dashboard now)
-    if (isOnboardingComplete === false) {
-      // If trying to access any /app route, allow it (onboarding is in-dashboard)
-      if (currentPath.startsWith("/app")) {
-        // But clients should still go to portal
-        if (isClient) {
-          return "/app/portal";
-        }
-        return null;
+    // Authenticated but onboarding not complete -> force onboarding route
+    if (isAuthenticated && isOnboardingComplete === false) {
+      if (currentPath !== "/app/onboarding") {
+        return "/app/onboarding";
       }
+      return null;
     }
 
     return null;

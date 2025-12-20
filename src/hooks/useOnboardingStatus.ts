@@ -1,60 +1,98 @@
-﻿/**
- * Hook to check if user has completed onboarding
- * Used for #5: Conversation-first for NEW users only
- */
-
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  clearOnboardingState,
+  defaultOnboardingState,
+  loadOnboardingState,
+  OnboardingData,
+  OnboardingState,
+  OnboardingStatus,
+  saveOnboardingState,
+} from "@/lib/onboarding";
+
+let sharedOnboardingState: OnboardingState = defaultOnboardingState;
+const onboardingSubscribers = new Set<(state: OnboardingState) => void>();
+
+const broadcastOnboardingState = (next: OnboardingState) => {
+  sharedOnboardingState = next;
+  onboardingSubscribers.forEach((listener) => listener(next));
+};
 
 export function useOnboardingStatus() {
-  const { user, isLoading: authLoading } = useAuth();
-  const tenantId = user?.user_metadata?.tenant_id;
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { userId, email, isLoading: authLoading } = useAuth();
+  const storageKey = useMemo(() => `${userId || email || "anonymous"}`, [userId, email]);
 
-  const checkOnboarding = useCallback(async () => {
-    if (!user) {
-      setIsOnboardingComplete(null);
-      setIsLoading(false);
-      return;
-    }
+  const [state, setState] = useState<OnboardingState>(sharedOnboardingState);
+  const [hydrated, setHydrated] = useState(false);
 
-    try {
-      // Check business_profile for onboarding_completed_at
-      const { data: profile } = await supabase
-        .from("business_profile")
-        .select("onboarding_completed_at")
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-
-      // User has completed onboarding if they have a profile with completed timestamp
-      const completed = !!(profile?.onboarding_completed_at);
-      setIsOnboardingComplete(completed);
-    } catch (error) {
-      console.error("Error checking onboarding status:", error);
-      // Default to complete on error to not block returning users
-      setIsOnboardingComplete(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+  useEffect(() => {
+    const listener = (next: OnboardingState) => setState(next);
+    onboardingSubscribers.add(listener);
+    return () => {
+      onboardingSubscribers.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
-    checkOnboarding();
-  }, [authLoading, checkOnboarding]);
+    const next = loadOnboardingState(userId, email);
+    setState(next);
+    broadcastOnboardingState(next);
+    setHydrated(true);
+  }, [authLoading, userId, email, storageKey]);
 
-  const refetch = useCallback(() => {
-    setIsLoading(true);
-    checkOnboarding();
-  }, [checkOnboarding]);
+  const persist = useCallback(
+    (next: OnboardingState) => {
+      setState(next);
+      broadcastOnboardingState(next);
+      saveOnboardingState(next, userId, email);
+    },
+    [userId, email]
+  );
+
+  const updateData = useCallback(
+    (partial: Partial<OnboardingData>) => {
+      const next: OnboardingState = {
+        ...state,
+        status: state.status === "complete" ? "complete" : "in_progress",
+        data: { ...state.data, ...partial },
+        updatedAt: new Date().toISOString(),
+      };
+      persist(next);
+    },
+    [state, persist]
+  );
+
+  const markStatus = useCallback(
+    (status: OnboardingStatus) => {
+      const next: OnboardingState = {
+        ...state,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      persist(next);
+    },
+    [state, persist]
+  );
+
+  const markComplete = useCallback(() => markStatus("complete"), [markStatus]);
+
+  const reset = useCallback(() => {
+    clearOnboardingState(userId, email);
+    setState(defaultOnboardingState);
+    broadcastOnboardingState(defaultOnboardingState);
+    setHydrated(true);
+  }, [userId, email]);
 
   return {
-    isOnboardingComplete: isOnboardingComplete ?? false,
-    isLoading: authLoading || isLoading,
-    isNewUser: isOnboardingComplete === false,
-    refetch,
+    status: state.status,
+    data: state.data,
+    updatedAt: state.updatedAt,
+    isOnboardingComplete: state.status === "complete",
+    isLoading: authLoading || !hydrated,
+    updateData,
+    markStatus,
+    markComplete,
+    reset,
   };
 }
-
