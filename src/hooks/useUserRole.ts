@@ -22,6 +22,17 @@ export function useUserRole() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasEnsuredRole, setHasEnsuredRole] = useState(false);
 
+  const mockMode =
+    import.meta.env.VITE_MOCK_AUTH === "true" ||
+    (typeof window !== "undefined" && window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
+
+  useEffect(() => {
+    if (mockMode) {
+      setRole("owner");
+      setIsLoading(false);
+    }
+  }, [mockMode]);
+
   const ensureRole = useCallback(async (userId: string) => {
     try {
       // Call RPC to ensure user has a role (assigns default if missing)
