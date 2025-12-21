@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Building2,
   Wrench,
+  ClipboardCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -81,6 +82,12 @@ export const OWNER_NAV_ITEMS: NavItem[] = [
     href: "/app/integrations",
     icon: ShieldCheck,
     description: "Provider keys & connectivity",
+  },
+  {
+    label: "Ops Hub",
+    href: "/app/ops",
+    icon: ClipboardCheck,
+    description: "Proof gate & runbooks",
   },
   {
     label: "LLM Smoke",

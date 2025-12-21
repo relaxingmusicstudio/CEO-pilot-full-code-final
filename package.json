@@ -9,7 +9,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "ops:doctor": "node scripts/ops-doctor.cjs",
+    "proofgate": "node scripts/proofgate.cjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.12.3",
