@@ -36,6 +36,7 @@ import {
   parseDailyBriefPayload,
   saveDailyBrief,
 } from "@/lib/ceoDailyBrief";
+import { getSystemModeDescription, loadSystemMode, saveSystemMode, SystemMode } from "@/lib/systemMode";
 
 export default function CEOHome() {
   const { email, role, signOut, userId } = useAuth();
@@ -43,6 +44,12 @@ export default function CEOHome() {
   const navigate = useNavigate();
   const context = getOnboardingData(userId, email);
   const { askCEO, getDailyBrief, isLoading: agentLoading } = useCEOAgent();
+
+  const [systemMode, setSystemMode] = useState<SystemMode>(() => loadSystemMode(userId, email));
+  const [switchModeOpen, setSwitchModeOpen] = useState(false);
+  const [switchModeTarget, setSwitchModeTarget] = useState<SystemMode>(SystemMode.EXECUTION);
+  const [switchModeConfirm, setSwitchModeConfirm] = useState("");
+  const [modeBlockReason, setModeBlockReason] = useState<string | null>(null);
 
   const [plan, setPlan] = useState<CEOPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -80,6 +87,21 @@ export default function CEOHome() {
       (typeof window !== "undefined" && window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
     setIsMockMode(mockFlag);
   }, []);
+
+  useEffect(() => {
+    const loaded = loadSystemMode(userId, email);
+    setSystemMode(loaded);
+    setSwitchModeTarget(loaded);
+  }, [userId, email]);
+
+  const handleApplySystemMode = () => {
+    if (switchModeConfirm.trim().toUpperCase() !== switchModeTarget) return;
+    saveSystemMode(switchModeTarget, userId, email);
+    setSystemMode(switchModeTarget);
+    setSwitchModeOpen(false);
+    setSwitchModeConfirm("");
+    setModeBlockReason(null);
+  };
 
   useEffect(() => {
     let existingPlan = loadCEOPlan(userId, email);
@@ -135,6 +157,14 @@ export default function CEOHome() {
   const planOutOfDate = plan && plan.onboardingSnapshotHash !== onboardingHash;
 
   const toggleChecklist = (id: string) => {
+    if (systemMode !== SystemMode.EXECUTION) {
+      setModeBlockReason(
+        systemMode === SystemMode.VALIDATION
+          ? "Checklist edits are blocked in VALIDATION mode. Switch to EXECUTION to update progress."
+          : "Checklist is read-only in SHAPE mode. Switch to EXECUTION to update progress."
+      );
+      return;
+    }
     const completed = new Set(checklistState.completedIds);
     if (completed.has(id)) {
       completed.delete(id);
@@ -151,6 +181,14 @@ export default function CEOHome() {
   const nextTask = incompleteItems[0];
 
   const handleDoNext = async () => {
+    if (systemMode !== SystemMode.EXECUTION) {
+      setModeBlockReason(
+        systemMode === SystemMode.VALIDATION
+          ? "Do Next is blocked in VALIDATION mode. Switch to EXECUTION to run the next action."
+          : "Do Next is disabled in SHAPE mode. Switch to EXECUTION to run the next action."
+      );
+      return;
+    }
     if (!nextTask) return;
     setDoNextLoading(true);
     const agentIntent = "ceo_do_next";
@@ -272,6 +310,149 @@ export default function CEOHome() {
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>CEO Home</h1>
       <div style={{ opacity: 0.8, marginBottom: 16 }}>
         Signed in as <b>{email ?? "unknown"}</b> - role: <b>{role}</b>
+      </div>
+
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
+        data-testid="system-mode-card"
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>System Mode</div>
+            <span
+              style={{
+                padding: "2px 10px",
+                borderRadius: 999,
+                background: "white",
+                border: "1px solid rgba(0,0,0,0.12)",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: 0.6,
+              }}
+            >
+              {systemMode}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setSwitchModeTarget(systemMode);
+              setSwitchModeConfirm("");
+              setSwitchModeOpen(true);
+            }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+            data-testid="switch-mode"
+          >
+            Switch Mode
+          </button>
+        </div>
+        <div style={{ marginTop: 8, opacity: 0.85 }}>{getSystemModeDescription(systemMode)}</div>
+        {modeBlockReason && (
+          <div
+            style={{
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.08)",
+              background: "#fef3c7",
+              color: "#92400e",
+              fontWeight: 700,
+            }}
+            data-testid="system-mode-block"
+          >
+            {modeBlockReason}
+          </div>
+        )}
+        {switchModeOpen && (
+          <div
+            style={{
+              marginTop: 12,
+              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 10,
+              padding: 12,
+              background: "white",
+            }}
+            data-testid="system-mode-switcher"
+          >
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Switch mode (intentional)</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {[SystemMode.SHAPE, SystemMode.EXECUTION, SystemMode.VALIDATION].map((mode) => (
+                <label key={mode} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="radio"
+                    name="systemMode"
+                    checked={switchModeTarget === mode}
+                    onChange={() => setSwitchModeTarget(mode)}
+                  />
+                  <span style={{ fontWeight: 700 }}>{mode}</span>
+                  <span style={{ opacity: 0.75, fontSize: 12 }}>{getSystemModeDescription(mode)}</span>
+                </label>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>
+                Type <b>{switchModeTarget}</b> to confirm
+              </div>
+              <input
+                value={switchModeConfirm}
+                onChange={(e) => setSwitchModeConfirm(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button
+                onClick={handleApplySystemMode}
+                disabled={switchModeConfirm.trim().toUpperCase() !== switchModeTarget}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  cursor: switchModeConfirm.trim().toUpperCase() !== switchModeTarget ? "not-allowed" : "pointer",
+                  fontWeight: 700,
+                  opacity: switchModeConfirm.trim().toUpperCase() !== switchModeTarget ? 0.6 : 1,
+                }}
+                data-testid="system-mode-apply"
+              >
+                Apply mode
+              </button>
+              <button
+                onClick={() => {
+                  setSwitchModeOpen(false);
+                  setSwitchModeConfirm("");
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  background: "white",
+                }}
+                data-testid="system-mode-cancel"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {status === "in_progress" && (
@@ -493,6 +674,7 @@ export default function CEOHome() {
                   type="checkbox"
                   checked={checklistState.completedIds.includes(item.id)}
                   onChange={() => toggleChecklist(item.id)}
+                  disabled={systemMode !== SystemMode.EXECUTION}
                 />
                 <span>{item.text}</span>
                 {item.section && <span style={{ opacity: 0.6, fontSize: 12 }}>({item.section})</span>}
@@ -502,15 +684,15 @@ export default function CEOHome() {
           <div style={{ marginTop: 12 }}>
             <button
               onClick={handleDoNext}
-              disabled={!nextTask || doNextLoading || agentLoading}
+              disabled={!nextTask || doNextLoading || agentLoading || systemMode !== SystemMode.EXECUTION}
               data-testid="do-next-button"
               style={{
                 padding: "8px 12px",
                 borderRadius: 8,
                 border: "1px solid rgba(0,0,0,0.15)",
-                cursor: nextTask ? "pointer" : "not-allowed",
+                cursor: nextTask && systemMode === SystemMode.EXECUTION ? "pointer" : "not-allowed",
                 fontWeight: 700,
-                opacity: !nextTask || doNextLoading || agentLoading ? 0.6 : 1,
+                opacity: !nextTask || doNextLoading || agentLoading || systemMode !== SystemMode.EXECUTION ? 0.6 : 1,
               }}
             >
               {nextTask ? "Do Next" : "All tasks complete"}
