@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "ops:doctor": "node scripts/ops-doctor.cjs",
-    "proofgate": "node scripts/proofgate.cjs"
+    "proofgate": "node scripts/proofgate.cjs",
+    "release:gate": "node scripts/release-gate.cjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.12.3",
