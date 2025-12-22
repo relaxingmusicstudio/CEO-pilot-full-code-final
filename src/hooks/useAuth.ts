@@ -152,6 +152,9 @@ export function useAuth() {
   }, [hydrateFromSession, checkRole, isMockAuth]);
 
   const applyMockAuth = useCallback((email: string) => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("mock-signed-out");
+    }
     mockAuthState = {
       ...mockAuthState,
       userId: "mock-user",
@@ -186,6 +189,9 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     if (isMockAuth) {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("mock-signed-out", "true");
+      }
       mockAuthState = DEFAULT_MOCK_STATE;
       notifyMockAuth();
       return { error: null };

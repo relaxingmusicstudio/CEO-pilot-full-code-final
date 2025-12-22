@@ -51,10 +51,15 @@ const ProtectedRoute = ({
     isLoading: tenantLoading 
   } = useTenant();
 
-  const isMockAuth =
-    import.meta.env.VITE_MOCK_AUTH === "true" ||
-    (typeof window !== "undefined" && window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
-  const isEffectivelyAuthed = isAuthenticated || isMockAuth;
+  const envMockFlag = import.meta.env.VITE_MOCK_AUTH === "true";
+  const localMockFlag =
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("VITE_MOCK_AUTH") === "true";
+  const mockSignedOut =
+    typeof window !== "undefined" &&
+    window.sessionStorage.getItem("mock-signed-out") === "true";
+  const isMockAuthEnabled = (envMockFlag || localMockFlag) && !mockSignedOut;
+  const isEffectivelyAuthed = isAuthenticated || isMockAuthEnabled;
 
   const isLoading = authLoading || tenantLoading || roleLoading;
 

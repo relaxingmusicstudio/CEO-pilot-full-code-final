@@ -53,6 +53,15 @@ export function AuthRouter({ children }: AuthRouterProps) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isOnboardingComplete, isLoading: onboardingLoading } = useOnboardingStatus();
   const { role, isClient, isOwner, isLoading: roleLoading } = useUserRole();
+  const envMockFlag = import.meta.env.VITE_MOCK_AUTH === "true";
+  const localMockFlag =
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("VITE_MOCK_AUTH") === "true";
+  const mockSignedOut =
+    typeof window !== "undefined" &&
+    window.sessionStorage.getItem("mock-signed-out") === "true";
+  const isMockAuthEnabled = (envMockFlag || localMockFlag) && !mockSignedOut;
+  const isEffectivelyAuthed = isAuthenticated || isMockAuthEnabled;
 
   const isLoading = authLoading || onboardingLoading || roleLoading;
   const currentPath = location.pathname;
@@ -71,7 +80,7 @@ export function AuthRouter({ children }: AuthRouterProps) {
     if (matchesAnyRoute(currentPath, PUBLIC_ROUTES)) return null;
 
     // Rule 1: Not authenticated -> /login
-    if (!isAuthenticated) return "/login";
+    if (!isEffectivelyAuthed) return "/login";
 
     // If onboarding is complete, keep users out of the onboarding route
     if (isOnboardingComplete === true && currentPath === "/app/onboarding") {
@@ -105,7 +114,7 @@ export function AuthRouter({ children }: AuthRouterProps) {
     }
 
     // Authenticated but onboarding not complete -> force onboarding route
-    if (isAuthenticated && isOnboardingComplete === false) {
+    if (isEffectivelyAuthed && isOnboardingComplete === false) {
       if (currentPath !== "/app/onboarding") {
         return "/app/onboarding";
       }
@@ -113,7 +122,7 @@ export function AuthRouter({ children }: AuthRouterProps) {
     }
 
     return null;
-  }, [isLoading, isAuthenticated, isOnboardingComplete, isClient, isOwner, role, currentPath]);
+  }, [isLoading, isEffectivelyAuthed, isOnboardingComplete, isClient, isOwner, role, currentPath]);
 
   // Execute navigation if target differs from current
   useEffect(() => {
@@ -135,7 +144,7 @@ export function AuthRouter({ children }: AuthRouterProps) {
   }
 
   // Not authenticated on protected route - show nothing while redirecting
-  if (!isAuthenticated && !matchesAnyRoute(currentPath, PUBLIC_ROUTES)) {
+  if (!isEffectivelyAuthed && !matchesAnyRoute(currentPath, PUBLIC_ROUTES)) {
     return null;
   }
 
