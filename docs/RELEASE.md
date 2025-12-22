@@ -7,10 +7,15 @@
    ```
 2) Create PR from current branch:
    ```
-
+   npm run pr:open
+   ```
+3) Merge when green:
+   ```
+   npm run pr:merge
+   ```
 
 ## If not using GitHub CLI
-- Web UI: Open the repo → Compare & pull request → Create pull request → Merge (Squash) → Delete branch.
+- Web UI: Open the repo -> Compare & pull request -> Create pull request -> Merge (Squash) -> Delete branch.
 
 ## Proof Gate commands (run before PR/merge)
 - `npm ci`
@@ -18,3 +23,5 @@
 - `VITE_MOCK_AUTH=true npm run test:e2e`
 - `VITE_MOCK_AUTH=true npm run ops:doctor`
 - `npm run release:gate`
+- `npm run pr:open`
+- (after checks) `npm run pr:merge`
