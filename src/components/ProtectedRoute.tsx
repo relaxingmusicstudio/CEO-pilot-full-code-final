@@ -51,18 +51,23 @@ const ProtectedRoute = ({
     isLoading: tenantLoading 
   } = useTenant();
 
+  const isMockAuth =
+    import.meta.env.VITE_MOCK_AUTH === "true" ||
+    (typeof window !== "undefined" && window.localStorage.getItem("VITE_MOCK_AUTH") === "true");
+  const isEffectivelyAuthed = isAuthenticated || isMockAuth;
+
   const isLoading = authLoading || tenantLoading || roleLoading;
 
   // Redirect to auth if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isEffectivelyAuthed) {
       navigate("/login", { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isEffectivelyAuthed, isLoading, navigate]);
 
   // Role-based redirects (NOT access denied - just redirect to correct home)
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && isEffectivelyAuthed) {
       // Client trying to access owner pages -> redirect to portal
       if (requireOwner && isClient) {
         navigate("/app/portal", { replace: true });
@@ -90,7 +95,7 @@ const ProtectedRoute = ({
   }
 
   // Not authenticated - show nothing while redirecting
-  if (!isAuthenticated) {
+  if (!isEffectivelyAuthed) {
     return null;
   }
 
