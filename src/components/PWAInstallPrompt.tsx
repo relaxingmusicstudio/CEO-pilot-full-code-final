@@ -15,6 +15,11 @@ export function PWAInstallPrompt() {
     notificationPermission 
   } = usePWA();
   const [dismissed, setDismissed] = useState(false);
+  // DEV-ONLY: Offline mode must never ship to production
+  const devOfflineFlag =
+    import.meta.env.DEV ||
+    (typeof window !== "undefined" &&
+      window.localStorage.getItem("__DEV_OFFLINE") === "true");
 
   const handleInstall = async () => {
     const success = await install();
@@ -33,7 +38,7 @@ export function PWAInstallPrompt() {
   };
 
   // Show offline indicator
-  if (!isOnline) {
+  if (devOfflineFlag && !isOnline) {
     return (
       <div className="fixed bottom-4 left-4 z-50">
         <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-4 py-2 rounded-full text-sm">

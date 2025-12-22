@@ -8,6 +8,7 @@ type BeforeInstallPromptEvent = Event & {
 type UsePWAResult = {
   isInstallable: boolean;
   isInstalled: boolean;
+  isOnline: boolean;
   isDev: boolean;
   promptInstall: () => Promise<"accepted" | "dismissed" | "unavailable">;
   // Optional helpers some UIs expect
@@ -19,6 +20,7 @@ export function usePWA(): UsePWAResult {
 
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [swRegistered, setSwRegistered] = useState(false);
 
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
@@ -39,6 +41,34 @@ export function usePWA(): UsePWAResult {
     window.addEventListener("focus", checkInstalled);
     return () => window.removeEventListener("focus", checkInstalled);
   }, []);
+
+  useEffect(() => {
+    const devOfflineFlag =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("__DEV_OFFLINE") === "true";
+
+    if (!isDev) {
+      // DEV-ONLY: Offline mode must never ship to production
+      setIsOnline(true);
+      return;
+    }
+
+    const computeOnline = () => {
+      if (devOfflineFlag) return false;
+      return typeof navigator !== "undefined" ? navigator.onLine !== false : true;
+    };
+
+    setIsOnline(computeOnline());
+    const handleOnline = () => setIsOnline(computeOnline());
+    const handleOffline = () => setIsOnline(computeOnline());
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [isDev]);
 
   // DEV MODE: disable SW + never allow install prompt (but return stable object)
   useEffect(() => {
@@ -112,10 +142,11 @@ export function usePWA(): UsePWAResult {
     () => ({
       isInstallable,
       isInstalled,
+      isOnline,
       isDev,
       promptInstall,
       swRegistered,
     }),
-    [isInstallable, isInstalled, isDev, promptInstall, swRegistered]
+    [isInstallable, isInstalled, isOnline, isDev, promptInstall, swRegistered]
   );
 }

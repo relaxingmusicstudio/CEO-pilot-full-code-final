@@ -24,6 +24,11 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
   const location = useLocation();
   const { signOut } = useAuth();
   const { isOnline } = usePWA();
+  // DEV-ONLY: Offline mode must never ship to production
+  const devOfflineFlag =
+    import.meta.env.DEV ||
+    (typeof window !== "undefined" &&
+      window.localStorage.getItem("__DEV_OFFLINE") === "true");
 
   const handleSignOut = async () => {
     await signOut();
@@ -33,14 +38,14 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Offline Indicator */}
-      {!isOnline && (
+      {devOfflineFlag && !isOnline && (
         <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive text-destructive-foreground text-center py-2 text-sm font-medium">
           You're offline. Some features may be unavailable.
         </div>
       )}
       
       {/* Hero Header */}
-      <header className={`hero-gradient text-primary-foreground ${!isOnline ? 'mt-10' : ''}`}>
+      <header className={`hero-gradient text-primary-foreground ${devOfflineFlag && !isOnline ? 'mt-10' : ''}`}>
         <div className="container py-8">
           <div className="flex items-center justify-between mb-6">
             <Button
