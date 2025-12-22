@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { execSync } = require("child_process");
+const fs = require("fs");
 
 const run = (cmd, opts = {}) => {
   console.log(`\n> ${cmd}`);
@@ -29,13 +30,42 @@ try {
     files = execSync("git diff --name-only HEAD~1..HEAD").toString().trim();
   }
 
+  const prDescription = [
+    "# Summary",
+    "- ",
+    "",
+    "# Files Changed",
+    files
+      .split("\n")
+      .filter(Boolean)
+      .map((f) => `- ${f}`)
+      .join("\n"),
+    "",
+    "# Proof Gate (attach raw outputs)",
+    "- [x] npm ci",
+    "- [x] VITE_MOCK_AUTH=true npm run build",
+    "- [x] VITE_MOCK_AUTH=true npm run test:e2e",
+    "- [x] VITE_MOCK_AUTH=true npm run ops:doctor",
+    "- [x] npm run release:gate",
+    "",
+    "# Risk / Rollback",
+    "- Risk: ",
+    `- Rollback: revert commit ${commit}`,
+    "",
+    "# Commit / Branch",
+    `- Commit: ${commit}`,
+    `- Branch: ${branch}`,
+    "",
+    "# Screenshots (optional)",
+    "- ",
+    "",
+  ].join("\n");
+
+  const outputFile = ".release-gate-output.md";
+  fs.writeFileSync(outputFile, prDescription);
+
   console.log("\n---- PR DESCRIPTION (copy/paste) ----");
-  console.log(`# Summary\n- \n`);
-  console.log(`# Files Changed\n${files.split("\n").map((f) => `- ${f}`).join("\n")}\n`);
-  console.log(`# Proof Gate (attach raw outputs)\n- [x] npm ci\n- [x] VITE_MOCK_AUTH=true npm run build\n- [x] VITE_MOCK_AUTH=true npm run test:e2e\n- [x] VITE_MOCK_AUTH=true npm run ops:doctor\n- [x] npm run release:gate\n`);
-  console.log(`# Risk / Rollback\n- Risk: \n- Rollback: revert commit ${commit}\n`);
-  console.log(`# Commit / Branch\n- Commit: ${commit}\n- Branch: ${branch}\n`);
-  console.log(`# Screenshots (optional)\n- \n`);
+  console.log(prDescription);
 } catch (err) {
   console.error("\nRelease gate failed:", err?.message || err);
   process.exit(1);

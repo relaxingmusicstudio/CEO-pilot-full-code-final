@@ -12,7 +12,9 @@
     "test:e2e": "playwright test",
     "ops:doctor": "node scripts/ops-doctor.cjs",
     "proofgate": "node scripts/proofgate.cjs",
-    "release:gate": "node scripts/release-gate.cjs"
+    "release:gate": "node scripts/release-gate.cjs",
+    "pr:open": "node scripts/pr-open.cjs",
+    "pr:merge": "node scripts/pr-merge.cjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.12.3",

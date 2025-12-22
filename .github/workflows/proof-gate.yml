@@ -1,0 +1,42 @@
+name: proof-gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  proof-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (mock)
+        run: npm run build
+        env:
+          VITE_MOCK_AUTH: "true"
+
+      - name: E2E (mock)
+        run: npm run test:e2e
+        env:
+          VITE_MOCK_AUTH: "true"
+
+      - name: Ops Doctor (mock)
+        run: npm run ops:doctor
+        env:
+          VITE_MOCK_AUTH: "true"
+
+      - name: Release Gate
+        run: npm run release:gate
+        env:
+          VITE_MOCK_AUTH: "true"

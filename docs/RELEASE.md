@@ -7,11 +7,11 @@
    ```
 2) Create PR from current branch:
    ```
-   gh pr create --fill
+   npm run pr:open
    ```
 3) Merge when green:
    ```
-   gh pr merge --squash --delete-branch
+   npm run pr:merge
    ```
 
 ## If not using GitHub CLI
@@ -23,3 +23,5 @@
 - `VITE_MOCK_AUTH=true npm run test:e2e`
 - `VITE_MOCK_AUTH=true npm run ops:doctor`
 - `npm run release:gate`
+ - `npm run pr:open`
+ - (after checks) `npm run pr:merge`
