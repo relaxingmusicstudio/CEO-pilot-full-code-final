@@ -54,7 +54,7 @@ const STEPS: Step[] = [
 
 export default function OnboardingConversation() {
   const navigate = useNavigate();
-  const { data, updateData, markComplete, reset, status } = useOnboardingStatus();
+  const { data, updateData, completeWithData, reset, status } = useOnboardingStatus();
   const [step, setStep] = useState(0);
   const [formState, setFormState] = useState<OnboardingData>(data);
 
@@ -77,8 +77,7 @@ export default function OnboardingConversation() {
   const goPrev = () => setStep((s) => Math.max(s - 1, 0));
 
   const handleComplete = () => {
-    updateData(formState);
-    markComplete();
+    completeWithData(formState);
     navigate("/app", { replace: true });
   };
 

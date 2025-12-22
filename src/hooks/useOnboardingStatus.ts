@@ -76,6 +76,17 @@ export function useOnboardingStatus() {
   );
 
   const markComplete = useCallback(() => markStatus("complete"), [markStatus]);
+  const completeWithData = useCallback(
+    (data: OnboardingData) => {
+      const next: OnboardingState = {
+        status: "complete",
+        data: { ...state.data, ...data },
+        updatedAt: new Date().toISOString(),
+      };
+      persist(next);
+    },
+    [state.data, persist]
+  );
 
   const reset = useCallback(() => {
     clearOnboardingState(userId, email);
@@ -93,6 +104,7 @@ export function useOnboardingStatus() {
     updateData,
     markStatus,
     markComplete,
+    completeWithData,
     reset,
   };
 }
