@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getOnboardingData } from "@/lib/onboarding";
+import { useAuth } from "./useAuth";
 
 interface ObjectionItem {
   objection: string;
@@ -56,6 +58,7 @@ interface ChatMessage {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ceo-agent`;
 
 export const useCEOAgent = () => {
+  const { userId, email } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +75,11 @@ export const useCEOAgent = () => {
   ): Promise<CEOAgentResponse | null> => {
     setIsLoading(true);
     setError(null);
+    const onboardingContext = getOnboardingData(userId, email);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("ceo-agent", {
-        body: { query, timeRange, conversationHistory, visitorId },
+        body: { query, timeRange, conversationHistory, visitorId, onboardingContext },
       });
 
       if (invokeError) throw invokeError;

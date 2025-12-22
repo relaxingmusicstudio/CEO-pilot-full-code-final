@@ -1,6 +1,6 @@
-﻿// src/pages/CEOHome.tsx
+// src/pages/CEOHome.tsx
 /**
- * PHASE 1 LOCK ✅
+ * PHASE 1 LOCK ?
  * - [LOCKED] Page renders without crashing
  * - [LOCKED] Helmet works because main.tsx provides <HelmetProvider>
  * - [TODO-P2] Mount CEO agent chat + onboarding panels once Phase 1 stable
@@ -11,11 +11,19 @@ import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
+import { getOnboardingData } from "@/lib/onboarding";
 
 export default function CEOHome() {
   const { email, role, signOut } = useAuth();
-  const { status } = useOnboardingStatus();
+  const { status, isOnboardingComplete } = useOnboardingStatus();
   const navigate = useNavigate();
+  const context = getOnboardingData(undefined, email);
+  const hasContext =
+    !!context.businessName ||
+    !!context.industry ||
+    !!context.serviceArea ||
+    !!context.primaryGoal ||
+    !!context.offerPricing;
 
   return (
     <div data-testid="dashboard-home" style={{ padding: 24, fontFamily: "system-ui" }}>
@@ -58,6 +66,48 @@ export default function CEOHome() {
         </div>
       )}
 
+      {isOnboardingComplete && (
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.1)",
+            background: "rgba(0,0,0,0.02)",
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>Business Context</div>
+            {!hasContext && (
+              <button
+                onClick={() => navigate("/app/onboarding")}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                Re-run onboarding
+              </button>
+            )}
+          </div>
+          {!hasContext && (
+            <div style={{ marginBottom: 8, color: "#b7791f", fontWeight: 600 }}>
+              Onboarding data is missing or incomplete. Re-run onboarding to fill it in.
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
+            <ContextField label="Business name" value={context.businessName} />
+            <ContextField label="Industry" value={context.industry} />
+            <ContextField label="Service area" value={context.serviceArea} />
+            <ContextField label="Primary goal" value={context.primaryGoal} />
+            <ContextField label="Offer & pricing" value={context.offerPricing} />
+          </div>
+        </div>
+      )}
+
       <button
         data-testid="sign-out"
         onClick={() => signOut()}
@@ -90,9 +140,24 @@ export default function CEOHome() {
       <hr style={{ margin: "24px 0", opacity: 0.2 }} />
 
       <div style={{ opacity: 0.85 }}>
-        ✅ Phase 1: routing + auth + stability is the mission.  
+        ? Phase 1: routing + auth + stability is the mission.  
         Next: we plug in the CEO Agent panel without breaking the app.
       </div>
     </div>
   );
 }
+
+const ContextField = ({ label, value }: { label: string; value?: string }) => (
+  <div
+    style={{
+      padding: 10,
+      borderRadius: 8,
+      border: "1px solid rgba(0,0,0,0.1)",
+      background: "white",
+      minHeight: 64,
+    }}
+  >
+    <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.6 }}>{label}</div>
+    <div style={{ fontWeight: 700, marginTop: 4 }}>{value || "—"}</div>
+  </div>
+);
