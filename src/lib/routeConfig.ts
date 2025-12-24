@@ -10,7 +10,7 @@
  * 3. Add the actual <Route> in App.tsx
  */
 
-import { platformTools, AccessLevel } from "./toolRegistry";
+import { platformToolsCore, AccessLevel } from "./toolRegistryCore";
 
 export interface RouteAccessPolicy {
   route: string;
@@ -24,7 +24,7 @@ export interface RouteAccessPolicy {
  * This is the SINGLE source of truth - no hardcoded lists.
  */
 export function getRouteAccessPolicies(): RouteAccessPolicy[] {
-  return platformTools.map(tool => ({
+  return platformToolsCore.map(tool => ({
     route: tool.route,
     requires: tool.requires,
     toolId: tool.id,
@@ -36,14 +36,14 @@ export function getRouteAccessPolicies(): RouteAccessPolicy[] {
  * Get all platform routes from the tool registry.
  */
 export function getPlatformRoutes(): string[] {
-  return platformTools.map(tool => tool.route);
+  return platformToolsCore.map(tool => tool.route);
 }
 
 /**
  * Get the access requirement for a specific route.
  */
 export function getRouteRequirement(route: string): AccessLevel | null {
-  const tool = platformTools.find(t => t.route === route);
+  const tool = platformToolsCore.find(t => t.route === route);
   return tool?.requires ?? null;
 }
 

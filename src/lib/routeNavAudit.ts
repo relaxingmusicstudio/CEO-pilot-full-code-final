@@ -9,9 +9,9 @@
  * Returns findings that can be used by Evidence Pack.
  */
 
-import { platformTools, PlatformTool } from "./toolRegistry";
+import { platformToolsCore } from "./toolRegistryCore";
 import { ROUTE_GUARDS, RouteGuard, getRouteGuard, getPlatformRouteGuards } from "./routeGuards";
-import { getNavRoutesForRole } from "@/hooks/useRoleNavigation";
+import { getNavRoutesForRole } from "@/lib/navigationData";
 
 export type AuditIssueCode = 
   | "missing_route"
@@ -72,7 +72,7 @@ export function runRouteNavAudit(context: AuditContext): RouteNavAuditResult {
   
   // === CHECK 1: Tool Registry vs Route Guards ===
   // Every tool in toolRegistry should have a corresponding route guard
-  for (const tool of platformTools) {
+  for (const tool of platformToolsCore) {
     checksPerformed++;
     
     const guard = getRouteGuard(tool.route);
@@ -113,7 +113,7 @@ export function runRouteNavAudit(context: AuditContext): RouteNavAuditResult {
   for (const guard of platformGuards) {
     checksPerformed++;
     
-    const tool = platformTools.find(t => t.route === guard.path);
+    const tool = platformToolsCore.find(t => t.route === guard.path);
     if (!tool) {
       findings.push({
         severity: "warning",
@@ -130,7 +130,7 @@ export function runRouteNavAudit(context: AuditContext): RouteNavAuditResult {
   
   // === CHECK 3: ToolsHub Visibility ===
   // Tools that should be visible for the current role
-  for (const tool of platformTools) {
+  for (const tool of platformToolsCore) {
     if (tool.id === "tools-hub") continue;
     checksPerformed++;
     
@@ -210,7 +210,7 @@ export function runRouteNavAudit(context: AuditContext): RouteNavAuditResult {
     },
     findings,
     snapshots: {
-      tool_registry: platformTools.map(t => ({ id: t.id, route: t.route, requires: t.requires })),
+      tool_registry: platformToolsCore.map(t => ({ id: t.id, route: t.route, requires: t.requires })),
       route_guards: ROUTE_GUARDS.filter(g => g.path.startsWith("/platform/")).map(g => ({ path: g.path, requires: g.requires })),
       nav_routes: navRoutes,
     },

@@ -14,6 +14,14 @@
 import { useMemo } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
+  ADMIN_NAV_ITEMS_BASE,
+  CLIENT_NAV_ITEMS_BASE,
+  OWNER_NAV_ITEMS_BASE,
+  PLATFORM_NAV_ITEM_BASE,
+  getNavRoutesForRole,
+  type NavItemBase,
+} from "@/lib/navigationData";
+import {
   LayoutDashboard,
   Target,
   MessageSquare,
@@ -40,167 +48,59 @@ export interface NavItem {
   description?: string;
 }
 
+export { getNavRoutesForRole };
+
+const NAV_ICON_MAP: Record<string, NavItem["icon"]> = {
+  "/app": LayoutDashboard,
+  "/app/pipeline": Target,
+  "/app/inbox": MessageSquare,
+  "/app/analytics": TrendingUp,
+  "/app/billing": DollarSign,
+  "/app/content": FileText,
+  "/app/integrations": ShieldCheck,
+  "/app/ops": ClipboardCheck,
+  "/app/setup": ListChecks,
+  "/app/llm-smoke": Wrench,
+  "/app/pipelines/plastic-surgeon": Target,
+  "/app/decisions": CheckCircle2,
+  "/app/clients": Users,
+  "/app/settings": Settings,
+  "/app/portal": LayoutDashboard,
+  "/app/portal/messages": MessageSquare,
+  "/app/portal/deliverables": FileText,
+  "/app/portal/billing": DollarSign,
+  "/app/portal/requests": Bell,
+  "/app/portal/meetings": Calendar,
+  "/app/portal/help": HelpCircle,
+  "/platform/tools": Wrench,
+  "/platform/tenants": Building2,
+  "/platform/qa-tests": ShieldCheck,
+};
+
+const attachIcons = (items: NavItemBase[]): NavItem[] =>
+  items.map((item) => ({
+    ...item,
+    icon: NAV_ICON_MAP[item.href],
+  }));
+
 // Owner navigation - Full CEO Command Center
-export const OWNER_NAV_ITEMS: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/app",
-    icon: LayoutDashboard,
-    description: "CEO Command Center",
-  },
-  {
-    label: "Pipeline",
-    href: "/app/pipeline",
-    icon: Target,
-    description: "Leads & opportunities",
-  },
-  {
-    label: "Inbox",
-    href: "/app/inbox",
-    icon: MessageSquare,
-    description: "Communications",
-  },
-  {
-    label: "Analytics",
-    href: "/app/analytics",
-    icon: TrendingUp,
-    description: "Growth metrics",
-  },
-  {
-    label: "Billing",
-    href: "/app/billing",
-    icon: DollarSign,
-    description: "Finance & invoices",
-  },
-  {
-    label: "Content",
-    href: "/app/content",
-    icon: FileText,
-    description: "Content studio",
-  },
-  {
-    label: "Integrations",
-    href: "/app/integrations",
-    icon: ShieldCheck,
-    description: "Provider keys & connectivity",
-  },
-  {
-    label: "Ops Hub",
-    href: "/app/ops",
-    icon: ClipboardCheck,
-    description: "Proof gate & runbooks",
-  },
-  {
-    label: "Setup Wizard",
-    href: "/app/setup",
-    icon: ListChecks,
-    description: "Guided env + gateway setup",
-  },
-  {
-    label: "LLM Smoke",
-    href: "/app/llm-smoke",
-    icon: Wrench,
-    description: "Safe live test surface",
-  },
-  {
-    label: "Plastic Surgeon",
-    href: "/app/pipelines/plastic-surgeon",
-    icon: Target,
-    description: "Lead engine",
-  },
-  {
-    label: "Decisions",
-    href: "/app/decisions",
-    icon: CheckCircle2,
-    description: "Pending approvals",
-  },
-  {
-    label: "Clients",
-    href: "/app/clients",
-    icon: Users,
-    description: "Client management",
-  },
-  {
-    label: "Settings",
-    href: "/app/settings",
-    icon: Settings,
-    description: "System settings",
-  },
-];
+export const OWNER_NAV_ITEMS = attachIcons(OWNER_NAV_ITEMS_BASE);
 
 // Client navigation - Limited portal access
-export const CLIENT_NAV_ITEMS: NavItem[] = [
-  {
-    label: "Portal",
-    href: "/app/portal",
-    icon: LayoutDashboard,
-    description: "Your dashboard",
-  },
-  {
-    label: "Messages",
-    href: "/app/portal/messages",
-    icon: MessageSquare,
-    description: "Communications",
-  },
-  {
-    label: "Deliverables",
-    href: "/app/portal/deliverables",
-    icon: FileText,
-    description: "Your reports & files",
-  },
-  {
-    label: "Billing",
-    href: "/app/portal/billing",
-    icon: DollarSign,
-    description: "Invoices & payments",
-  },
-  {
-    label: "Requests",
-    href: "/app/portal/requests",
-    icon: Bell,
-    description: "Submit requests",
-  },
-  {
-    label: "Meetings",
-    href: "/app/portal/meetings",
-    icon: Calendar,
-    description: "Schedule & history",
-  },
-  {
-    label: "Help",
-    href: "/app/portal/help",
-    icon: HelpCircle,
-    description: "Support & FAQ",
-  },
-];
+export const CLIENT_NAV_ITEMS = attachIcons(CLIENT_NAV_ITEMS_BASE);
+
+// Platform Tools - Available to all authenticated users
+export const PLATFORM_NAV_ITEM: NavItem = {
+  ...PLATFORM_NAV_ITEM_BASE,
+  icon: NAV_ICON_MAP[PLATFORM_NAV_ITEM_BASE.href],
+};
+
+// Admin-only navigation items (platform admins)
+export const ADMIN_NAV_ITEMS = attachIcons(ADMIN_NAV_ITEMS_BASE);
 
 // Mobile nav - 5 most important items per role
 const OWNER_MOBILE_NAV = OWNER_NAV_ITEMS.slice(0, 5);
 const CLIENT_MOBILE_NAV = CLIENT_NAV_ITEMS.slice(0, 5);
-
-// Platform Tools - Available to all authenticated users
-export const PLATFORM_NAV_ITEM: NavItem = {
-  label: "Platform Tools",
-  href: "/platform/tools",
-  icon: Wrench,
-  description: "Diagnostics & dev tools",
-};
-
-// Admin-only navigation items (platform admins)
-export const ADMIN_NAV_ITEMS: NavItem[] = [
-  {
-    label: "Tenants",
-    href: "/platform/tenants",
-    icon: Building2,
-    description: "Manage tenants",
-  },
-  {
-    label: "QA Tests",
-    href: "/platform/qa-tests",
-    icon: ShieldCheck,
-    description: "Tenant isolation tests",
-  },
-];
 
 /**
  * Pure function to get nav items for a role context.
@@ -219,17 +119,6 @@ export function getNavItemsForRole(context: {
     return [...OWNER_NAV_ITEMS, PLATFORM_NAV_ITEM];
   }
   return [];
-}
-
-/**
- * Get all nav routes for a role context.
- */
-export function getNavRoutesForRole(context: {
-  isAdmin: boolean;
-  isOwner: boolean;
-  isClient: boolean;
-}): string[] {
-  return getNavItemsForRole(context).map(item => item.href);
 }
 
 export function useRoleNavigation() {

@@ -2,175 +2,38 @@
  * Tool Registry - Extensibility spine for Platform Tools
  * Adding new tools is as simple as adding to this registry
  */
-
 import { Shield, Database, Terminal, Cloud, UserCheck, TestTube, Building2, Clock, Flag, Table, Search, Map } from "lucide-react";
+import { platformToolsCore } from "./toolRegistryCore";
+import type { PlatformToolCore } from "./toolRegistryCore";
 
-export type AccessLevel = "authenticated" | "owner" | "admin";
+export type { AccessLevel } from "./toolRegistryCore";
 
-export interface PlatformTool {
-  id: string;
-  name: string;
-  description: string;
-  route: string;
+export interface PlatformTool extends PlatformToolCore {
   icon: React.ComponentType<{ className?: string }>;
-  requires: AccessLevel;
-  category: "diagnostics" | "configuration" | "admin" | "debug";
-  canRunInline: boolean;
-  runAction?: () => Promise<{ ok: boolean; message: string }>;
 }
 
-export const platformTools: PlatformTool[] = [
-  {
-    id: "tools-hub",
-    name: "Platform Tools",
-    description: "Central hub for all diagnostic and configuration tools",
-    route: "/platform/tools",
-    icon: Terminal,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: false,
-  },
-  {
-    id: "proof-gate",
-    name: "Proof Gate",
-    description: "One-click diagnostic that runs all checks and generates a Support Bundle",
-    route: "/platform/proof-gate",
-    icon: Shield,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "db-doctor",
-    name: "DB Doctor",
-    description: "Check database dependencies, grants, and generate fix SQL",
-    route: "/platform/db-doctor",
-    icon: Database,
-    requires: "owner",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "edge-console",
-    name: "Edge Console",
-    description: "Invoke edge functions with templates and capture evidence",
-    route: "/platform/edge-console",
-    icon: Terminal,
-    requires: "owner",
-    category: "debug",
-    canRunInline: false,
-  },
-  {
-    id: "cloud-wizard",
-    name: "Cloud Wizard",
-    description: "Step-by-step guide for Supabase configuration tasks",
-    route: "/platform/cloud-wizard",
-    icon: Cloud,
-    requires: "owner",
-    category: "configuration",
-    canRunInline: false,
-  },
-  {
-    id: "access",
-    name: "Access & Identity",
-    description: "View your role, tenant access, and request elevated permissions",
-    route: "/platform/access",
-    icon: UserCheck,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: false,
-  },
-  {
-    id: "qa-tests",
-    name: "QA Tests",
-    description: "Run tenant isolation and data integrity tests",
-    route: "/platform/qa-tests",
-    icon: TestTube,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "tenants",
-    name: "Admin Tenants",
-    description: "Manage tenant configuration and provisioning",
-    route: "/platform/tenants",
-    icon: Building2,
-    requires: "admin",
-    category: "admin",
-    canRunInline: false,
-  },
-  {
-    id: "scheduler",
-    name: "Scheduler Control",
-    description: "View and manage automated scheduler tasks",
-    route: "/platform/scheduler",
-    icon: Clock,
-    requires: "admin",
-    category: "admin",
-    canRunInline: false,
-  },
-  {
-    id: "feature-flags",
-    name: "Feature Flags",
-    description: "Toggle experimental features and debug modes",
-    route: "/platform/feature-flags",
-    icon: Flag,
-    requires: "authenticated",
-    category: "configuration",
-    canRunInline: false,
-  },
-  {
-    id: "schema-snapshot",
-    name: "Schema Snapshot",
-    description: "Read-only view of table access and RPC availability",
-    route: "/platform/schema-snapshot",
-    icon: Table,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "placeholder-scan",
-    name: "Placeholder Scanner",
-    description: "Detect placeholders, stubs, and false-done patterns in source files",
-    route: "/platform/placeholder-scan",
-    icon: Search,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "route-nav-auditor",
-    name: "Route & Nav Auditor",
-    description: "Detect routing mismatches, missing nav entries, and role gating issues",
-    route: "/platform/route-nav-auditor",
-    icon: Map,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-  {
-    id: "ops-center",
-    name: "Ops Center",
-    description: "Central cockpit for all diagnostics, build proof, and contradiction detection",
-    route: "/platform/ops",
-    icon: Terminal,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: false,
-  },
-  {
-    id: "vibes-inspector",
-    name: "Vibes Inspector",
-    description: "Detect common vibes errors - contradictions, missing proof, broken assumptions",
-    route: "/platform/vibes",
-    icon: Shield,
-    requires: "authenticated",
-    category: "diagnostics",
-    canRunInline: true,
-  },
-];
+const TOOL_ICON_MAP: Record<string, PlatformTool["icon"]> = {
+  "tools-hub": Terminal,
+  "proof-gate": Shield,
+  "db-doctor": Database,
+  "edge-console": Terminal,
+  "cloud-wizard": Cloud,
+  "access": UserCheck,
+  "qa-tests": TestTube,
+  "tenants": Building2,
+  "scheduler": Clock,
+  "feature-flags": Flag,
+  "schema-snapshot": Table,
+  "placeholder-scan": Search,
+  "route-nav-auditor": Map,
+  "ops-center": Terminal,
+  "vibes-inspector": Shield,
+};
+
+export const platformTools: PlatformTool[] = platformToolsCore.map((tool) => ({
+  ...tool,
+  icon: TOOL_ICON_MAP[tool.id],
+}));
 
 /**
  * Get tools visible for a specific access level.
