@@ -60,6 +60,8 @@ import {
   savePreflightIntent,
   type PreflightIntent,
 } from "@/lib/preflightIntent";
+import { loadFlightMode, type FlightMode } from "@/lib/flightMode";
+import { clearPreflightTeam, loadPreflightTeam, savePreflightTeam, type TeamSelection } from "@/lib/preflightTeam";
 
 export default function CEOHome() {
   const { email, role, signOut, userId } = useAuth();
@@ -110,10 +112,16 @@ export default function CEOHome() {
   const [manualOverrideImpact, setManualOverrideImpact] = useState<ActionImpact>(ActionImpact.REVERSIBLE);
   const [manualOverrideConfirm, setManualOverrideConfirm] = useState("");
   const [manualOverrideStatus, setManualOverrideStatus] = useState<string | null>(null);
+  const [flightMode, setFlightMode] = useState<FlightMode>(() => loadFlightMode(userId, email));
   const [intentSelection, setIntentSelection] = useState<PreflightIntent | null>(() =>
     loadPreflightIntent(userId, email)
   );
   const [intentNotice, setIntentNotice] = useState<string | null>(null);
+  const [teamSelection, setTeamSelection] = useState<TeamSelection | null>(() =>
+    loadPreflightTeam(userId, email)
+  );
+  const [teamNotice, setTeamNotice] = useState<string | null>(null);
+  const [exitNotice, setExitNotice] = useState<string | null>(null);
 
   const hasContext =
     !!context.businessName ||
@@ -135,6 +143,25 @@ export default function CEOHome() {
   const showPodFlow = effectiveIntent === "pod";
   const showBusinessFlow = effectiveIntent === "business";
   const canControlFlight = isOwner || isAdmin;
+  const flightModeLabel = flightMode === "LIVE" ? "Live Mode" : "Sim Mode";
+  const flightModeDescription =
+    flightMode === "LIVE"
+      ? "Live Mode requires confirmation + preflight before real-world actions."
+      : "Sim Mode is simulation-only with no real-world effects.";
+  const teamSelectionLabel = teamSelection
+    ? teamSelection === "solo"
+      ? "Solo Team"
+      : teamSelection === "join"
+        ? "Join a Team"
+        : "Create a Team"
+    : "Not selected";
+  const intentSelectionLabel = intentSelection
+    ? intentSelection === "explore"
+      ? "Explore / Learn"
+      : intentSelection === "pod"
+        ? "Build or Join a Pod"
+        : "I Own a Business"
+    : "Not selected";
 
   useEffect(() => {
     const mockFlag =
@@ -144,6 +171,16 @@ export default function CEOHome() {
   }, []);
 
   useEffect(() => {
+    setFlightMode(loadFlightMode(userId, email));
+  }, [userId, email]);
+
+  useEffect(() => {
+    const update = () => setFlightMode(loadFlightMode(userId, email));
+    window.addEventListener("ppp:flightmode", update);
+    return () => window.removeEventListener("ppp:flightmode", update);
+  }, [userId, email]);
+
+  useEffect(() => {
     const loaded = loadSystemMode(userId, email);
     setSystemMode(loaded);
     setSwitchModeTarget(loaded);
@@ -151,6 +188,10 @@ export default function CEOHome() {
 
   useEffect(() => {
     setIntentSelection(loadPreflightIntent(userId, email));
+  }, [userId, email]);
+
+  useEffect(() => {
+    setTeamSelection(loadPreflightTeam(userId, email));
   }, [userId, email]);
 
   const handleApplySystemMode = () => {
@@ -298,6 +339,7 @@ export default function CEOHome() {
   const incompleteItems = checklist.filter((item) => !checklistState.completedIds.includes(item.id));
   const todaysTop3 = incompleteItems.slice(0, 3);
   const nextTask = incompleteItems[0];
+  const doNextIntentLabel = actionPlan?.agentIntent ?? "ceo_do_next";
   const ledgerDisplay = useMemo(
     () => [...revenueLedgerEntries].slice().reverse(),
     [revenueLedgerEntries]
@@ -330,6 +372,37 @@ export default function CEOHome() {
       description: "Continue onboarding and execution planning in preflight.",
     },
   ];
+  const teamOptions: { id: TeamSelection; title: string; description: string }[] = [
+    {
+      id: "solo",
+      title: "Solo Team",
+      description: "You run the pod alone with clear task ownership.",
+    },
+    {
+      id: "join",
+      title: "Join a Team",
+      description: "Coordinate with an existing pod and shared ledger.",
+    },
+    {
+      id: "create",
+      title: "Create a Team",
+      description: "Start a new pod with roles and revenue share rules.",
+    },
+  ];
+  const intentGuideMap: Record<PreflightIntent, { next: string; cta: string }> = {
+    explore: {
+      next: "Review system health and run simulation-only actions.",
+      cta: "Run Simulation",
+    },
+    pod: {
+      next: "Pick a team path, review roles, and simulate revenue flow.",
+      cta: "Run Simulation",
+    },
+    business: {
+      next: "Finish onboarding, generate a plan, and run Do Next.",
+      cta: "Generate CEO Plan",
+    },
+  };
 
   const buildDoNextOutcome = (raw: string, payload: DoNextPayload | null) => {
     if (payload) {
@@ -526,7 +599,7 @@ export default function CEOHome() {
   const handleIntentSelect = (intent: PreflightIntent) => {
     savePreflightIntent(intent, userId, email);
     setIntentSelection(intent);
-    setIntentNotice(`Intent set: ${intent}`);
+    setIntentNotice(`Intent set: ${intent}. You can change this anytime.`);
   };
 
   const handleIntentClear = () => {
@@ -537,6 +610,42 @@ export default function CEOHome() {
 
   const handleSimulationNote = (message: string) => {
     setIntentNotice(message);
+  };
+
+  const handleTeamSelect = (team: TeamSelection) => {
+    savePreflightTeam(team, userId, email);
+    setTeamSelection(team);
+    const label =
+      team === "solo" ? "Solo Team" : team === "join" ? "Join a Team" : "Create a Team";
+    setTeamNotice(`Team path set: ${label}`);
+  };
+
+  const handleTeamClear = () => {
+    clearPreflightTeam(userId, email);
+    setTeamSelection(null);
+    setTeamNotice(null);
+  };
+
+  const handlePauseOps = () => {
+    setExitNotice("Operations paused in preflight. No live actions will run.");
+  };
+
+  const handleReturnToSim = () => {
+    setExitNotice("Use the Flight Mode switcher in the header to confirm Sim Mode.");
+  };
+
+  const handleLeaveTeam = () => {
+    clearPreflightTeam(userId, email);
+    setTeamSelection(null);
+    setExitNotice("Team selection cleared. No live actions executed.");
+  };
+
+  const handleArchiveBusiness = () => {
+    setExitNotice("Business archived locally (simulation only).");
+  };
+
+  const handleDownloadRecords = () => {
+    setExitNotice("Record export prepared locally (simulation only).");
   };
 
   const handleLoadMoreLedger = () => {
@@ -600,7 +709,9 @@ export default function CEOHome() {
           }}
           data-testid="preflight-banner-standalone"
         >
-          🟡 Preflight Mode — Actions are simulated, not executed
+          {flightMode === "LIVE"
+            ? "Live Mode - Confirmation + preflight required before real-world actions."
+            : "Sim Mode - Actions are simulated, not executed."}
         </div>
       )}
 
@@ -651,10 +762,15 @@ export default function CEOHome() {
             }}
             data-testid="switch-mode"
           >
-            Switch Mode
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Switch Mode <ModePill mode={flightMode} />
+            </span>
           </button>
         </div>
         <div style={{ marginTop: 8, opacity: 0.85 }}>{getSystemModeDescription(systemMode)}</div>
+        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+          Flight Mode: <b>{flightModeLabel}</b> - {flightModeDescription}
+        </div>
         {modeBlockReason && (
           <div
             style={{
@@ -728,7 +844,9 @@ export default function CEOHome() {
                 }}
                 data-testid="system-mode-apply"
               >
-                Apply mode
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  Apply mode <ModePill mode={flightMode} />
+                </span>
               </button>
               <button
                 onClick={() => {
@@ -775,7 +893,9 @@ export default function CEOHome() {
                 fontWeight: 700,
               }}
             >
-              Change intent
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Change intent <ModePill mode={flightMode} />
+              </span>
             </button>
           )}
         </div>
@@ -810,6 +930,199 @@ export default function CEOHome() {
         )}
       </div>
 
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
+        data-testid="first-time-guide"
+      >
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>First-time path guide</div>
+        <div style={{ opacity: 0.75, marginBottom: 10 }}>
+          Choose a path, see what happens next, and switch anytime. {flightModeLabel} means {flightModeDescription}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          {intentOptions.map((option) => {
+            const guide = intentGuideMap[option.id];
+            return (
+              <div
+                key={option.id}
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.1)",
+                  padding: 12,
+                  background: "white",
+                }}
+              >
+                <div style={{ fontWeight: 800 }}>{option.title}</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>{option.description}</div>
+                <div style={{ marginTop: 8, fontSize: 12 }}>
+                  <span style={{ fontWeight: 700 }}>Next:</span> {guide.next}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 12 }}>
+                  <span style={{ fontWeight: 700 }}>CTA:</span> {guide.cta}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+          Safe return: change intent or team any time in Sim Mode; no live actions run without confirmation.
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
+        data-testid="intent-team-flow"
+      >
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Intent -> Team -> Business -> Execution</div>
+        <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+          <div>
+            <span style={{ fontWeight: 700 }}>Intent:</span> {intentSelectionLabel}{" "}
+            <span style={{ opacity: 0.6 }}>(changeable anytime)</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Team:</span> {teamSelectionLabel}{" "}
+            <span style={{ opacity: 0.6 }}>(changeable until Live Mode)</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Business:</span> {hasContext ? "Context captured" : "Not set"}{" "}
+            <span style={{ opacity: 0.6 }}>(required for Live Mode)</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Execution:</span> {systemMode}{" "}
+            <span style={{ opacity: 0.6 }}>(controls checklist + Do Next)</span>
+          </div>
+        </div>
+        <div style={{ marginTop: 12, fontWeight: 800 }}>Team selection</div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+          Teams are coordination units, not hierarchy. Solo teams keep all tasks with you.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 8 }}>
+          {teamOptions.map((option) => {
+            const isSelected = teamSelection === option.id;
+            return (
+              <button
+                key={option.id}
+                onClick={() => handleTeamSelect(option.id)}
+                style={{
+                  textAlign: "left",
+                  padding: 12,
+                  borderRadius: 10,
+                  border: isSelected ? "2px solid #2563eb" : "1px solid rgba(0,0,0,0.1)",
+                  background: isSelected ? "rgba(37,99,235,0.08)" : "white",
+                  cursor: "pointer",
+                }}
+                data-testid={`team-${option.id}`}
+              >
+                <div style={{ fontWeight: 800, marginBottom: 4 }}>{option.title}</div>
+                <div style={{ fontSize: 12, opacity: 0.75 }}>{option.description}</div>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={handleTeamClear}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+              background: "white",
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Clear team selection <ModePill mode={flightMode} />
+            </span>
+          </button>
+        </div>
+        {teamNotice && (
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: "#1f2937" }}>{teamNotice}</div>
+        )}
+        <div style={{ marginTop: 10, display: "grid", gap: 4, fontSize: 12, opacity: 0.75 }}>
+          <div>
+            <span style={{ fontWeight: 700 }}>Who does what:</span> Operator runs execution, Outreach handles lead
+            flow, Fulfillment delivers.
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Money flow:</span> Revenue -> pod ledger -> revenue share splits.
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Leave safely:</span> Leaving pauses assignments; ledger remains intact.
+          </div>
+          <div>
+            <span style={{ fontWeight: 700 }}>Dissolve:</span> Pod closes; history and evidence stay read-only.
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
+        data-testid="user-test-readiness"
+      >
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>User test readiness</div>
+        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>5-step first-time walkthrough</div>
+        <ol style={{ marginLeft: 18, marginBottom: 12 }}>
+          <li>Pick an intent (Explore, Pod, or Business) to set your path.</li>
+          <li>Select a team path (Solo, Join, or Create) and confirm responsibilities.</li>
+          <li>Review the mode banner: Sim Mode for safety, Live Mode only after preflight.</li>
+          <li>Complete onboarding and generate a CEO plan if you own a business.</li>
+          <li>Run Do Next in Sim Mode, then review evidence and ledger snapshots.</li>
+        </ol>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+          <div style={{ borderRadius: 10, border: "1px solid rgba(0,0,0,0.08)", padding: 12, background: "white" }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>What this is</div>
+            <ul style={{ marginLeft: 18, fontSize: 12 }}>
+              <li>Private execution engine with evidence and policy gates.</li>
+              <li>Simulation-first dashboard for safe testing.</li>
+              <li>Intent-led actions with ledgered accountability.</li>
+            </ul>
+          </div>
+          <div style={{ borderRadius: 10, border: "1px solid rgba(0,0,0,0.08)", padding: 12, background: "white" }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>What this is not</div>
+            <ul style={{ marginLeft: 18, fontSize: 12 }}>
+              <li>Not a growth hack or persuasion engine.</li>
+              <li>Not a black box that executes without consent.</li>
+              <li>Not a replacement for human judgment.</li>
+            </ul>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Glossary</div>
+          <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
+            <div>
+              <span style={{ fontWeight: 700 }}>Intent:</span> why an action happens and the metric it moves.
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Team:</span> coordination unit of independent participants.
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Sim Mode:</span> no real-world effects; evidence is stubbed.
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Ledger:</span> append-only history of actions and outcomes.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {showExploreFlow && (
         <div
           style={{
@@ -838,7 +1151,9 @@ export default function CEOHome() {
                 fontWeight: 700,
               }}
             >
-              Run Simulation
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Run Simulation <ModePill mode={flightMode} />
+              </span>
             </button>
             <button
               onClick={() => handleSimulationNote("Predicted outcome ready (simulation only).")}
@@ -850,7 +1165,9 @@ export default function CEOHome() {
                 fontWeight: 700,
               }}
             >
-              View Predicted Outcome
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                View Predicted Outcome <ModePill mode={flightMode} />
+              </span>
             </button>
             <button
               disabled
@@ -863,7 +1180,9 @@ export default function CEOHome() {
                 opacity: 0.5,
               }}
             >
-              Queue for Live Flight
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Queue for Live Flight <ModePill mode={flightMode} />
+              </span>
             </button>
           </div>
         </div>
@@ -901,7 +1220,9 @@ export default function CEOHome() {
                 fontWeight: 700,
               }}
             >
-              Run Simulation
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Run Simulation <ModePill mode={flightMode} />
+              </span>
             </button>
             <button
               onClick={() => handleSimulationNote("Predicted pod outcome ready (simulation only).")}
@@ -913,7 +1234,9 @@ export default function CEOHome() {
                 fontWeight: 700,
               }}
             >
-              View Predicted Outcome
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                View Predicted Outcome <ModePill mode={flightMode} />
+              </span>
             </button>
             <button
               disabled
@@ -926,7 +1249,9 @@ export default function CEOHome() {
                 opacity: 0.5,
               }}
             >
-              Queue for Live Flight
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Queue for Live Flight <ModePill mode={flightMode} />
+              </span>
             </button>
           </div>
         </div>
@@ -942,11 +1267,13 @@ export default function CEOHome() {
             color: "#92400e",
             fontWeight: 700,
             marginBottom: 16,
-          }}
-          data-testid="business-preflight-banner"
-        >
-          Preflight only — business actions are simulated until Live Flight requirements are met.
-        </div>
+        }}
+        data-testid="business-preflight-banner"
+      >
+          {flightMode === "LIVE"
+            ? "Live Mode selected - confirmations required before real-world actions."
+            : "Preflight only - business actions are simulated until Live Mode requirements are met."}
+      </div>
       )}
 
       <div
@@ -1033,11 +1360,11 @@ export default function CEOHome() {
           {canControlFlight && (
             <StatusCard title="System State" testId="ceo-system-state">
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="radio" checked readOnly />
+                <input type="radio" checked={flightMode === "SIM"} readOnly />
                 <span style={{ fontWeight: 700 }}>Preflight</span>
               </label>
               <label style={{ display: "flex", gap: 8, alignItems: "center", opacity: 0.6 }}>
-                <input type="radio" disabled />
+                <input type="radio" checked={flightMode === "LIVE"} disabled />
                 <span style={{ fontWeight: 700 }}>Live Flight</span>
               </label>
               <div style={{ fontSize: 12, opacity: 0.7 }}>
@@ -1173,7 +1500,9 @@ export default function CEOHome() {
               opacity: overrideCanSubmit ? 1 : 0.6,
             }}
           >
-            Log manual override
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Log manual override <ModePill mode={flightMode} />
+            </span>
           </button>
           {manualOverrideStatus && (
             <div style={{ padding: 8, borderRadius: 8, background: "#ecfccb", color: "#365314", fontWeight: 700 }}>
@@ -1219,7 +1548,9 @@ export default function CEOHome() {
               fontWeight: 700,
             }}
           >
-            Resume onboarding
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Resume onboarding <ModePill mode={flightMode} />
+            </span>
           </button>
         </div>
       )}
@@ -1247,7 +1578,9 @@ export default function CEOHome() {
                   fontWeight: 700,
                 }}
               >
-                Re-run onboarding
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  Re-run onboarding <ModePill mode={flightMode} />
+                </span>
               </button>
             )}
           </div>
@@ -1298,7 +1631,9 @@ export default function CEOHome() {
                   opacity: agentLoading || planLoading ? 0.6 : 1,
                 }}
               >
-                {plan ? "Regenerate" : "Generate CEO Plan"}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {plan ? "Regenerate" : "Generate CEO Plan"} <ModePill mode={flightMode} />
+                </span>
               </button>
             </div>
           </div>
@@ -1354,7 +1689,9 @@ export default function CEOHome() {
                   opacity: dailyBriefLoading || agentLoading ? 0.6 : 1,
                 }}
               >
-                {dailyBrief ? "Regenerate" : "Generate Daily Brief"}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {dailyBrief ? "Regenerate" : "Generate Daily Brief"} <ModePill mode={flightMode} />
+                </span>
               </button>
             </div>
           </div>
@@ -1383,6 +1720,44 @@ export default function CEOHome() {
         </div>
       )}
 
+      {showBusinessFlow && allowPlanSections && (
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.1)",
+            background: "rgba(0,0,0,0.02)",
+            marginBottom: 16,
+          }}
+          data-testid="execution-confidence"
+        >
+          <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Execution confidence</div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+            Every action is intent-bound, policy-checked, and evidence-tracked.
+          </div>
+          <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+            <div>
+              <span style={{ fontWeight: 700 }}>Intent:</span> {doNextIntentLabel}
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Policy check:</span>{" "}
+              {flightMode === "LIVE"
+                ? "Live preflight + confirmation required."
+                : "Sim Mode only; no real-world effects."}{" "}
+              <span style={{ opacity: 0.7 }}>(System Mode: {systemMode})</span>
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Evidence required:</span>{" "}
+              {flightMode === "LIVE" ? "Provider response id + ledger entry." : "Mock evidence stub + ledger entry."}
+            </div>
+            <div>
+              <span style={{ fontWeight: 700 }}>Cooldown / irreversibility:</span>{" "}
+              {nextTask ? "Reversible task (no cooldown)." : "No action queued."}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showBusinessFlow && allowPlanSections && plan && (
         <div
           style={{
@@ -1394,7 +1769,7 @@ export default function CEOHome() {
           }}
         >
           <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Execution Checklist</div>
-          <div style={{ marginBottom: 8, fontWeight: 700 }}>Today’s Top 3</div>
+          <div style={{ marginBottom: 8, fontWeight: 700 }}>Today's Top 3</div>
           {todaysTop3.length === 0 ? (
             <div style={{ opacity: 0.7, marginBottom: 12 }}>All caught up for today.</div>
           ) : (
@@ -1434,7 +1809,9 @@ export default function CEOHome() {
                 opacity: !nextTask || doNextLoading || agentLoading || systemMode !== SystemMode.EXECUTION ? 0.6 : 1,
               }}
             >
-              {nextTask ? "Do Next" : "All tasks complete"}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {nextTask ? "Do Next" : "All tasks complete"} <ModePill mode={flightMode} />
+              </span>
             </button>
           </div>
           {actionPlan && (
@@ -1587,6 +1964,97 @@ export default function CEOHome() {
         </div>
       )}
 
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
+        data-testid="exit-controls"
+      >
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Pause, exit, or reset</div>
+        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+          These controls are safe and simulation-only. Use the header to confirm any mode change.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <button
+            onClick={handlePauseOps}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Pause operations <ModePill mode={flightMode} />
+            </span>
+          </button>
+          <button
+            onClick={handleReturnToSim}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Return to Sim Mode <ModePill mode={flightMode} />
+            </span>
+          </button>
+          <button
+            onClick={handleLeaveTeam}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Leave team <ModePill mode={flightMode} />
+            </span>
+          </button>
+          <button
+            onClick={handleArchiveBusiness}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Archive business <ModePill mode={flightMode} />
+            </span>
+          </button>
+          <button
+            onClick={handleDownloadRecords}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Download records <ModePill mode={flightMode} />
+            </span>
+          </button>
+        </div>
+        {exitNotice && (
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: "#1f2937" }}>{exitNotice}</div>
+        )}
+      </div>
+
       <button
         data-testid="sign-out"
         onClick={() => signOut()}
@@ -1724,7 +2192,27 @@ const ContextField = ({ label, value }: { label: string; value?: string }) => (
     }}
   >
     <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.6 }}>{label}</div>
-    <div style={{ fontWeight: 700, marginTop: 4 }}>{value || "—"}</div>
+    <div style={{ fontWeight: 700, marginTop: 4 }}>{value || "Not set"}</div>
   </div>
 );
+
+const ModePill = ({ mode }: { mode: FlightMode }) => (
+  <span
+    style={{
+      padding: "2px 6px",
+      borderRadius: 999,
+      border: "1px solid rgba(0,0,0,0.15)",
+      fontSize: 10,
+      fontWeight: 800,
+      letterSpacing: 0.6,
+      textTransform: "uppercase",
+      background: mode === "LIVE" ? "#dcfce7" : "#fffbeb",
+      color: mode === "LIVE" ? "#166534" : "#92400e",
+    }}
+  >
+    {mode}
+  </span>
+);
+
+
 

@@ -17,16 +17,38 @@
  * - No horizontal scroll on any screen size
  */
 
+import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
 import { useRoleNavigation } from "@/hooks/useRoleNavigation";
+import { loadFlightMode, type FlightMode } from "@/lib/flightMode";
 import { Loader2 } from "lucide-react";
 
 export function AppLayout() {
   const location = useLocation();
+  const { userId, email } = useAuth();
   const { navItems, mobileNavItems, isLoading } = useRoleNavigation();
+  const [flightMode, setFlightMode] = useState<FlightMode>(() => loadFlightMode(userId, email));
+
+  useEffect(() => {
+    setFlightMode(loadFlightMode(userId, email));
+  }, [userId, email]);
+
+  useEffect(() => {
+    const update = () => setFlightMode(loadFlightMode(userId, email));
+    window.addEventListener("ppp:flightmode", update);
+    return () => window.removeEventListener("ppp:flightmode", update);
+  }, [userId, email]);
+
+  const bannerText =
+    flightMode === "LIVE"
+      ? "Live Mode - Confirmation + preflight required before real-world actions."
+      : "Sim Mode - Actions are simulated, not executed.";
+  const bannerTooltip =
+    "Sim Mode simulates actions while Live Mode executes them only after confirmation + preflight.";
 
   if (isLoading) {
     return (
@@ -72,16 +94,26 @@ export function AppLayout() {
 
         {/* Main Content */}
         <main className="flex-1 md:ml-56 pb-20 md:pb-0">
-          <div className="sticky top-14 z-40 border-b border-amber-200 bg-amber-50">
-            <div className="px-4 py-2 text-sm font-medium text-amber-900">
+          <div
+            className={cn(
+              "sticky top-14 z-40 border-b",
+              flightMode === "LIVE" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+            )}
+          >
+            <div
+              className={cn(
+                "px-4 py-2 text-sm font-medium",
+                flightMode === "LIVE" ? "text-emerald-900" : "text-amber-900"
+              )}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-help" data-testid="preflight-banner">
-                    🟡 Preflight Mode — Actions are simulated, not executed
+                    {bannerText}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Preflight simulates actions. Live Flight executes real-world actions once requirements are met.
+                  {bannerTooltip}
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -121,3 +153,4 @@ export function AppLayout() {
 }
 
 export default AppLayout;
+
