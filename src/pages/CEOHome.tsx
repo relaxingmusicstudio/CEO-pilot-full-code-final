@@ -9,8 +9,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
+import { useUserRole } from "@/hooks/useUserRole";
 import { getOnboardingData } from "@/lib/onboarding";
 import { useCEOAgent } from "@/hooks/useCEOAgent";
 import { CEOPlan, computeOnboardingHash, loadCEOPlan, saveCEOPlan } from "@/lib/ceoPlan";
@@ -53,11 +54,19 @@ import { getLatestSnapshot, getThreadSummary, type ThreadSnapshotSummaryFields }
 import { ActionImpact } from "@/lib/irreversibilityMap";
 import { appendManualOverrideEvent, loadManualOverrideHistory, type ManualOverrideEvent } from "@/lib/manualOverrideLedger";
 import { derivePodState, loadPodLedger, type PodStateSnapshot } from "@/lib/pods";
+import {
+  clearPreflightIntent,
+  loadPreflightIntent,
+  savePreflightIntent,
+  type PreflightIntent,
+} from "@/lib/preflightIntent";
 
 export default function CEOHome() {
   const { email, role, signOut, userId } = useAuth();
+  const { isOwner, isAdmin } = useUserRole();
   const { status, isOnboardingComplete } = useOnboardingStatus();
   const navigate = useNavigate();
+  const location = useLocation();
   const context = getOnboardingData(userId, email);
   const { askCEO, getDailyBrief, isLoading: agentLoading } = useCEOAgent();
 
@@ -101,6 +110,10 @@ export default function CEOHome() {
   const [manualOverrideImpact, setManualOverrideImpact] = useState<ActionImpact>(ActionImpact.REVERSIBLE);
   const [manualOverrideConfirm, setManualOverrideConfirm] = useState("");
   const [manualOverrideStatus, setManualOverrideStatus] = useState<string | null>(null);
+  const [intentSelection, setIntentSelection] = useState<PreflightIntent | null>(() =>
+    loadPreflightIntent(userId, email)
+  );
+  const [intentNotice, setIntentNotice] = useState<string | null>(null);
 
   const hasContext =
     !!context.businessName ||
@@ -115,6 +128,13 @@ export default function CEOHome() {
   const planHash = useMemo(() => computePlanHash(plan?.planMarkdown || ""), [plan?.planMarkdown]);
   const briefNeedsRefresh =
     dailyBrief && (dailyBrief.onboardingHash !== onboardingHash || dailyBrief.planHash !== planHash);
+  const showStandalonePreflightBanner = location.pathname === "/ceo";
+  const effectiveIntent: PreflightIntent = intentSelection ?? "business";
+  const showIntentGate = intentSelection === null;
+  const showExploreFlow = effectiveIntent === "explore";
+  const showPodFlow = effectiveIntent === "pod";
+  const showBusinessFlow = effectiveIntent === "business";
+  const canControlFlight = isOwner || isAdmin;
 
   useEffect(() => {
     const mockFlag =
@@ -127,6 +147,10 @@ export default function CEOHome() {
     const loaded = loadSystemMode(userId, email);
     setSystemMode(loaded);
     setSwitchModeTarget(loaded);
+  }, [userId, email]);
+
+  useEffect(() => {
+    setIntentSelection(loadPreflightIntent(userId, email));
   }, [userId, email]);
 
   const handleApplySystemMode = () => {
@@ -289,6 +313,23 @@ export default function CEOHome() {
   const overrideIsIrreversible = manualOverrideImpact === ActionImpact.IRREVERSIBLE;
   const overrideNeedsConfirm = manualOverrideConfirm.trim().toUpperCase() === "OVERRIDE";
   const overrideCanSubmit = manualOverrideReason.trim().length > 0 && overrideNeedsConfirm;
+  const intentOptions: { id: PreflightIntent; title: string; description: string }[] = [
+    {
+      id: "explore",
+      title: "Explore / Learn",
+      description: "Guided walkthrough with simulation-only actions.",
+    },
+    {
+      id: "pod",
+      title: "Build or Join a Pod",
+      description: "Configure pod roles, skills, and simulated revenue flow.",
+    },
+    {
+      id: "business",
+      title: "I Own a Business",
+      description: "Continue onboarding and execution planning in preflight.",
+    },
+  ];
 
   const buildDoNextOutcome = (raw: string, payload: DoNextPayload | null) => {
     if (payload) {
@@ -482,6 +523,22 @@ export default function CEOHome() {
     }
   };
 
+  const handleIntentSelect = (intent: PreflightIntent) => {
+    savePreflightIntent(intent, userId, email);
+    setIntentSelection(intent);
+    setIntentNotice(`Intent set: ${intent}`);
+  };
+
+  const handleIntentClear = () => {
+    clearPreflightIntent(userId, email);
+    setIntentSelection(null);
+    setIntentNotice(null);
+  };
+
+  const handleSimulationNote = (message: string) => {
+    setIntentNotice(message);
+  };
+
   const handleLoadMoreLedger = () => {
     if (!revenueLedgerCursor) return;
     const nextPage = loadRevenueLedgerTail(identityKey, 5, revenueLedgerCursor);
@@ -529,6 +586,23 @@ export default function CEOHome() {
       <Helmet>
         <title>PipelinePRO - CEO</title>
       </Helmet>
+
+      {showStandalonePreflightBanner && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid #fcd34d",
+            background: "#fffbeb",
+            color: "#92400e",
+            fontWeight: 700,
+            marginBottom: 12,
+          }}
+          data-testid="preflight-banner-standalone"
+        >
+          🟡 Preflight Mode — Actions are simulated, not executed
+        </div>
+      )}
 
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>CEO Home</h1>
       <div style={{ opacity: 0.8, marginBottom: 16 }}>
@@ -686,6 +760,203 @@ export default function CEOHome() {
           background: "rgba(0,0,0,0.02)",
           marginBottom: 16,
         }}
+        data-testid="intent-gate"
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>Intent Gate (Preflight)</div>
+          {!showIntentGate && (
+            <button
+              onClick={handleIntentClear}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              Change intent
+            </button>
+          )}
+        </div>
+        <div style={{ opacity: 0.75, marginBottom: 10 }}>
+          Choose your intent so the dashboard stays safe, contextual, and simulation-first.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          {intentOptions.map((option) => {
+            const isSelected = effectiveIntent === option.id;
+            return (
+              <button
+                key={option.id}
+                onClick={() => handleIntentSelect(option.id)}
+                style={{
+                  textAlign: "left",
+                  padding: 12,
+                  borderRadius: 10,
+                  border: isSelected ? "2px solid #2563eb" : "1px solid rgba(0,0,0,0.1)",
+                  background: isSelected ? "rgba(37,99,235,0.08)" : "white",
+                  cursor: "pointer",
+                }}
+                data-testid={`intent-${option.id}`}
+              >
+                <div style={{ fontWeight: 800, marginBottom: 4 }}>{option.title}</div>
+                <div style={{ fontSize: 12, opacity: 0.75 }}>{option.description}</div>
+              </button>
+            );
+          })}
+        </div>
+        {intentNotice && (
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: "#1f2937" }}>{intentNotice}</div>
+        )}
+      </div>
+
+      {showExploreFlow && (
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.1)",
+            background: "rgba(0,0,0,0.02)",
+            marginBottom: 16,
+          }}
+          data-testid="intent-explore-panel"
+        >
+          <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Explore / Learn Checklist</div>
+          <ul style={{ marginLeft: 18, marginBottom: 10 }}>
+            <li>Review system health, pods, and ledger snapshots.</li>
+            <li>Run a simulated pipeline step and inspect evidence.</li>
+            <li>Practice preflight decisions without executing real actions.</li>
+          </ul>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={() => handleSimulationNote("Simulation queued. No live actions executed.")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              Run Simulation
+            </button>
+            <button
+              onClick={() => handleSimulationNote("Predicted outcome ready (simulation only).")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              View Predicted Outcome
+            </button>
+            <button
+              disabled
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "not-allowed",
+                fontWeight: 700,
+                opacity: 0.5,
+              }}
+            >
+              Queue for Live Flight
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showPodFlow && (
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.1)",
+            background: "rgba(0,0,0,0.02)",
+            marginBottom: 16,
+          }}
+          data-testid="intent-pod-panel"
+        >
+          <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Pod Setup (Simulation)</div>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontWeight: 700 }}>Roles:</span> Operator, Outreach, Fulfillment, Finance
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontWeight: 700 }}>Skills:</span> Lead intake, pipeline hygiene, evidence capture
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ fontWeight: 700 }}>Simulated revenue:</span> $12,500 / month (preflight)
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={() => handleSimulationNote("Pod simulation queued. No live actions executed.")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              Run Simulation
+            </button>
+            <button
+              onClick={() => handleSimulationNote("Predicted pod outcome ready (simulation only).")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              View Predicted Outcome
+            </button>
+            <button
+              disabled
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                cursor: "not-allowed",
+                fontWeight: 700,
+                opacity: 0.5,
+              }}
+            >
+              Queue for Live Flight
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showBusinessFlow && (
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #fcd34d",
+            background: "#fffbeb",
+            color: "#92400e",
+            fontWeight: 700,
+            marginBottom: 16,
+          }}
+          data-testid="business-preflight-banner"
+        >
+          Preflight only — business actions are simulated until Live Flight requirements are met.
+        </div>
+      )}
+
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.02)",
+          marginBottom: 16,
+        }}
         data-testid="ceo-status-overview"
       >
         <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>System Health</div>
@@ -758,6 +1029,22 @@ export default function CEOHome() {
               Advisory only; cannot execute revenue actions.
             </div>
           </StatusCard>
+
+          {canControlFlight && (
+            <StatusCard title="System State" testId="ceo-system-state">
+              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="radio" checked readOnly />
+                <span style={{ fontWeight: 700 }}>Preflight</span>
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", opacity: 0.6 }}>
+                <input type="radio" disabled />
+                <span style={{ fontWeight: 700 }}>Live Flight</span>
+              </label>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                Live Flight requires verified providers and approvals.
+              </div>
+            </StatusCard>
+          )}
 
           <StatusCard title="Ledger Snapshot" testId="ceo-ledger-snapshot">
             {ledgerDisplay.length === 0 && <div style={{ opacity: 0.7 }}>No ledger entries yet.</div>}
@@ -907,7 +1194,7 @@ export default function CEOHome() {
         </div>
       </div>
 
-      {status === "in_progress" && (
+      {showBusinessFlow && status === "in_progress" && (
         <div
           style={{
             padding: 12,
@@ -937,7 +1224,7 @@ export default function CEOHome() {
         </div>
       )}
 
-      {allowPlanSections && (
+      {showBusinessFlow && allowPlanSections && (
         <div
           style={{
             padding: 16,
@@ -979,7 +1266,7 @@ export default function CEOHome() {
         </div>
       )}
 
-      {allowPlanSections && (
+      {showBusinessFlow && allowPlanSections && (
         <div
           style={{
             padding: 16,
@@ -1036,7 +1323,7 @@ export default function CEOHome() {
         </div>
       )}
 
-      {allowPlanSections && (
+      {showBusinessFlow && allowPlanSections && (
         <div
           style={{
             padding: 16,
@@ -1096,7 +1383,7 @@ export default function CEOHome() {
         </div>
       )}
 
-      {allowPlanSections && plan && (
+      {showBusinessFlow && allowPlanSections && plan && (
         <div
           style={{
             padding: 16,

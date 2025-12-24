@@ -20,6 +20,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRoleNavigation } from "@/hooks/useRoleNavigation";
 import { Loader2 } from "lucide-react";
 
@@ -71,6 +72,20 @@ export function AppLayout() {
 
         {/* Main Content */}
         <main className="flex-1 md:ml-56 pb-20 md:pb-0">
+          <div className="sticky top-14 z-40 border-b border-amber-200 bg-amber-50">
+            <div className="px-4 py-2 text-sm font-medium text-amber-900">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help" data-testid="preflight-banner">
+                    🟡 Preflight Mode — Actions are simulated, not executed
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Preflight simulates actions. Live Flight executes real-world actions once requirements are met.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
           <Outlet />
         </main>
       </div>
