@@ -984,7 +984,7 @@ export default function CEOHome() {
         }}
         data-testid="intent-team-flow"
       >
-        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Intent -> Team -> Business -> Execution</div>
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Intent → Team → Business → Execution</div>
         <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
           <div>
             <span style={{ fontWeight: 700 }}>Intent:</span> {intentSelectionLabel}{" "}
@@ -2213,6 +2213,5 @@ const ModePill = ({ mode }: { mode: FlightMode }) => (
     {mode}
   </span>
 );
-
 
 

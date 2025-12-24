@@ -54,7 +54,7 @@ const defaultChecklist: { id: string; title: string; why: string; steps: string;
     id: "vercel-env",
     title: "Vercel env vars set",
     why: "Client must reach Supabase; server secrets stay off the bundle.",
-    steps: "Vercel -> Project -> Settings -> Environment Variables -> add SUPABASE_URL + SUPABASE_ANON_KEY.",
+    steps: "Vercel → Project → Settings → Environment Variables → add SUPABASE_URL + SUPABASE_ANON_KEY.",
     result: "Preview/prod can auth without leaking secrets.",
     stuck: "Never use VITE_* for provider keys. Re-run proof gate after changes.",
   },
