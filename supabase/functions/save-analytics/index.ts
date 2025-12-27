@@ -22,7 +22,7 @@ interface EventData {
   visitorId: string;
   sessionId: string;
   eventType: string;
-  eventData?: Record<string, any>;
+  eventData?: Record<string, unknown>;
   pageUrl?: string;
   utmSource?: string;
   utmMedium?: string;
@@ -32,9 +32,9 @@ interface EventData {
 interface ConversationData {
   visitorId: string;
   sessionId: string;
-  messages: any[];
-  leadData?: any;
-  aiAnalysis?: any;
+  messages: unknown[];
+  leadData?: unknown;
+  aiAnalysis?: unknown;
   conversationPhase?: string;
   outcome?: string;
   durationSeconds?: number;
@@ -115,8 +115,8 @@ serve(async (req) => {
             JSON.stringify({
               success: false,
               error: "visitor_upsert_failed",
-              details: (error as any)?.message ?? String(error),
-              code: (error as any)?.code ?? null,
+              details: (error as unknown)?.message ?? String(error),
+              code: (error as unknown)?.code ?? null,
             }),
             {
               headers: { ...corsHeaders, "Content-Type": "application/json" },

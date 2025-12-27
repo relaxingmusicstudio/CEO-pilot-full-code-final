@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import AgentWorkItem, { WorkItem } from "@/components/AgentWorkItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,6 +94,14 @@ interface ABVariant {
   conversion_rate: number;
 }
 
+interface FunnelEnrollment {
+  id: string;
+  assignment_reason?: string | null;
+  converted?: boolean | null;
+  enrolled_at?: string | null;
+  funnels?: { name?: string | null } | null;
+}
+
 const AdminAgentFunnels = () => {
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [stages, setStages] = useState<FunnelStage[]>([]);
@@ -111,7 +119,7 @@ const AdminAgentFunnels = () => {
   const [newABTest, setNewABTest] = useState({ name: "", elementType: "cta_button", originalValue: "" });
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch funnels
@@ -122,9 +130,7 @@ const AdminAgentFunnels = () => {
       
       if (funnelsData) {
         setFunnels(funnelsData);
-        if (!selectedFunnel && funnelsData.length > 0) {
-          setSelectedFunnel(funnelsData[0]);
-        }
+        setSelectedFunnel((prev) => prev ?? funnelsData[0] ?? null);
       }
 
       // Fetch stages
@@ -178,15 +184,19 @@ const AdminAgentFunnels = () => {
         .limit(10);
 
       if (enrollments) {
-        const aiWorkItems: WorkItem[] = enrollments.map(e => ({
-          id: e.id,
-          title: `AI Assigned: ${(e as any).funnels?.name || "Unknown Funnel"}`,
-          description: e.assignment_reason || "AI-based assignment",
-          type: "review" as const,
-          status: e.converted ? "approved" as const : "pending" as const,
-          priority: "medium" as const,
-          createdAt: e.enrolled_at,
-        }));
+        const aiWorkItems: WorkItem[] = enrollments.map((entry) => {
+          const enrollment = entry as FunnelEnrollment;
+          const funnelName = enrollment.funnels?.name ?? "Unknown Funnel";
+          return {
+            id: enrollment.id,
+            title: `AI Assigned: ${funnelName}`,
+            description: enrollment.assignment_reason || "AI-based assignment",
+            type: "review" as const,
+            status: enrollment.converted ? "approved" as const : "pending" as const,
+            priority: "medium" as const,
+            createdAt: enrollment.enrolled_at,
+          };
+        });
         setWorkItems(aiWorkItems);
       }
 
@@ -196,11 +206,11 @@ const AdminAgentFunnels = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const currentStages = stages.filter(s => s.funnel_id === selectedFunnel?.id);
   const pendingCount = workItems.filter(w => w.status === "pending").length;
@@ -238,8 +248,9 @@ const AdminAgentFunnels = () => {
       setIsCreateOpen(false);
       setNewFunnel({ name: "", description: "", goal: "", scoreMin: 0, scoreMax: 100 });
       fetchData();
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create funnel.";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -252,8 +263,9 @@ const AdminAgentFunnels = () => {
       
       fetchData();
       toast({ title: funnel.is_active ? "Funnel Deactivated" : "Funnel Activated" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to update funnel.";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -283,8 +295,9 @@ const AdminAgentFunnels = () => {
       setIsABTestOpen(false);
       setNewABTest({ name: "", elementType: "cta_button", originalValue: "" });
       fetchData();
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create A/B test.";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -322,8 +335,9 @@ const AdminAgentFunnels = () => {
       
       setAiResult(data.result);
       toast({ title: "AI Analysis Complete" });
-    } catch (error: any) {
-      toast({ title: "Analysis Failed", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "AI analysis failed.";
+      toast({ title: "Analysis Failed", description: message, variant: "destructive" });
     } finally {
       setAiLoading(false);
     }

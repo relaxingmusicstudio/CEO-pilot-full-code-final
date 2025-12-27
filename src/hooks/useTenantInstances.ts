@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useTenant } from "./useTenant";
 
 export type InstanceStatus = "provisioning" | "active" | "failed";
@@ -35,8 +36,10 @@ export const useTenantInstances = () => {
 
       try {
         // Use raw query since types may not be synced yet
+        const tenantInstancesTable =
+          "tenant_instances" as unknown as keyof Database["public"]["Tables"];
         const { data, error } = await supabase
-          .from("tenant_instances" as any)
+          .from(tenantInstancesTable)
           .select("*")
           .eq("tenant_id", tenant.id);
 

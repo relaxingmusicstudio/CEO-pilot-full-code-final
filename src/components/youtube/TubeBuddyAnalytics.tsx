@@ -14,6 +14,7 @@ import {
   Target,
   Zap,
   Award,
+  type LucideIcon,
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -248,7 +249,7 @@ function MetricCard({
   iconBg,
   iconColor,
 }: {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   value: string;
   change: number;

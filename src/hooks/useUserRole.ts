@@ -104,7 +104,7 @@ export function useUserRole() {
     };
 
     fetchRole();
-  }, [user, authLoading, ensureRole, hasEnsuredRole]);
+  }, [user, authLoading, ensureRole, hasEnsuredRole, mockMode]);
 
   return {
     role,

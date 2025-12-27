@@ -9,6 +9,7 @@ import { getCapacityEnergyState } from "../../src/lib/revenueKernel/capacityEner
 import { computeIdentityKey } from "../../src/lib/spine";
 import { loadRevenueLedgerPage } from "../../src/lib/revenueKernel/ledger";
 import { computeActionId, type ActionSpec } from "../../src/types/actions";
+import { buildTestAgentContext } from "./helpers/agentContext";
 
 const createMemoryStorage = () => {
   const store = new Map<string, string>();
@@ -22,15 +23,18 @@ const createMemoryStorage = () => {
 };
 
 const withStorage = async <T>(storage: ReturnType<typeof createMemoryStorage>, fn: () => Promise<T>) => {
-  const priorWindow = (globalThis as any).window;
-  (globalThis as any).window = { localStorage: storage };
+  const globalWithWindow = globalThis as typeof globalThis & {
+    window?: { localStorage: ReturnType<typeof createMemoryStorage> };
+  };
+  const priorWindow = globalWithWindow.window;
+  globalWithWindow.window = { localStorage: storage };
   try {
     return await fn();
   } finally {
     if (priorWindow === undefined) {
-      delete (globalThis as any).window;
+      delete globalWithWindow.window;
     } else {
-      (globalThis as any).window = priorWindow;
+      globalWithWindow.window = priorWindow;
     }
   }
 };
@@ -58,6 +62,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "OFFLINE", trustLevel: 0 },
+        agentContext: buildTestAgentContext(action.action_type),
         consent: { consent_status: "granted", do_not_contact: false },
         reachability: buildReachabilityProfile({
           phones: [],
@@ -77,6 +82,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "LIVE", trustLevel: 0 },
+        agentContext: buildTestAgentContext(action.action_type),
         consent: { consent_status: "granted", do_not_contact: false },
         reachability: buildReachabilityProfile({
           phones: [],
@@ -98,6 +104,7 @@ describe("interaction edge cases", () => {
         action,
         identity,
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         consent,
         reachability: buildReachabilityProfile({
           phones: [],
@@ -118,6 +125,7 @@ describe("interaction edge cases", () => {
         action,
         identity,
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         consent: optOut.next,
         reachability: buildReachabilityProfile({
           phones: [],
@@ -142,6 +150,7 @@ describe("interaction edge cases", () => {
         identity: { userId: "u1" },
         podId: "pod-a",
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         resourceId: "lead-2",
         resourceAutoRelease: false,
       });
@@ -152,6 +161,7 @@ describe("interaction edge cases", () => {
         identity: { userId: "u2" },
         podId: "pod-b",
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         resourceId: "lead-2",
       });
       expect(second.outcome.summary).toContain("FAIL_POLICY_CONFLICT");
@@ -167,6 +177,7 @@ describe("interaction edge cases", () => {
         identity: { userId: "u1" },
         podId: "pod-owner",
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         resourceId: "lead-3",
         resourceAutoRelease: false,
       });
@@ -176,6 +187,7 @@ describe("interaction edge cases", () => {
         identity: { userId: "founder" },
         podId: "founder",
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         resourceId: "lead-3",
       });
       expect(founderAttempt.outcome.summary).toContain("FAIL_POLICY_CONFLICT");
@@ -214,6 +226,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         threadId: "thread-1",
         chainMaxDepth: 2,
       });
@@ -221,6 +234,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         threadId: "thread-1",
         chainMaxDepth: 2,
       });
@@ -228,6 +242,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         threadId: "thread-1",
         chainMaxDepth: 2,
       });
@@ -243,6 +258,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         handoffRequired: true,
       });
       expect(blocked.outcome.summary).toContain("FAIL_POLICY_CONFLICT");
@@ -251,6 +267,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         handoffRequired: true,
         handoffToken: "handoff-ok",
         retryCooldownSatisfied: true,
@@ -267,6 +284,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         threadId: "thread-auto",
         autoHelp: true,
       });
@@ -276,6 +294,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         threadId: "thread-auto",
         autoHelp: true,
       });
@@ -291,6 +310,7 @@ describe("interaction edge cases", () => {
         action,
         identity: { userId: "u1" },
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext(action.action_type),
         sensitive: {
           categories: ["medical"],
           acknowledged: false,

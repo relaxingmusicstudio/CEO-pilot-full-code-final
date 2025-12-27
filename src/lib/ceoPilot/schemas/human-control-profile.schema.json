@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HumanControlProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profileId",
+    "identityKey",
+    "ownerId",
+    "autonomyCeiling",
+    "maxModelTier",
+    "minConfidence",
+    "noveltyThreshold",
+    "requireHumanReviewForIrreversible",
+    "emergencyStop",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "profileId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "ownerId": { "type": "string", "minLength": 1 },
+    "autonomyCeiling": { "type": "string", "enum": ["draft", "suggest", "execute"] },
+    "maxModelTier": { "type": "string", "enum": ["economy", "standard", "advanced", "frontier"] },
+    "minConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "noveltyThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "requireHumanReviewForIrreversible": { "type": "boolean" },
+    "emergencyStop": { "type": "boolean" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

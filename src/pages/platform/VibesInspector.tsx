@@ -174,7 +174,9 @@ export default function VibesInspector() {
           });
         }
       }
-    } catch {}
+    } catch {
+      // ignore claim log read errors
+    }
     
     // Add common vibes causes if not already detected
     if (!user) {

@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolSkillProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tool",
+    "totalCalls",
+    "successRate",
+    "failureRate",
+    "avgLatencyMs",
+    "avgCostCents",
+    "reliabilityScore",
+    "failureTypeCounts",
+    "recommendedRetries",
+    "backoffMs",
+    "priorityScore",
+    "fallbackOrder",
+    "updatedAt"
+  ],
+  "properties": {
+    "tool": { "type": "string", "minLength": 1 },
+    "totalCalls": { "type": "integer", "minimum": 0 },
+    "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "failureRate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "avgLatencyMs": { "type": "integer", "minimum": 0 },
+    "avgCostCents": { "type": "integer", "minimum": 0 },
+    "reliabilityScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "failureTypeCounts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "recommendedRetries": { "type": "integer", "minimum": 0 },
+    "backoffMs": { "type": "integer", "minimum": 0 },
+    "priorityScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "fallbackOrder": { "type": "array", "items": { "type": "string" } },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

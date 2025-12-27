@@ -13,15 +13,51 @@ import { toast } from "sonner";
 import { Phone, PhoneCall, PhoneOff, Clock, User, Building2, MessageSquare, Plus, AlertTriangle, Brain } from "lucide-react";
 import { RealtimeCoaching } from "@/components/dialer/RealtimeCoaching";
 
+interface DialerConfigStatus {
+  twilio_configured?: boolean;
+}
+
+interface DialerQueueItem {
+  id: string;
+  phone_number: string;
+  contact_id?: string | null;
+  lead_id?: string | null;
+  priority?: string | null;
+  attempts?: number | null;
+  max_attempts?: number | null;
+  contact?: { name?: string | null } | null;
+  lead?: { name?: string | null } | null;
+}
+
+interface DialerQueueResponse {
+  queue?: DialerQueueItem[];
+}
+
+interface CallLog {
+  id: string;
+  created_at: string;
+  disposition?: string | null;
+  direction?: string | null;
+  status?: string | null;
+  to_number?: string | null;
+  duration_seconds?: number | null;
+}
+
+interface DispositionPayload {
+  callLogId: string;
+  disposition: string;
+  notes: string;
+}
+
 const AdminDialer = () => {
   const queryClient = useQueryClient();
-  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [selectedCall, setSelectedCall] = useState<CallLog | null>(null);
   const [disposition, setDisposition] = useState("");
   const [notes, setNotes] = useState("");
   const [newQueuePhone, setNewQueuePhone] = useState("");
 
   // Check Twilio config
-  const { data: configStatus } = useQuery({
+  const { data: configStatus } = useQuery<DialerConfigStatus>({
     queryKey: ['twilio-config'],
     queryFn: async () => {
       const { data } = await supabase.functions.invoke('sms-blast', {
@@ -32,7 +68,7 @@ const AdminDialer = () => {
   });
 
   // Get dialer queue
-  const { data: queueData, isLoading: queueLoading } = useQuery({
+  const { data: queueData, isLoading: queueLoading } = useQuery<DialerQueueResponse>({
     queryKey: ['dialer-queue'],
     queryFn: async () => {
       const { data } = await supabase.functions.invoke('outbound-dialer', {
@@ -44,7 +80,7 @@ const AdminDialer = () => {
   });
 
   // Get recent call logs
-  const { data: callLogs } = useQuery({
+  const { data: callLogs } = useQuery<CallLog[]>({
     queryKey: ['call-logs'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -60,7 +96,7 @@ const AdminDialer = () => {
 
   // Initiate call mutation
   const initiateMutation = useMutation({
-    mutationFn: async (queueItem: any) => {
+    mutationFn: async (queueItem: DialerQueueItem) => {
       const { data, error } = await supabase.functions.invoke('outbound-dialer', {
         body: {
           action: 'initiate_call',
@@ -82,14 +118,15 @@ const AdminDialer = () => {
       queryClient.invalidateQueries({ queryKey: ['dialer-queue'] });
       queryClient.invalidateQueries({ queryKey: ['call-logs'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to initiate call");
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to initiate call";
+      toast.error(message);
     }
   });
 
   // Log disposition mutation
   const dispositionMutation = useMutation({
-    mutationFn: async ({ callLogId, disposition, notes }: any) => {
+    mutationFn: async ({ callLogId, disposition, notes }: DispositionPayload) => {
       const { data, error } = await supabase.functions.invoke('outbound-dialer', {
         body: {
           action: 'log_disposition',
@@ -177,7 +214,7 @@ const AdminDialer = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Calls Today</p>
                   <p className="text-2xl font-bold">
-                    {callLogs?.filter((c: any) => 
+                    {callLogs?.filter((c) => 
                       new Date(c.created_at).toDateString() === new Date().toDateString()
                     ).length || 0}
                   </p>
@@ -193,7 +230,7 @@ const AdminDialer = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Answered</p>
                   <p className="text-2xl font-bold">
-                    {callLogs?.filter((c: any) => c.disposition === 'answered').length || 0}
+                    {callLogs?.filter((c) => c.disposition === 'answered').length || 0}
                   </p>
                 </div>
                 <User className="h-8 w-8 text-blue-500" />
@@ -207,7 +244,7 @@ const AdminDialer = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Converted</p>
                   <p className="text-2xl font-bold">
-                    {callLogs?.filter((c: any) => c.disposition === 'converted').length || 0}
+                    {callLogs?.filter((c) => c.disposition === 'converted').length || 0}
                   </p>
                 </div>
                 <Building2 className="h-8 w-8 text-emerald-500" />
@@ -252,7 +289,7 @@ const AdminDialer = () => {
                   <p className="text-muted-foreground">No calls in queue</p>
                 ) : (
                   <div className="space-y-3">
-                    {queueData?.queue?.map((item: any) => (
+                    {queueData?.queue?.map((item) => (
                       <div 
                         key={item.id}
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
@@ -299,7 +336,7 @@ const AdminDialer = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {callLogs?.map((call: any) => (
+                  {callLogs?.map((call) => (
                     <div 
                       key={call.id}
                       className="flex items-center justify-between p-4 border rounded-lg"

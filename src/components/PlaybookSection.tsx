@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Mail, User, CheckCircle, BookOpen, Target, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
 const PlaybookSection = () => {

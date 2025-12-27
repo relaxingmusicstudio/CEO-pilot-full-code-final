@@ -54,7 +54,7 @@ interface AutoExecution {
   action_type: string;
   success: boolean;
   executed_at: string;
-  result: Record<string, any>;
+  result: Record<string, unknown>;
   ceo_standing_orders?: { rule_name: string };
 }
 

@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // Agent response generators based on event type
 const agentResponses = {
-  lead_created: async (event: any, supabase: any) => {
+  lead_created: async (event: unknown, supabase: unknown) => {
     return {
       agent: "CRM_Agent",
       action: "assign_and_score",
@@ -19,7 +19,7 @@ const agentResponses = {
     };
   },
 
-  email_opened: async (event: any, supabase: any) => {
+  email_opened: async (event: unknown, supabase: unknown) => {
     return {
       agent: "Content_Agent",
       action: "trigger_follow_up",
@@ -29,7 +29,7 @@ const agentResponses = {
     };
   },
 
-  deal_created: async (event: any, supabase: any) => {
+  deal_created: async (event: unknown, supabase: unknown) => {
     const abVariants = {
       variant_a: {
         content: "Direct pitch: 'Ready to scale? Let's talk specifics.'",
@@ -82,7 +82,7 @@ const agentResponses = {
     };
   },
 
-  deal_won: async (event: any, supabase: any) => {
+  deal_won: async (event: unknown, supabase: unknown) => {
     // Trigger client creation flow
     await supabase.functions.invoke("deal-to-client", {
       body: {
@@ -102,7 +102,7 @@ const agentResponses = {
     };
   },
 
-  onboarding_started: async (event: any, supabase: any) => {
+  onboarding_started: async (event: unknown, supabase: unknown) => {
     return {
       agent: "Onboarding_Agent",
       action: "initialize_onboarding",
@@ -112,7 +112,7 @@ const agentResponses = {
     };
   },
 
-  support_ticket: async (event: any, supabase: any) => {
+  support_ticket: async (event: unknown, supabase: unknown) => {
     const priority = event.trigger_data?.priority || "medium";
     return {
       agent: "Support_Agent",
@@ -123,7 +123,7 @@ const agentResponses = {
     };
   },
 
-  health_score_drop: async (event: any, supabase: any) => {
+  health_score_drop: async (event: unknown, supabase: unknown) => {
     const oldScore = event.trigger_data?.old_score || 75;
     const newScore = event.trigger_data?.new_score || 45;
 
@@ -137,7 +137,7 @@ const agentResponses = {
     };
   },
 
-  churn_risk_detected: async (event: any, supabase: any) => {
+  churn_risk_detected: async (event: unknown, supabase: unknown) => {
     const churnProb = event.trigger_data?.churn_probability || 0.65;
 
     // Build Decision Card for churn intervention
@@ -181,7 +181,7 @@ const agentResponses = {
     };
   },
 
-  expansion_opportunity: async (event: any, supabase: any) => {
+  expansion_opportunity: async (event: unknown, supabase: unknown) => {
     const potentialValue = event.trigger_data?.potential_value || 1500;
 
     return {
@@ -196,7 +196,7 @@ const agentResponses = {
 };
 
 // Process a single timeline event
-async function processEvent(event: any, supabase: any): Promise<any> {
+async function processEvent(event: unknown, supabase: unknown): Promise<unknown> {
   const handler = agentResponses[event.event_type as keyof typeof agentResponses];
   
   if (!handler) {
@@ -224,7 +224,7 @@ async function processEvent(event: any, supabase: any): Promise<any> {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       agent: "System",
       action: "error",
@@ -304,7 +304,7 @@ serve(async (req) => {
         throw new Error(`Failed to fetch events: ${eventsError.message}`);
       }
 
-      const results: any[] = [];
+      const results: unknown[] = [];
       let processedCount = 0;
       let errorsCount = 0;
       let currentDay = startDay;
@@ -431,7 +431,7 @@ serve(async (req) => {
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Simulation runner error:", error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unknown error" }),

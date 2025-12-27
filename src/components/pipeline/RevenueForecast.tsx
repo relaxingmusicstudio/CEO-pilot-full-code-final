@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,11 +44,42 @@ export function RevenueForecast({ deals }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [insights, setInsights] = useState<string[]>([]);
 
-  useEffect(() => {
-    generateForecast();
-  }, [deals]);
+  const generateInsights = useCallback((dealList: Deal[], forecastData: ForecastData[]): string[] => {
+    const insights: string[] = [];
+    const activeDeals = dealList.filter(d => !d.stage.startsWith('closed'));
+    
+    // Pipeline velocity
+    const proposalDeals = dealList.filter(d => d.stage === 'proposal' || d.stage === 'negotiation');
+    if (proposalDeals.length >= 3) {
+      insights.push(`${proposalDeals.length} deals in late stages - strong closing potential this quarter`);
+    }
 
-  const generateForecast = async () => {
+    // Deal concentration risk
+    const topDeal = activeDeals.sort((a, b) => b.value - a.value)[0];
+    const totalValue = activeDeals.reduce((sum, d) => sum + d.value, 0);
+    if (topDeal && (topDeal.value / totalValue) > 0.4) {
+      insights.push(`⚠️ Risk: ${Math.round((topDeal.value / totalValue) * 100)}% of pipeline in single deal`);
+    }
+
+    // Forecast vs target
+    const nextMonthForecast = forecastData[0]?.predicted || 0;
+    const target = forecastData[0]?.target || 75000;
+    if (nextMonthForecast >= target) {
+      insights.push(`On track: ${Math.round((nextMonthForecast / target) * 100)}% of monthly target in pipeline`);
+    } else {
+      insights.push(`Gap: Need $${(target - nextMonthForecast).toLocaleString()} more to hit target`);
+    }
+
+    // Stage distribution
+    const discoveryDeals = dealList.filter(d => d.stage === 'discovery').length;
+    if (discoveryDeals < 5) {
+      insights.push(`Pipeline health: Add more top-of-funnel leads (only ${discoveryDeals} in discovery)`);
+    }
+
+    return insights.slice(0, 4);
+  }, []);
+
+  const generateForecast = useCallback(async () => {
     setIsGenerating(true);
 
     // Calculate weighted pipeline by expected close
@@ -95,42 +126,11 @@ export function RevenueForecast({ deals }: Props) {
     setConfidence(Math.round(avgProbability + 25));
 
     setIsGenerating(false);
-  };
+  }, [deals, generateInsights]);
 
-  const generateInsights = (deals: Deal[], forecast: ForecastData[]): string[] => {
-    const insights: string[] = [];
-    const activeDeals = deals.filter(d => !d.stage.startsWith('closed'));
-    
-    // Pipeline velocity
-    const proposalDeals = deals.filter(d => d.stage === 'proposal' || d.stage === 'negotiation');
-    if (proposalDeals.length >= 3) {
-      insights.push(`${proposalDeals.length} deals in late stages - strong closing potential this quarter`);
-    }
-
-    // Deal concentration risk
-    const topDeal = activeDeals.sort((a, b) => b.value - a.value)[0];
-    const totalValue = activeDeals.reduce((sum, d) => sum + d.value, 0);
-    if (topDeal && (topDeal.value / totalValue) > 0.4) {
-      insights.push(`⚠️ Risk: ${Math.round((topDeal.value / totalValue) * 100)}% of pipeline in single deal`);
-    }
-
-    // Forecast vs target
-    const nextMonthForecast = forecast[0]?.predicted || 0;
-    const target = forecast[0]?.target || 75000;
-    if (nextMonthForecast >= target) {
-      insights.push(`On track: ${Math.round((nextMonthForecast / target) * 100)}% of monthly target in pipeline`);
-    } else {
-      insights.push(`Gap: Need $${(target - nextMonthForecast).toLocaleString()} more to hit target`);
-    }
-
-    // Stage distribution
-    const discoveryDeals = deals.filter(d => d.stage === 'discovery').length;
-    if (discoveryDeals < 5) {
-      insights.push(`Pipeline health: Add more top-of-funnel leads (only ${discoveryDeals} in discovery)`);
-    }
-
-    return insights.slice(0, 4);
-  };
+  useEffect(() => {
+    generateForecast();
+  }, [generateForecast]);
 
   const totalForecast = forecast.reduce((sum, m) => sum + m.predicted, 0);
   const totalTarget = forecast.reduce((sum, m) => sum + m.target, 0);

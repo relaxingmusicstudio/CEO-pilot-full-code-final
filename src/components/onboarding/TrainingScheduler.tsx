@@ -12,10 +12,35 @@ import { toast } from "sonner";
 import { Calendar, Video, Clock, Plus, CheckCircle2, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 
+interface ClientOption {
+  id: string;
+  name: string;
+}
+
+interface TrainingSession {
+  id: string;
+  client_id: string;
+  session_type: string;
+  title: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  status: string;
+  recording_url?: string | null;
+  clients?: ClientOption | null;
+}
+
+interface NewSession {
+  client_id: string;
+  session_type: string;
+  title: string;
+  scheduled_at: string;
+  duration_minutes: number;
+}
+
 const TrainingScheduler = () => {
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newSession, setNewSession] = useState({
+  const [newSession, setNewSession] = useState<NewSession>({
     client_id: '',
     session_type: 'onboarding',
     title: '',
@@ -26,19 +51,19 @@ const TrainingScheduler = () => {
 
   const { data: clients } = useQuery({
     queryKey: ['clients-for-training'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ClientOption[]> => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
         .order('name');
       if (error) throw error;
-      return data;
+      return (data || []) as ClientOption[];
     }
   });
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['training-sessions', selectedClient],
-    queryFn: async () => {
+    queryFn: async (): Promise<TrainingSession[]> => {
       let query = supabase
         .from('client_training_sessions')
         .select(`
@@ -53,12 +78,12 @@ const TrainingScheduler = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data || []) as TrainingSession[];
     }
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: async (sessionData: typeof newSession) => {
+    mutationFn: async (sessionData: NewSession) => {
       const response = await supabase.functions.invoke('onboarding-tracker', {
         body: { 
           action: 'schedule_training',
@@ -140,7 +165,7 @@ const TrainingScheduler = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients?.map((client: any) => (
+            {clients?.map((client) => (
               <SelectItem key={client.id} value={client.id}>
                 {client.name}
               </SelectItem>
@@ -170,7 +195,7 @@ const TrainingScheduler = () => {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients?.map((client: any) => (
+                    {clients?.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}
                       </SelectItem>
@@ -255,7 +280,7 @@ const TrainingScheduler = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingSessions.map((session: any) => (
+            {upcomingSessions.map((session) => (
               <Card key={session.id} className="p-4">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between">
@@ -309,7 +334,7 @@ const TrainingScheduler = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {completedSessions.slice(0, 5).map((session: any) => (
+            {completedSessions.slice(0, 5).map((session) => (
               <Card key={session.id} className="p-4 bg-muted/50">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between">

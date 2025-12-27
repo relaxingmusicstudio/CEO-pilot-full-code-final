@@ -25,7 +25,10 @@ export const loadSystemMode = (userId?: string | null, email?: string | null): S
     try {
       const parsed = JSON.parse(trimmed);
       if (isSystemMode(parsed)) return parsed;
-      if (parsed && typeof parsed === "object" && isSystemMode((parsed as any).mode)) return (parsed as any).mode;
+      if (parsed && typeof parsed === "object") {
+        const record = parsed as Record<string, unknown>;
+        if (isSystemMode(record.mode)) return record.mode;
+      }
     } catch {
       // ignore
     }
@@ -58,4 +61,3 @@ export const getSystemModeDescription = (mode: SystemMode): string => {
       return "Execute: update the checklist and run Do Next.";
   }
 };
-

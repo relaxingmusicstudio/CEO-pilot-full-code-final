@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CachePreference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["preferenceId", "identityKey", "taskType", "policy", "reason", "createdAt", "updatedAt"],
+  "properties": {
+    "preferenceId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "policy": { "$ref": "./cache-policy.schema.json" },
+    "reason": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["active", "disabled"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

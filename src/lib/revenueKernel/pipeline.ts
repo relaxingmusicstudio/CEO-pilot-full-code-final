@@ -45,6 +45,11 @@ import { evaluateSensitiveContext, type SensitiveContext } from "./sensitiveData
 import { appendSoftLockEvent, getSoftLockState } from "./softLocks";
 import { appendRevenueLedger, nextRevenueTimestamp, type RevenueLedgerEntry } from "./ledger";
 import type { StageTransition } from "./stages";
+import { enforceRuntimeGovernance, type AgentRuntimeContext, type RuntimeGovernanceDecision } from "../ceoPilot/runtimeGovernance";
+import { assertCostContext } from "../ceoPilot/costUtils";
+import { scheduleDueToCost } from "../ceoPilot/scheduling";
+import { recordCostEvent } from "../ceoPilot/runtimeState";
+import { createId, nowIso } from "../ceoPilot/utils";
 
 export type ProofBundle = {
   evidence_ref: EvidenceRef;
@@ -63,6 +68,7 @@ export type ProofBundle = {
   soft_lock?: { ok: boolean; holder?: string };
   opportunity_queue?: { status: "none" | "queued" | "blocked" | "ready"; size: number; max_size: number; reason?: string; opportunity_id?: string };
   sensitive?: { ok: boolean; reason?: string; categories: string[] };
+  governance?: RuntimeGovernanceDecision;
   execution_status?: "executed" | "failed";
   error?: string;
 };
@@ -72,6 +78,8 @@ export type PipelineInput = {
   identity?: { userId?: string | null; email?: string | null };
   podId?: string;
   humanId?: string;
+  initiator?: "agent" | "human" | "system";
+  agentContext?: AgentRuntimeContext;
   policyContext?: PolicyContext;
   consent?: LeadConsentState;
   reachability?: ReachabilityProfile;
@@ -202,6 +210,18 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       : { ...input.action, intent_id: mode === "MOCK" ? "intent:default" : "intent:missing" };
 
   const payload = actionWithIntent.payload as Record<string, unknown>;
+  const governanceContext = input.agentContext
+    ? {
+        ...input.agentContext,
+        tool: input.agentContext.tool || actionWithIntent.action_type,
+        decisionType: input.agentContext.decisionType || actionWithIntent.action_type,
+        impact: input.agentContext.impact ?? (actionWithIntent.irreversible ? "irreversible" : "reversible"),
+      }
+    : undefined;
+  if (governanceContext) {
+    assertCostContext(governanceContext);
+  }
+  const governance = await enforceRuntimeGovernance(identityKey, governanceContext, input.initiator ?? "agent");
   const threadId = resolveThreadId(payload, input.threadId);
   const chainMaxDepth = input.chainMaxDepth ?? 5;
   if (input.chainReset && threadId) {
@@ -463,7 +483,67 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
   const autoHelpCheck = { ok: !autoHelpBlocked, reason: autoHelpBlocked ? "AUTO_HELP_REPEAT" : undefined };
   const softLockCheck = { ok: lockOk, holder: lockState?.holder };
 
-  if (!policy.allowed) {
+  if (!governance.allowed) {
+    if (
+      governance.details.cost?.hardLimitExceeded &&
+      governanceContext?.goalId &&
+      governanceContext.taskType
+    ) {
+      const schedulingDecision = scheduleDueToCost({
+        identityKey,
+        taskId: actionWithIntent.action_id,
+        goalId: governanceContext.goalId,
+        agentId: governanceContext.agentId,
+        taskType: governanceContext.taskType,
+        action: actionWithIntent,
+        agentContext: governanceContext,
+        initiator: input.initiator ?? "agent",
+        reason: "cost_budget_exceeded",
+      });
+      if (schedulingDecision.scheduledTask) {
+        recordCostEvent(identityKey, {
+          eventId: createId("cost-event"),
+          type: "scheduled_due_to_cost",
+          identityKey,
+          goalId: governanceContext.goalId,
+          agentId: governanceContext.agentId,
+          taskType: governanceContext.taskType,
+          taskClass: governanceContext.taskClass,
+          reason: "scheduled_due_to_cost",
+          justification: governanceContext.taskDescription,
+          createdAt: nowIso(),
+          metadata: { scheduleId: schedulingDecision.scheduledTask.scheduleId },
+        });
+        outcome = buildGuardOutcome({
+          code: "FAIL_COOLDOWN_ACTIVE",
+          cause: `Cost budget exceeded; scheduled ${schedulingDecision.scheduledTask.scheduleId}.`,
+          action: "wait",
+          defer: true,
+          details: { schedule_id: schedulingDecision.scheduledTask.scheduleId },
+        });
+      } else {
+        outcome = buildGuardOutcome({
+          code: "FAIL_POLICY_CONFLICT",
+          cause: `Governance blocked: ${governance.reason}.`,
+          action: governance.requiresHumanReview ? "human_decision" : "review",
+          details: {
+            governance_reason: governance.reason,
+            governance_requires_human_review: governance.requiresHumanReview,
+          },
+        });
+      }
+    } else {
+      outcome = buildGuardOutcome({
+        code: "FAIL_POLICY_CONFLICT",
+        cause: `Governance blocked: ${governance.reason}.`,
+        action: governance.requiresHumanReview ? "human_decision" : "review",
+        details: {
+          governance_reason: governance.reason,
+          governance_requires_human_review: governance.requiresHumanReview,
+        },
+      });
+    }
+  } else if (!policy.allowed) {
     outcome = buildGuardOutcome({
       code: "FAIL_POLICY_CONFLICT",
       cause: `Policy blocked: ${policy.reason || "UNKNOWN"}.`,
@@ -617,7 +697,14 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       delta: 1,
       evidence_ref: capacityEvidence,
     });
-    const exec = await runAction(actionWithIntent, policyContext);
+    if (!governanceContext) {
+      throw new Error("governance_context_missing_for_execution");
+    }
+    const exec = await runAction(actionWithIntent, policyContext, {
+      identityKey,
+      agentContext: governanceContext,
+      initiator: input.initiator ?? "agent",
+    });
     execution_status = exec.status;
     error = exec.error;
     outcome =
@@ -704,6 +791,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       opportunity_id: opportunityId,
     },
     sensitive: { ok: sensitiveCheck.ok, reason: sensitiveCheck.reason, categories: sensitiveCheck.categories },
+    governance,
     execution_status,
     error,
   };

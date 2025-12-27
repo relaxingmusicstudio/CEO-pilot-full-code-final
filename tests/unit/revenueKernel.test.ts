@@ -10,6 +10,7 @@ import { IrreversibilityMap, ActionImpact } from "../../src/lib/irreversibilityM
 import { ZOOM_GUARANTEES, ZOOM_EDGES } from "../../src/lib/revenueKernel/zoomPass";
 import { computeActionId, type ActionSpec } from "../../src/types/actions";
 import { appendCapacityEvent } from "../../src/lib/revenueKernel/capacityLedger";
+import { buildTestAgentContext } from "./helpers/agentContext";
 
 const createMemoryStorage = () => {
   const store = new Map<string, string>();
@@ -20,6 +21,9 @@ const createMemoryStorage = () => {
     },
   };
 };
+
+const getGlobalWithWindow = () =>
+  globalThis as typeof globalThis & { window?: { localStorage: ReturnType<typeof createMemoryStorage> } };
 
 const makeAction = (overrides: Partial<Omit<ActionSpec, "action_id">>): ActionSpec => {
   const base: Omit<ActionSpec, "action_id"> = {
@@ -138,6 +142,7 @@ describe("pipeline safety", () => {
       action,
       identity: { userId: "u1" },
       policyContext: { mode: "LIVE", trustLevel: 0 },
+      agentContext: buildTestAgentContext(action.action_type),
       consent: { consent_status: "granted", do_not_contact: false },
       reachability: buildReachabilityProfile({
         phones: [],
@@ -155,6 +160,7 @@ describe("pipeline safety", () => {
       action,
       identity: { userId: "u1" },
       policyContext: { mode: "MOCK", trustLevel: 1 },
+      agentContext: buildTestAgentContext(action.action_type),
       consent: { consent_status: "granted", do_not_contact: false },
       reachability: buildReachabilityProfile({
         phones: [],
@@ -168,8 +174,9 @@ describe("pipeline safety", () => {
 
   it("defers when capacity is exceeded", async () => {
     const storage = createMemoryStorage();
-    const priorWindow = (globalThis as any).window;
-    (globalThis as any).window = { localStorage: storage };
+    const globalWithWindow = getGlobalWithWindow();
+    const priorWindow = globalWithWindow.window;
+    globalWithWindow.window = { localStorage: storage };
     try {
       const podId = "pod-1";
       const evidence = buildEvidenceRef({
@@ -208,23 +215,25 @@ describe("pipeline safety", () => {
         identity: { userId: "u1" },
         podId,
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext("task"),
       });
 
       expect(result.outcome.type).toBe("deferred");
       expect(result.outcome.summary).toContain("FAIL_CAPACITY_EXCEEDED");
     } finally {
       if (priorWindow === undefined) {
-        delete (globalThis as any).window;
+        delete globalWithWindow.window;
       } else {
-        (globalThis as any).window = priorWindow;
+        globalWithWindow.window = priorWindow;
       }
     }
   });
 
   it("blocks new opportunities during cooling", async () => {
     const storage = createMemoryStorage();
-    const priorWindow = (globalThis as any).window;
-    (globalThis as any).window = { localStorage: storage };
+    const globalWithWindow = getGlobalWithWindow();
+    const priorWindow = globalWithWindow.window;
+    globalWithWindow.window = { localStorage: storage };
     try {
       const podId = "pod-2";
       const result = await runPipelineStep({
@@ -232,6 +241,7 @@ describe("pipeline safety", () => {
         identity: { userId: "u2" },
         podId,
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext("task"),
         opportunity: { window_id: "window-1", is_new: true, opportunity_id: "opp-1", cooldown_satisfied: false },
       });
 
@@ -239,17 +249,18 @@ describe("pipeline safety", () => {
       expect(result.outcome.summary).toContain("FAIL_COOLDOWN_ACTIVE");
     } finally {
       if (priorWindow === undefined) {
-        delete (globalThis as any).window;
+        delete globalWithWindow.window;
       } else {
-        (globalThis as any).window = priorWindow;
+        globalWithWindow.window = priorWindow;
       }
     }
   });
 
   it("blocks growth actions during repair", async () => {
     const storage = createMemoryStorage();
-    const priorWindow = (globalThis as any).window;
-    (globalThis as any).window = { localStorage: storage };
+    const globalWithWindow = getGlobalWithWindow();
+    const priorWindow = globalWithWindow.window;
+    globalWithWindow.window = { localStorage: storage };
     try {
       const podId = "pod-3";
       const result = await runPipelineStep({
@@ -257,6 +268,7 @@ describe("pipeline safety", () => {
         identity: { userId: "u3" },
         podId,
         policyContext: { mode: "MOCK", trustLevel: 1 },
+        agentContext: buildTestAgentContext("task"),
         actionClass: "growth",
         coolingSignal: "repair",
       });
@@ -265,9 +277,9 @@ describe("pipeline safety", () => {
       expect(result.outcome.summary).toContain("FAIL_SAFE_OVERLOAD");
     } finally {
       if (priorWindow === undefined) {
-        delete (globalThis as any).window;
+        delete globalWithWindow.window;
       } else {
-        (globalThis as any).window = priorWindow;
+        globalWithWindow.window = priorWindow;
       }
     }
   });

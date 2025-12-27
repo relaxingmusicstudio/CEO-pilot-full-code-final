@@ -67,6 +67,11 @@ export const OWNER_NAV_ITEMS_BASE: NavItemBase[] = [
     description: "Pending approvals",
   },
   {
+    label: "Control Room",
+    href: "/app/control-room",
+    description: "Governance oversight",
+  },
+  {
     label: "Clients",
     href: "/app/clients",
     description: "Client management",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,7 @@ export function CEOOnboardingChecklist({ tenantId, onComplete }: CEOOnboardingCh
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    if (tenantId) {
-      loadChecklistStatus();
-    }
-  }, [tenantId]);
-
-  const loadChecklistStatus = async () => {
+  const loadChecklistStatus = useCallback(async () => {
     if (!tenantId) return;
 
     setLoading(true);
@@ -143,7 +137,13 @@ export function CEOOnboardingChecklist({ tenantId, onComplete }: CEOOnboardingCh
     } finally {
       setLoading(false);
     }
-  };
+  }, [onComplete, tenantId]);
+
+  useEffect(() => {
+    if (tenantId) {
+      loadChecklistStatus();
+    }
+  }, [loadChecklistStatus, tenantId]);
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,14 @@ interface DailyMetrics {
   systemHealth: "healthy" | "warning" | "critical";
 }
 
+interface ActivityLogEntry {
+  id: string;
+  agent: string;
+  action: string;
+  timestamp: string;
+  details: Record<string, unknown> | null;
+}
+
 const MORNING_PROMPTS = [
   { label: "Daily Brief", query: "Give me my morning brief with key metrics, pending approvals, and recommended actions" },
   { label: "Hot Leads", query: "Show me all hot leads that need attention today" },
@@ -91,9 +99,10 @@ const CEOHub = () => {
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [metrics, setMetrics] = useState<DailyMetrics | null>(null);
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
-  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [activeTab, setActiveTab] = useState("chat");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seededBriefRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -103,10 +112,10 @@ const CEOHub = () => {
   }, [messages, streamingContent]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchDashboardData(true);
+  }, [fetchDashboardData]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async (seedBrief = false) => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -159,7 +168,7 @@ const CEOHub = () => {
       })));
 
       // Auto-generate morning brief if first load
-      if (messages.length === 0) {
+      if (seedBrief && !seededBriefRef.current) {
         const greeting = getTimeBasedGreeting();
         const briefMessage: Message = {
           role: "assistant",
@@ -167,11 +176,12 @@ const CEOHub = () => {
           timestamp: new Date(),
         };
         setMessages([briefMessage]);
+        seededBriefRef.current = true;
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     }
-  };
+  }, []);
 
   const getTimeBasedGreeting = () => {
     const hour = new Date().getHours();
@@ -266,7 +276,9 @@ const CEOHub = () => {
                 setStreamingContent(fullContent);
               }
             }
-          } catch {}
+          } catch {
+            // Ignore streaming parse errors.
+          }
         }
       }
 

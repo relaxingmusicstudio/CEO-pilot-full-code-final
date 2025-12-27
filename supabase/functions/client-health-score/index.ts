@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function calculateHealthScore(supabase: any, clientId: string): Promise<number> {
+async function calculateHealthScore(supabase: unknown, clientId: string): Promise<number> {
   // Get client data
   const { data: client, error: clientError } = await supabase
     .from("clients")
@@ -107,7 +107,7 @@ async function calculateHealthScore(supabase: any, clientId: string): Promise<nu
 
   // Calculate usage metrics
   const usage: UsageData = (usageData || []).reduce(
-    (acc: UsageData, day: any) => ({
+    (acc: UsageData, day: unknown) => ({
       api_calls: acc.api_calls + (day.api_calls || 0),
       conversations_handled: acc.conversations_handled + (day.conversations_handled || 0),
       appointments_booked: acc.appointments_booked + (day.appointments_booked || 0),
@@ -120,7 +120,7 @@ async function calculateHealthScore(supabase: any, clientId: string): Promise<nu
   // Calculate ticket metrics
   const ticketData: TicketData = {
     open_count: (tickets || []).length,
-    urgent_count: (tickets || []).filter((t: any) => t.priority === "urgent").length,
+    urgent_count: (tickets || []).filter((t: unknown) => t.priority === "urgent").length,
     avg_resolution_days: 0,
   };
 

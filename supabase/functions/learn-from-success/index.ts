@@ -65,7 +65,7 @@ serve(async (req) => {
 });
 
 // Update an existing memory's success score based on feedback
-async function updateExistingMemory(supabase: any, params: any) {
+async function updateExistingMemory(supabase: unknown, params: unknown) {
   const { memory_id, feedback_type, feedback_value, feedback_source, metadata } = params;
 
   // Get current memory
@@ -147,7 +147,7 @@ async function updateExistingMemory(supabase: any, params: any) {
 }
 
 // Create a new memory from successful interaction
-async function createNewMemory(supabase: any, params: any) {
+async function createNewMemory(supabase: unknown, params: unknown) {
   const { agent_type, query, response, feedback_value, feedback_source, metadata } = params;
 
   // Generate embedding for the query
@@ -225,7 +225,7 @@ async function createNewMemory(supabase: any, params: any) {
 }
 
 // Helper: Update performance metric
-async function updatePerformanceMetric(supabase: any, agent_type: string, metric: string, value: number) {
+async function updatePerformanceMetric(supabase: unknown, agent_type: string, metric: string, value: number) {
   const today = new Date().toISOString().split('T')[0];
 
   const { data: existing } = await supabase
@@ -236,7 +236,7 @@ async function updatePerformanceMetric(supabase: any, agent_type: string, metric
     .single();
 
   if (existing) {
-    const updates: any = {};
+    const updates: unknown = {};
     updates[metric] = (existing[metric] || 0) + value;
     
     await supabase
@@ -244,7 +244,7 @@ async function updatePerformanceMetric(supabase: any, agent_type: string, metric
       .update(updates)
       .eq('id', existing.id);
   } else {
-    const insert: any = {
+    const insert: unknown = {
       agent_type,
       date: today,
       [metric]: value,

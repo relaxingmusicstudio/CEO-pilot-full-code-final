@@ -44,7 +44,7 @@ serve(async (req) => {
 });
 
 // Get AI-prioritized daily tasks (max 3)
-async function getDailyPriorities(params: any) {
+async function getDailyPriorities(params: unknown) {
   const { tasks, energy_level, time_available } = params;
 
   try {
@@ -91,7 +91,7 @@ What are my top 3 priorities for today?`
 }
 
 // Simplify complex decisions to 3 options max
-async function simplifyDecision(params: any) {
+async function simplifyDecision(params: unknown) {
   const { decision, context, constraints } = params;
 
   try {
@@ -147,7 +147,7 @@ Output JSON: {
 }
 
 // Check wellness and suggest interventions
-async function checkWellness(params: any) {
+async function checkWellness(params: unknown) {
   const { work_hours_today, decisions_made, last_break, energy_trend } = params;
 
   const wellness = {
@@ -189,14 +189,14 @@ async function checkWellness(params: any) {
 }
 
 // Optimize daily schedule based on energy patterns
-async function optimizeSchedule(params: any) {
+async function optimizeSchedule(params: unknown) {
   const { tasks, peak_hours = [9, 10, 11], energy_level } = params;
 
   // Simple scheduling: high-impact tasks during peak hours
   const scheduled = {
-    morning: [] as any[],
-    afternoon: [] as any[],
-    evening: [] as any[],
+    morning: [] as unknown[],
+    afternoon: [] as unknown[],
+    evening: [] as unknown[],
     suggestions: [
       "Schedule deep work during your peak hours (9-11 AM)",
       "Save admin tasks for low-energy afternoon periods",
@@ -211,10 +211,10 @@ async function optimizeSchedule(params: any) {
 }
 
 // Get relationship nurturing actions
-async function getNurtureActions(params: any) {
+async function getNurtureActions(params: unknown) {
   const { relationships } = params;
 
-  const actions = relationships?.map((rel: any) => {
+  const actions = relationships?.map((rel: unknown) => {
     const daysSinceContact = Math.floor((Date.now() - new Date(rel.last_contact).getTime()) / (1000 * 60 * 60 * 24));
     
     let action = "No action needed";
@@ -246,11 +246,11 @@ async function getNurtureActions(params: any) {
 }
 
 // Financial health check
-async function financialCheck(params: any) {
+async function financialCheck(params: unknown) {
   const { cash_balance, monthly_expenses, outstanding_invoices, upcoming_payments } = params;
 
   const runway = cash_balance / (monthly_expenses || 1);
-  const overdue = outstanding_invoices?.filter((inv: any) => 
+  const overdue = outstanding_invoices?.filter((inv: unknown) => 
     new Date(inv.due_date) < new Date()
   ) || [];
 
@@ -266,7 +266,7 @@ async function financialCheck(params: any) {
     alerts.push({ 
       type: 'warning', 
       message: `${overdue.length} invoice(s) are overdue`,
-      total: overdue.reduce((sum: number, inv: any) => sum + inv.amount, 0)
+      total: overdue.reduce((sum: number, inv: unknown) => sum + inv.amount, 0)
     });
     actions.push('Send follow-up reminders for overdue invoices');
   }

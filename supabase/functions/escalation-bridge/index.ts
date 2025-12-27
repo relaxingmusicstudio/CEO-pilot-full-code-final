@@ -30,7 +30,7 @@ serve(async (req) => {
           .eq('is_active', true)
           .order('priority', { ascending: false });
 
-        const triggeredRules: any[] = [];
+        const triggeredRules: unknown[] = [];
 
         for (const rule of rules || []) {
           if (evaluateConditions(rule.trigger_conditions, context)) {
@@ -206,7 +206,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Escalation Bridge error:', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,
@@ -215,7 +215,7 @@ serve(async (req) => {
   }
 });
 
-function evaluateConditions(conditions: any, context: any): boolean {
+function evaluateConditions(conditions: unknown, context: unknown): boolean {
   if (!conditions || Object.keys(conditions).length === 0) return false;
 
   for (const [key, value] of Object.entries(conditions)) {
@@ -223,7 +223,7 @@ function evaluateConditions(conditions: any, context: any): boolean {
     
     if (typeof value === 'object' && value !== null) {
       // Handle comparison operators
-      const ops = value as Record<string, any>;
+      const ops = value as Record<string, unknown>;
       if (ops.gt !== undefined && !(contextValue > ops.gt)) return false;
       if (ops.lt !== undefined && !(contextValue < ops.lt)) return false;
       if (ops.gte !== undefined && !(contextValue >= ops.gte)) return false;
@@ -243,7 +243,7 @@ function evaluateConditions(conditions: any, context: any): boolean {
   return true;
 }
 
-async function notifyEscalation(supabase: any, rule: any, escalation: any, context: any) {
+async function notifyEscalation(supabase: unknown, rule: unknown, escalation: unknown, context: unknown) {
   console.log(`Notifying via ${rule.escalation_channel} for escalation ${escalation.id}`);
   
   // Log the notification attempt
@@ -262,7 +262,7 @@ async function notifyEscalation(supabase: any, rule: any, escalation: any, conte
   // For now, we log and the dashboard shows pending escalations
 }
 
-function calculateAvgResponseTime(queue: any[]): number {
+function calculateAvgResponseTime(queue: unknown[]): number {
   const resolved = queue.filter(q => q.response_time_minutes);
   if (resolved.length === 0) return 0;
   return Math.round(resolved.reduce((sum, q) => sum + q.response_time_minutes, 0) / resolved.length);

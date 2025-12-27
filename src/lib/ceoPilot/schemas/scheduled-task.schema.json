@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ScheduledTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scheduleId",
+    "taskId",
+    "goalId",
+    "agentId",
+    "taskType",
+    "policy",
+    "scheduledAt",
+    "status",
+    "createdAt"
+  ],
+  "properties": {
+    "scheduleId": { "type": "string", "minLength": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "agentId": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "policy": { "$ref": "./scheduling-policy.schema.json" },
+    "scheduledAt": { "type": "string", "format": "date-time" },
+    "status": { "type": "string", "enum": ["scheduled", "deferred", "executed", "cancelled", "failed"] },
+    "batchKey": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "initiator": { "type": "string", "enum": ["agent", "human", "system"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "action_type",
+        "description",
+        "intent_id",
+        "risk_level",
+        "irreversible",
+        "payload"
+      ],
+      "properties": {
+        "action_id": { "type": "string", "minLength": 1 },
+        "action_type": {
+          "type": "string",
+          "enum": ["message", "email", "sms", "voice", "note", "task", "webhook", "wait", "update_state"]
+        },
+        "description": { "type": "string", "minLength": 1 },
+        "intent_id": { "type": "string", "minLength": 1 },
+        "expected_metric": { "type": "string", "minLength": 1 },
+        "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+        "irreversible": { "type": "boolean" },
+        "payload": { "type": "object" }
+      }
+    },
+    "agentContext": { "type": "object" },
+    "attempts": { "type": "integer", "minimum": 0 },
+    "lastAttemptAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "failureReason": { "type": "string", "minLength": 1 }
+  }
+}

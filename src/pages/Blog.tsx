@@ -7,7 +7,7 @@ import { blogPosts, getAllCategories } from "@/data/blogPosts";
 import { Calendar, Clock, ArrowRight, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const Blog = () => {
   const categories = getAllCategories();

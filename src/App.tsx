@@ -28,6 +28,7 @@ import CEOHome from "./pages/CEOHome";
 import DecisionsDashboard from "./pages/DecisionsDashboard";
 import OnboardingConversation from "./pages/OnboardingConversation";
 import ClientPortal from "./pages/ClientPortal";
+import ControlRoom from "./pages/ControlRoom";
 
 // Capability Pages (accessed via Intelligence Grid cards)
 import AdminPipeline from "./pages/AdminPipeline";
@@ -139,6 +140,7 @@ const App = () => (
                     
                     {/* Decisions - Human approval surface */}
                     <Route path="decisions" element={<ProtectedRoute requireOwner><DecisionsDashboard /></ProtectedRoute>} />
+                    <Route path="control-room" element={<ProtectedRoute requireOwner><ControlRoom /></ProtectedRoute>} />
                     
                     {/* Capability Pages - Owner only (accessed from Intelligence Grid) */}
                     <Route path="pipeline" element={<ProtectedRoute requireOwner><AdminPipeline /></ProtectedRoute>} />

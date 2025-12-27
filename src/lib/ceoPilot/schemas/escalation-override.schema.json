@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EscalationOverride",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "overrideId",
+    "identityKey",
+    "taskType",
+    "minConfidence",
+    "noveltyThreshold",
+    "reason",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "overrideId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "minConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "noveltyThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reason": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["active", "disabled"] },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceOutcomeIds"],
+      "properties": {
+        "sourceOutcomeIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "timeWindowStart": { "type": "string", "format": "date-time" },
+        "timeWindowEnd": { "type": "string", "format": "date-time" },
+        "confidenceDecay": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reviewBy": { "type": "string", "format": "date-time" }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

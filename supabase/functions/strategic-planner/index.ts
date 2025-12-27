@@ -242,7 +242,7 @@ Provide recommendations in JSON format:
         };
 
         // Simple projection based on parameters
-        const projectedOutcomes: any = { ...baseline };
+        const projectedOutcomes: unknown = { ...baseline };
         
         if (parameters.budget_change) {
           // Assume budget change affects lead generation proportionally
@@ -309,7 +309,7 @@ Provide recommendations in JSON format:
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Strategic Planner error:', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,

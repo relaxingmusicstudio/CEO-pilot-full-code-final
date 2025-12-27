@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,7 @@ interface Message {
 }
 
 interface CEOChatPanelProps {
-  onInsightGenerated?: (insight: any) => void;
+  onInsightGenerated?: (insight: Record<string, unknown>) => void;
   className?: string;
 }
 
@@ -58,11 +58,11 @@ const COMPLETION_PHRASES = [
 ];
 
 const AGENT_LABELS: Record<string, { label: string; icon: string }> = {
-  content: { label: "Content Agent", icon: "📝" },
-  ads: { label: "Ads Agent", icon: "📢" },
-  sequences: { label: "Sequences Agent", icon: "📧" },
-  inbox: { label: "Inbox Agent", icon: "💬" },
-  social: { label: "Social Agent", icon: "🌐" },
+  content: { label: "Content Agent", icon: "C" },
+  ads: { label: "Ads Agent", icon: "Ad" },
+  sequences: { label: "Sequences Agent", icon: "Seq" },
+  inbox: { label: "Inbox Agent", icon: "In" },
+  social: { label: "Social Agent", icon: "So" },
 };
 
 // Parse suggested actions from AI response
@@ -70,8 +70,8 @@ function parseSuggestedActions(content: string): string[] {
   const actions: string[] = [];
   
   const patterns = [
-    /(?:Would you like to|Want me to|Should I|Options?:)\s*(?:\n|:)?\s*((?:[1-3•\-\*]\.?\s+[^\n]+\n?)+)/gi,
-    /(?:\*\*What would you like to do\?\*\*|What's next\?)\s*(?:\n)?\s*((?:[•\-\*]\s+[^\n]+\n?)+)/gi,
+    /(?:Would you like to|Want me to|Should I|Options?:)\s*(?:\n|:)?\s*((?:(?:\d+|[-*])\.?\s+[^\n]+\n?)+)/gi,
+    /(?:\*\*What would you like to do\?\*\*|What's next\?)\s*(?:\n)?\s*((?:(?:[-*])\s+[^\n]+\n?)+)/gi,
   ];
   
   for (const pattern of patterns) {
@@ -79,7 +79,7 @@ function parseSuggestedActions(content: string): string[] {
     if (match) {
       const lines = match[1].split('\n').filter(l => l.trim());
       for (const line of lines.slice(0, 3)) {
-        const cleaned = line.replace(/^[1-3•\-\*]\.?\s*/, '').trim();
+        const cleaned = line.replace(/^(?:\d+|[-*])\.?\s*/, '').trim();
         if (cleaned && cleaned.length < 80) {
           actions.push(cleaned);
         }
@@ -103,7 +103,7 @@ function parseSuggestedActions(content: string): string[] {
 // Parse agent delegations from AI response
 function parseDelegations(content: string): AgentDelegation[] {
   const delegations: AgentDelegation[] = [];
-  const pattern = /🤖\s*\*\*Delegating to ([^*]+)\*\*:\s*([^\n]+)/gi;
+  const pattern = /\*\*Delegating to ([^*]+)\*\*:\s*([^\n]+)/gi;
   let match;
   
   while ((match = pattern.exec(content)) !== null) {
@@ -167,7 +167,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
       }
 
       if (data && data.messages) {
-        const loadedMessages = (data.messages as any[]).map((m: any) => ({
+        const loadedMessages = (data.messages as Array<Omit<Message, "timestamp"> & { timestamp: string }>).map((m) => ({
           ...m,
           timestamp: new Date(m.timestamp)
         }));
@@ -200,7 +200,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         await supabase
           .from('ceo_conversations')
           .update({
-            messages: messagesToSave as any,
+            messages: messagesToSave,
             last_message_at: new Date().toISOString()
           })
           .eq('id', conversationId);
@@ -208,7 +208,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
         const { data, error } = await supabase
           .from('ceo_conversations')
           .insert([{
-            messages: messagesToSave as any,
+            messages: messagesToSave,
             is_active: true,
             last_message_at: new Date().toISOString()
           }])
@@ -237,7 +237,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
       const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
       const assistantMessage: Message = { 
         role: "assistant", 
-        content: "Great session! I'll keep working on the plan in the background. Come back anytime to check progress or adjust priorities. 🎯", 
+        content: "Great session! I'll keep working on the plan in the background. Come back anytime to check progress or adjust priorities. ðŸŽ¯", 
         timestamp: new Date() 
       };
       const newMessages = [...messages, userMessage, assistantMessage];
@@ -256,7 +256,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
     setStreamingContent("");
 
     try {
-      const requestBody: any = {
+      const requestBody: Record<string, unknown> = {
         query,
         timeRange: "7d",
         conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
@@ -324,7 +324,9 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
                 setStreamingContent(fullContent);
               }
             }
-          } catch {}
+          } catch {
+            // Ignore streaming parse errors.
+          }
         }
       }
 
@@ -354,7 +356,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
 
   const formatContent = (content: string) => {
     // Remove delegation markers from display (they're shown separately)
-    let cleaned = content.replace(/🤖\s*\*\*Delegating to [^*]+\*\*:\s*[^\n]+\n?/gi, '');
+    const cleaned = content.replace(/\*\*Delegating to [^*]+\*\*:\s*[^\n]+\n?/gi, '');
     return cleaned
       .replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground">$1</strong>')
       .replace(/\n/g, '<br/>');
@@ -376,7 +378,7 @@ export const CEOChatPanel = ({ onInsightGenerated, className = "" }: CEOChatPane
   };
 
   const renderDelegation = (delegation: AgentDelegation) => {
-    const agentInfo = AGENT_LABELS[delegation.agent] || { label: delegation.agent, icon: "🤖" };
+    const agentInfo = AGENT_LABELS[delegation.agent] || { label: delegation.agent, icon: "->" };
     
     return (
       <div 

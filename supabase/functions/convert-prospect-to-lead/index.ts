@@ -54,8 +54,8 @@ serve(async (req) => {
 
     console.log(`[convert-prospect-to-lead] Found ${prospects.length} prospects to convert`);
 
-    const convertedLeads: any[] = [];
-    const errors: any[] = [];
+    const convertedLeads: unknown[] = [];
+    const errors: unknown[] = [];
 
     for (const prospect of prospects) {
       try {

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface AnalyticsEvent {
   eventType: string;
-  eventData?: Record<string, any>;
+  eventData?: Record<string, unknown>;
   pageUrl?: string;
 }
 
@@ -118,9 +118,9 @@ export const useAnalytics = () => {
   // Save conversation data
   const saveConversation = useCallback(async (data: {
     visitorId: string;
-    messages: any[];
-    leadData?: any;
-    aiAnalysis?: any;
+    messages: Array<Record<string, unknown>>;
+    leadData?: Record<string, unknown>;
+    aiAnalysis?: Record<string, unknown>;
     conversationPhase?: string;
     outcome?: string;
     durationSeconds?: number;

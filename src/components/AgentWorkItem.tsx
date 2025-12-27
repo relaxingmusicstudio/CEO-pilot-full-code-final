@@ -30,7 +30,7 @@ export interface WorkItem {
   priority: "low" | "medium" | "high" | "urgent";
   createdAt: string;
   details?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface AgentWorkItemProps {

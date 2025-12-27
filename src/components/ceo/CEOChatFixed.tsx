@@ -15,6 +15,12 @@ interface Message {
   timestamp: Date;
 }
 
+interface StoredMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+}
+
 interface CEOChatFixedProps {
   /** System prompt to inject (used for onboarding) */
   systemPrompt?: string;
@@ -51,7 +57,7 @@ export function CEOChatFixed({
 
   useEffect(() => {
     loadConversation();
-  }, []);
+  }, [loadConversation]);
 
   // Handle initial message (for onboarding)
   useEffect(() => {
@@ -63,7 +69,7 @@ export function CEOChatFixed({
         sendMessageWithSystemPrompt(initialMessage, systemPrompt);
       }, 500);
     }
-  }, [initialMessage, hasInitialized, isLoading]);
+  }, [hasInitialized, initialMessage, isLoading, sendMessageWithSystemPrompt, systemPrompt]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -71,7 +77,7 @@ export function CEOChatFixed({
     }
   }, [messages, streamingContent]);
 
-  const loadConversation = async () => {
+  const loadConversation = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('ceo_conversations')
@@ -82,9 +88,12 @@ export function CEOChatFixed({
         .maybeSingle();
 
       if (data?.messages) {
-        const loadedMessages = (data.messages as any[]).map((m: any) => ({
+        const storedMessages = Array.isArray(data.messages)
+          ? (data.messages as StoredMessage[])
+          : [];
+        const loadedMessages = storedMessages.map((m) => ({
           ...m,
-          timestamp: new Date(m.timestamp)
+          timestamp: new Date(m.timestamp),
         }));
         // Only load last 5 messages for context limit
         setMessages(loadedMessages.slice(-5));
@@ -93,31 +102,31 @@ export function CEOChatFixed({
     } catch (err) {
       console.error('Failed to load conversation:', err);
     }
-  };
+  }, []);
 
   const saveConversation = useCallback(async (newMessages: Message[]) => {
     try {
-      const messagesToSave = newMessages.map(m => ({
+      const messagesToSave: StoredMessage[] = newMessages.map((m) => ({
         role: m.role,
         content: m.content,
-        timestamp: m.timestamp.toISOString()
+        timestamp: m.timestamp.toISOString(),
       }));
 
       if (conversationId) {
         await supabase
           .from('ceo_conversations')
           .update({
-            messages: messagesToSave as any,
-            last_message_at: new Date().toISOString()
+            messages: messagesToSave,
+            last_message_at: new Date().toISOString(),
           })
           .eq('id', conversationId);
       } else {
         const { data } = await supabase
           .from('ceo_conversations')
           .insert([{
-            messages: messagesToSave as any,
+            messages: messagesToSave,
             is_active: true,
-            last_message_at: new Date().toISOString()
+            last_message_at: new Date().toISOString(),
           }])
           .select()
           .single();
@@ -129,7 +138,7 @@ export function CEOChatFixed({
     }
   }, [conversationId]);
 
-  const sendMessageWithSystemPrompt = async (query: string, sysPrompt?: string) => {
+  const sendMessageWithSystemPrompt = useCallback(async (query: string, sysPrompt?: string) => {
     if (!query.trim() || isLoading) return;
     
     const userMessage: Message = { role: "user", content: query, timestamp: new Date() };
@@ -194,7 +203,9 @@ export function CEOChatFixed({
               fullContent += content;
               setStreamingContent(fullContent);
             }
-          } catch {}
+          } catch {
+            // Ignore streaming parse errors.
+          }
         }
       }
 
@@ -217,7 +228,7 @@ export function CEOChatFixed({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoading, messages, onAgentResponse, saveConversation, systemPrompt]);
 
   const sendMessage = async (query: string) => {
     await sendMessageWithSystemPrompt(query);

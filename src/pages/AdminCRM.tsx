@@ -186,7 +186,7 @@ const AdminCRM = () => {
 
   // Filter and sort leads
   const filteredLeads = useMemo(() => {
-    let result = leads.filter(lead => {
+    const result = leads.filter(lead => {
       const matchesSearch = !searchQuery || 
         lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||

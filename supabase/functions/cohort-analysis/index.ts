@@ -33,7 +33,7 @@ serve(async (req) => {
       }
 
       // Group clients by cohort (month of signup)
-      const cohorts: Record<string, any[]> = {};
+      const cohorts: Record<string, unknown[]> = {};
       
       for (const client of clients) {
         const startDate = new Date(client.start_date);
@@ -123,7 +123,7 @@ serve(async (req) => {
         .select('visitor_id, utm_source, utm_medium, utm_campaign');
 
       // Group by source
-      const sourceCohorts: Record<string, any[]> = {};
+      const sourceCohorts: Record<string, unknown[]> = {};
       
       for (const client of clients || []) {
         const visitor = visitors?.find(v => v.visitor_id === client.leads?.visitor_id);
@@ -177,7 +177,7 @@ serve(async (req) => {
       }) || [];
 
       // Group by signup month
-      const cohorts: Record<string, any[]> = {};
+      const cohorts: Record<string, unknown[]> = {};
       for (const client of clientsWithLTV) {
         const startDate = new Date(client.start_date);
         const cohortKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
@@ -208,7 +208,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in cohort-analysis:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

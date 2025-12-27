@@ -36,8 +36,8 @@ interface Deal {
   days_in_stage: number;
   next_action: string | null;
   sales_methodology: string | null;
-  buying_signals: any;
-  competitor_mentions: any;
+  buying_signals: Record<string, unknown>[] | null;
+  competitor_mentions: Record<string, unknown>[] | null;
   sentiment_score: number;
   lead_id: string | null;
 }

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Clock, Rocket } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const StickyFooter = () => {
   const { trackCtaClick } = useVisitor();

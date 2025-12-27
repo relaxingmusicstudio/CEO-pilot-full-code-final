@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -157,7 +157,7 @@ export default function OpsHub() {
     return fobHistory.find((f) => f.id === selectedFobId) ?? fobHistory[0];
   }, [fobHistory, selectedFobId]);
 
-  const refreshThreadView = (nextStore: ThreadStoreState, threadId: string | null, cursor: string | null) => {
+  const refreshThreadView = useCallback((nextStore: ThreadStoreState, threadId: string | null, cursor: string | null) => {
     if (!threadId) {
       setThreadSummary(null);
       setThreadPageEntries([]);
@@ -183,7 +183,7 @@ export default function OpsHub() {
 
     setThreadPageEntries(page.entries);
     setThreadCursor(page.nextCursor);
-  };
+  }, [ownerKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -226,7 +226,7 @@ export default function OpsHub() {
 
   useEffect(() => {
     refreshThreadView(threadStore, activeThreadId, null);
-  }, [threadStore, activeThreadId, ownerKey]);
+  }, [threadStore, activeThreadId, refreshThreadView]);
 
   const toggle = (id: string, value: boolean) => {
     setChecklist((prev) => ({ ...prev, [id]: value }));

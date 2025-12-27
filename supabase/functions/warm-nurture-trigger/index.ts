@@ -145,12 +145,12 @@ serve(async (req) => {
 
         // Execute touchpoint based on type
         if (touchpoint.touchpoint_type === 'email') {
-          const content = touchpoint.content as any;
+          const content = touchpoint.content as unknown;
           console.log('[NURTURE] Sending email to:', enrollment.contact?.email, '- Subject:', content?.subject);
           
           // Would integrate with Resend here
         } else if (touchpoint.touchpoint_type === 'sms') {
-          const content = touchpoint.content as any;
+          const content = touchpoint.content as unknown;
           console.log('[NURTURE] Sending SMS to:', enrollment.contact?.phone, '- Message:', content?.message);
           
           // Call SMS function
@@ -172,7 +172,7 @@ serve(async (req) => {
             priority: 70, // Higher priority for nurture calls
           });
         } else if (touchpoint.touchpoint_type === 'tag') {
-          const content = touchpoint.content as any;
+          const content = touchpoint.content as unknown;
           
           // Add tag to contact
           await supabase
@@ -230,7 +230,7 @@ serve(async (req) => {
 
       for (const campaign of campaigns || []) {
         if (campaign.trigger_type === 'score_threshold') {
-          const conditions = campaign.trigger_conditions as any;
+          const conditions = campaign.trigger_conditions as unknown;
           const minScore = conditions?.min_score || 50;
 
           // Find leads above threshold not yet enrolled
@@ -280,7 +280,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Warm nurture error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

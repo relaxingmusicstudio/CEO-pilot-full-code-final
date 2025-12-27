@@ -175,7 +175,7 @@ serve(async (req) => {
       }
 
       case 'sync_all_providers': {
-        const results: Record<string, any> = {};
+        const results: Record<string, unknown> = {};
 
         // Sync Plaid transactions
         const { data: plaidConnections } = await supabase
@@ -259,7 +259,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Finance Agent error:', error);
     await audit.logError('Finance agent failed', error);
     return new Response(JSON.stringify({ error: error.message }), {
@@ -270,7 +270,7 @@ serve(async (req) => {
 });
 
 // AI categorization using rule-based + keyword matching
-async function categorizeWithAI(transaction: any): Promise<{ category: string; confidence: number }> {
+async function categorizeWithAI(transaction: unknown): Promise<{ category: string; confidence: number }> {
   const name = (transaction.name || '').toLowerCase();
   const merchantName = (transaction.merchant_name || '').toLowerCase();
   const combined = `${name} ${merchantName}`;
@@ -304,7 +304,7 @@ async function categorizeWithAI(transaction: any): Promise<{ category: string; c
 }
 
 // Generate finance answer
-async function generateFinanceAnswer(question: string, pnl: any, mrr: any): Promise<string> {
+async function generateFinanceAnswer(question: string, pnl: unknown, mrr: unknown): Promise<string> {
   const q = question.toLowerCase();
 
   if (q.includes('mrr') || q.includes('recurring revenue')) {

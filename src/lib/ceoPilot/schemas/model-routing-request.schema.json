@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModelRoutingRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "task",
+    "taskClass",
+    "riskLevel",
+    "irreversible",
+    "complianceSensitive",
+    "noveltyScore",
+    "ambiguityScore",
+    "reasoningDepth",
+    "expectedTokens",
+    "budgetCents",
+    "requiresArbitration"
+  ],
+  "properties": {
+    "requestId": { "type": "string", "minLength": 1 },
+    "task": { "type": "string", "minLength": 1 },
+    "taskClass": { "type": "string", "enum": ["routine", "novel", "high_risk"] },
+    "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "irreversible": { "type": "boolean" },
+    "complianceSensitive": { "type": "boolean" },
+    "noveltyScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "ambiguityScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reasoningDepth": { "type": "string", "enum": ["shallow", "medium", "deep"] },
+    "expectedTokens": { "type": "integer", "minimum": 0 },
+    "budgetCents": { "type": "integer", "minimum": 0 },
+    "requiresArbitration": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CounterfactualRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["alternative", "expectedDownside", "uncertainty"],
+  "properties": {
+    "alternative": { "type": "string", "minLength": 1 },
+    "expectedDownside": { "type": "string", "minLength": 1 },
+    "uncertainty": { "type": "string", "minLength": 1 },
+    "confidenceLowerBound": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidenceUpperBound": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

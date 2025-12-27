@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Check, X, Star, Wrench, Rocket, Phone } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const PricingPlans = () => {
   const { trackCtaClick } = useVisitor();

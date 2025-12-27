@@ -42,13 +42,13 @@ serve(async (req) => {
         if (error) throw error;
         
         // If include_connected, also fetch credential status
-        let connectedStatus: Record<string, any> = {};
+        const connectedStatus: Record<string, unknown> = {};
         if (include_connected) {
           const { data: credentials } = await supabase
             .from('service_credentials')
             .select('service_key, connection_status, last_health_check');
           
-          credentials?.forEach((c: any) => {
+          credentials?.forEach((c: unknown) => {
             connectedStatus[c.service_key] = {
               connected: true,
               status: c.connection_status,
@@ -57,7 +57,7 @@ serve(async (req) => {
           });
         }
         
-        const enrichedServices = services?.map((s: any) => ({
+        const enrichedServices = services?.map((s: unknown) => ({
           ...s,
           is_connected: !!connectedStatus[s.service_key],
           connection_status: connectedStatus[s.service_key]?.status || null,
@@ -130,10 +130,10 @@ serve(async (req) => {
           .from('service_credentials')
           .select('service_key');
         
-        const connectedKeys = credentials?.map((c: any) => c.service_key) || [];
+        const connectedKeys = credentials?.map((c: unknown) => c.service_key) || [];
         
         // Get suggestions based on relationships
-        let suggestions: any[] = [];
+        let suggestions: unknown[] = [];
         
         if (connectedKeys.length > 0) {
           const { data: relationships } = await supabase
@@ -144,7 +144,7 @@ serve(async (req) => {
           
           // Filter to only show unconnected services
           const recommendedKeys = new Set<string>();
-          relationships?.forEach((r: any) => {
+          relationships?.forEach((r: unknown) => {
             if (!connectedKeys.includes(r.target_service)) {
               recommendedKeys.add(r.target_service);
               suggestions.push({
@@ -197,14 +197,14 @@ serve(async (req) => {
           .select('service_key, display_name, category, icon_emoji, description')
           .in('service_key', suggestionKeys);
         
-        const serviceMap = new Map(services?.map((s: any) => [s.service_key, s]) || []);
+        const serviceMap = new Map(services?.map((s: unknown) => [s.service_key, s]) || []);
         
         const enrichedSuggestions = suggestions.map(s => ({
           ...s,
-          display_name: (serviceMap.get(s.service_key) as any)?.display_name || s.service_key,
-          category: (serviceMap.get(s.service_key) as any)?.category || 'unknown',
-          icon_emoji: (serviceMap.get(s.service_key) as any)?.icon_emoji || '🔌',
-          description: (serviceMap.get(s.service_key) as any)?.description || '',
+          display_name: (serviceMap.get(s.service_key) as unknown)?.display_name || s.service_key,
+          category: (serviceMap.get(s.service_key) as unknown)?.category || 'unknown',
+          icon_emoji: (serviceMap.get(s.service_key) as unknown)?.icon_emoji || '🔌',
+          description: (serviceMap.get(s.service_key) as unknown)?.description || '',
         }));
         
         return new Response(
@@ -242,7 +242,7 @@ serve(async (req) => {
           .eq('is_active', true);
         
         const categoryCounts: Record<string, number> = {};
-        services?.forEach((s: any) => {
+        services?.forEach((s: unknown) => {
           categoryCounts[s.category] = (categoryCounts[s.category] || 0) + 1;
         });
         

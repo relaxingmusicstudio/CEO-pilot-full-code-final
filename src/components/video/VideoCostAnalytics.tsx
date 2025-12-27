@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,11 +74,7 @@ export default function VideoCostAnalytics() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<"7" | "30" | "90">("30");
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [period]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
       const [analyticsRes, savingsRes] = await Promise.all([
@@ -110,7 +106,11 @@ export default function VideoCostAnalytics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 

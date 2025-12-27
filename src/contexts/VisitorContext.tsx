@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   VisitorSession,
   getOrCreateVisitorId,
@@ -14,19 +14,7 @@ import {
   loadSession,
 } from '@/lib/visitorTracking';
 import { useAnalytics } from '@/hooks/useAnalytics';
-
-interface VisitorContextType {
-  session: VisitorSession;
-  trackSectionView: (sectionId: string) => void;
-  trackCtaClick: (ctaId: string) => void;
-  trackCalculatorUse: (inputs?: Record<string, string | number>) => void;
-  trackDemoPlay: () => void;
-  trackDemoProgress: (seconds: number) => void;
-  trackChatbotOpen: () => void;
-  trackChatbotEngage: () => void;
-  updateScrollDepth: (depth: number) => void;
-  getGHLData: () => ReturnType<typeof formatSessionForGHL>;
-}
+import { VisitorContext } from "@/contexts/VisitorContextBase";
 
 const defaultSession: VisitorSession = {
   visitorId: '',
@@ -60,8 +48,6 @@ const defaultSession: VisitorSession = {
   interestSignals: [],
   behavioralIntent: 'Just Browsing',
 };
-
-const VisitorContext = createContext<VisitorContextType | undefined>(undefined);
 
 export const VisitorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<VisitorSession>(defaultSession);
@@ -312,10 +298,3 @@ export const VisitorProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-export const useVisitor = () => {
-  const context = useContext(VisitorContext);
-  if (!context) {
-    throw new Error('useVisitor must be used within a VisitorProvider');
-  }
-  return context;
-};

@@ -216,7 +216,7 @@ serve(async (req: Request): Promise<Response> => {
       byAction[key].avg_ms = Math.round(
         byAction[key].durations.reduce((a, b) => a + b, 0) / byAction[key].durations.length
       );
-      delete (byAction[key] as any).durations;
+      delete (byAction[key] as unknown).durations;
     }
 
     // Log test completion to CRM

@@ -113,7 +113,7 @@ export function useOnboardingOrchestrator(
     } finally {
       setIsLoading(false);
     }
-  }, [user, isLoading, isComplete, options]);
+  }, [user, tenantId, isLoading, isComplete, options]);
 
   const processAgentResponse = useCallback((response: string) => {
     // Prevent double processing if already complete

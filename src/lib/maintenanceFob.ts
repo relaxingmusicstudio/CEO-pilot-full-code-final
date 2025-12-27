@@ -71,7 +71,7 @@ const tailLines = (text: string, count: number): string[] => {
 };
 
 const readEnvString = (key: string): string | null => {
-  const env = import.meta.env as any;
+  const env = import.meta.env as Record<string, string | boolean | undefined>;
   const value = env?.[key];
   if (typeof value === "string" && value.trim().length > 0) return value.trim();
   return null;

@@ -81,9 +81,9 @@ const ChurnPredictionWidget = ({ clients, className = "" }: ChurnPredictionWidge
     .filter(p => p.churnRisk > 50)
     .reduce((sum, p) => sum + p.mrr, 0);
 
-  const getRiskLevel = (score: number) => {
+  const getRiskLevel = (score: number): { label: string; color: "destructive" | "outline" | "secondary" } => {
     if (score >= 70) return { label: "High", color: "destructive" };
-    if (score >= 50) return { label: "Medium", color: "warning" };
+    if (score >= 50) return { label: "Medium", color: "outline" };
     return { label: "Low", color: "secondary" };
   };
 
@@ -140,7 +140,7 @@ const ChurnPredictionWidget = ({ clients, className = "" }: ChurnPredictionWidge
                         <span className="font-medium text-sm truncate max-w-[140px]">
                           {client.name}
                         </span>
-                        <Badge variant={risk.color as any} className="text-xs">
+                        <Badge variant={risk.color} className="text-xs">
                           {risk.label}
                         </Badge>
                       </div>

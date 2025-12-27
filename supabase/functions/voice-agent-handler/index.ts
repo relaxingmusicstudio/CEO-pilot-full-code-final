@@ -234,7 +234,7 @@ serve(async (req) => {
         const topic = task.topic || 'your inquiry';
 
         let prompt = '';
-        let systemPrompt = `You are a professional business communication assistant for ${businessName}. Generate warm, professional follow-up communications that acknowledge the customer's request and provide value.`;
+        const systemPrompt = `You are a professional business communication assistant for ${businessName}. Generate warm, professional follow-up communications that acknowledge the customer's request and provide value.`;
 
         if (draft_type === 'email') {
           prompt = `Generate a follow-up email for a customer who requested human contact during a call.
@@ -280,7 +280,7 @@ Generate a professional but friendly SMS (under 160 characters).`;
         const draftContent = aiResult.text || '';
 
         // Update task with draft
-        const updateData: Record<string, any> = {};
+        const updateData: Record<string, unknown> = {};
         if (draft_type === 'email') {
           try {
             const parsed = JSON.parse(draftContent);
@@ -466,7 +466,7 @@ Generate a professional but friendly SMS (under 160 characters).`;
     }
   } catch (error) {
     console.error('Voice agent handler error:', error);
-    const err: any = error;
+    const err: unknown = error;
     const message = err?.message || err?.error?.message || (typeof err === 'string' ? err : 'Unknown error');
     const code = err?.code;
 

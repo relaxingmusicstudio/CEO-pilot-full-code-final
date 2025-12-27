@@ -5,7 +5,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { HelpCircle } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const faqs = [
   {

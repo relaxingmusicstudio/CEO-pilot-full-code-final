@@ -80,7 +80,7 @@ const ProtectedRoute = ({
         return;
       }
     }
-  }, [isClient, isOwner, isLoading, isAuthenticated, requireOwner, requireClient, navigate]);
+  }, [isClient, isOwner, isLoading, isEffectivelyAuthed, requireOwner, requireClient, navigate]);
 
   // Loading state
   if (isLoading) {

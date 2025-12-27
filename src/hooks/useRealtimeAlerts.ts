@@ -9,7 +9,44 @@ interface RealtimeAlert {
   message: string;
   priority: 'low' | 'normal' | 'urgent';
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+interface WorkQueueItem {
+  id: string;
+  type?: string;
+  title?: string;
+  description?: string;
+  priority?: 'low' | 'normal' | 'urgent';
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface CEOAlertRow {
+  id: string;
+  alert_type: string;
+  title: string;
+  message?: string | null;
+  priority?: 'low' | 'normal' | 'urgent';
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface LeadRow {
+  id: string;
+  lead_temperature?: string;
+  name?: string | null;
+  business_name?: string | null;
+  lead_score?: number;
+  source?: string | null;
+}
+
+interface ClientRow {
+  id: string;
+  business_name?: string | null;
+  name?: string | null;
+  health_score?: number;
+  mrr?: number;
 }
 
 export const useRealtimeAlerts = () => {
@@ -29,14 +66,16 @@ export const useRealtimeAlerts = () => {
           table: 'work_queue',
         },
         (payload) => {
-          const newItem = payload.new as any;
+          const newItem = payload.new as WorkQueueItem;
+          const itemTitle = newItem.title || "Work item";
+          const itemDescription = newItem.description || "";
           
           // Create alert from work queue item
           const alert: RealtimeAlert = {
             id: newItem.id,
             type: newItem.type || 'task',
-            title: newItem.title,
-            message: newItem.description,
+            title: itemTitle,
+            message: itemDescription,
             priority: newItem.priority || 'normal',
             timestamp: new Date(newItem.created_at),
             metadata: newItem.metadata,
@@ -47,8 +86,8 @@ export const useRealtimeAlerts = () => {
 
           // Show toast for urgent items
           if (newItem.priority === 'urgent') {
-            toast.error(newItem.title, {
-              description: newItem.description?.slice(0, 100),
+            toast.error(itemTitle, {
+              description: itemDescription.slice(0, 100),
               duration: 10000,
               action: {
                 label: 'View',
@@ -56,8 +95,8 @@ export const useRealtimeAlerts = () => {
               },
             });
           } else if (newItem.type === 'alert') {
-            toast.warning(newItem.title, {
-              description: newItem.description?.slice(0, 100),
+            toast.warning(itemTitle, {
+              description: itemDescription.slice(0, 100),
               duration: 5000,
             });
           }
@@ -79,13 +118,15 @@ export const useRealtimeAlerts = () => {
           table: 'ceo_alerts',
         },
         (payload) => {
-          const newAlert = payload.new as any;
+          const newAlert = payload.new as CEOAlertRow;
+          const alertTitle = alertTitle || "Alert";
+          const alertMessage = newAlert.message || "";
           
           const alert: RealtimeAlert = {
             id: newAlert.id,
             type: newAlert.alert_type,
-            title: newAlert.title,
-            message: newAlert.message || '',
+            title: alertTitle,
+            message: alertMessage,
             priority: newAlert.priority || 'normal',
             timestamp: new Date(newAlert.created_at),
             metadata: newAlert.metadata,
@@ -96,8 +137,8 @@ export const useRealtimeAlerts = () => {
 
           // Critical alerts get special treatment
           if (newAlert.priority === 'urgent' || newAlert.alert_type === 'churn_critical') {
-            toast.error(`🚨 ${newAlert.title}`, {
-              description: newAlert.message?.slice(0, 150),
+            toast.error(`🚨 ${alertTitle}`, {
+              description: alertMessage.slice(0, 150),
               duration: 15000,
             });
           }
@@ -116,8 +157,8 @@ export const useRealtimeAlerts = () => {
           table: 'leads',
         },
         (payload) => {
-          const newLead = payload.new as any;
-          const oldLead = payload.old as any;
+          const newLead = payload.new as LeadRow;
+          const oldLead = payload.old as LeadRow;
 
           // Alert when lead becomes hot
           if (newLead.lead_temperature === 'hot' && oldLead.lead_temperature !== 'hot') {
@@ -158,8 +199,8 @@ export const useRealtimeAlerts = () => {
           table: 'clients',
         },
         (payload) => {
-          const newClient = payload.new as any;
-          const oldClient = payload.old as any;
+          const newClient = payload.new as ClientRow;
+          const oldClient = payload.old as ClientRow;
 
           // Alert when health drops significantly
           const oldHealth = oldClient.health_score || 100;

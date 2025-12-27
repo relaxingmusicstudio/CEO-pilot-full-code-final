@@ -94,8 +94,9 @@ export default function QuickBooksConnect() {
         });
         // window.location.href = data.auth_url;
       }
-    } catch (error: any) {
-      toast.error(`Connection failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Connection failed: ${message}`);
     } finally {
       setIsConnecting(false);
     }

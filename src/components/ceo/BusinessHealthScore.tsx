@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,11 +88,28 @@ const BusinessHealthScore = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchHealthScore();
+  const calculateNewScore = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ceo-score", {
+        body: { action: "calculate" },
+      });
+
+      if (error) throw error;
+
+      if (data?.score) {
+        setHealthScore(data.score);
+        toast.success("Health score recalculated");
+      }
+    } catch (error) {
+      console.error("Error calculating health score:", error);
+      toast.error("Failed to calculate health score");
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  const fetchHealthScore = async () => {
+  const fetchHealthScore = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke("ceo-score", {
         body: { action: "get_latest" },
@@ -126,28 +143,11 @@ const BusinessHealthScore = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [calculateNewScore]);
 
-  const calculateNewScore = async () => {
-    setRefreshing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("ceo-score", {
-        body: { action: "calculate" },
-      });
-
-      if (error) throw error;
-
-      if (data?.score) {
-        setHealthScore(data.score);
-        toast.success("Health score recalculated");
-      }
-    } catch (error) {
-      console.error("Error calculating health score:", error);
-      toast.error("Failed to calculate health score");
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  useEffect(() => {
+    fetchHealthScore();
+  }, [fetchHealthScore]);
 
   if (loading) {
     return (

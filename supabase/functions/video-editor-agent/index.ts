@@ -105,7 +105,7 @@ Respond with a JSON object containing a "scenes" array.`,
         }
 
         // Create timeline items from scenes
-        let currentTime = 0;
+        const currentTime = 0;
         const items = scenes.map((scene: Scene) => ({
           project_id,
           item_type: "avatar",
@@ -159,7 +159,7 @@ Respond with a JSON object containing a "scenes" array.`,
         }
 
         // Add graphic overlays to the timeline
-        const items = graphics.map((graphic: any) => ({
+        const items = graphics.map((graphic: unknown) => ({
           project_id,
           item_type: "graphic",
           track_index: graphic.track_index || 2,

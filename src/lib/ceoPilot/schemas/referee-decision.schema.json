@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RefereeDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decisionId",
+    "disagreementId",
+    "action",
+    "rationale",
+    "confidence",
+    "selectedProposalIds",
+    "requiresHumanReview",
+    "allowedImpact",
+    "createdAt"
+  ],
+  "properties": {
+    "decisionId": { "type": "string", "minLength": 1 },
+    "disagreementId": { "type": "string", "minLength": 1 },
+    "action": { "type": "string", "enum": ["select", "merge", "escalate"] },
+    "rationale": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "selectedProposalIds": { "type": "array", "items": { "type": "string" } },
+    "mergedSummary": { "type": "string", "minLength": 1 },
+    "requiresHumanReview": { "type": "boolean" },
+    "allowedImpact": { "type": "string", "enum": ["reversible", "difficult"] },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

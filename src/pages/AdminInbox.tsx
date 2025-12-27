@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, MessageSquare, Phone, Mail, RefreshCw, Database, User, Clock, CheckCheck, Check } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 import { AssistantStrip } from "@/components/AssistantStrip";
@@ -31,16 +31,26 @@ export default function AdminInbox() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const loadConversations = useCallback(async () => {
+    const data = await fetchConversations(channelFilter);
+    setConversations(data);
+  }, [channelFilter, fetchConversations]);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    const data = await fetchMessages(conversationId);
+    setMessages(data);
+  }, [fetchMessages]);
+
   useEffect(() => {
     loadConversations();
-  }, [channelFilter]);
+  }, [loadConversations]);
 
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.id);
       markAsRead(selectedConversation.id);
     }
-  }, [selectedConversation]);
+  }, [loadMessages, markAsRead, selectedConversation]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -66,17 +76,7 @@ export default function AdminInbox() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedConversation]);
-
-  const loadConversations = async () => {
-    const data = await fetchConversations(channelFilter);
-    setConversations(data);
-  };
-
-  const loadMessages = async (conversationId: string) => {
-    const data = await fetchMessages(conversationId);
-    setMessages(data);
-  };
+  }, [loadConversations, selectedConversation]);
 
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedConversation) return;

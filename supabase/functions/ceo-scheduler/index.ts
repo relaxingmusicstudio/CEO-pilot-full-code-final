@@ -128,16 +128,18 @@ function computeIdempotencyKey(action: string): string {
       // Daily window: yyyy-mm-dd
       window = now.toISOString().slice(0, 10);
       break;
-    case "run_cost_rollup":
+    case "run_cost_rollup": {
       // 6-hour window: yyyy-mm-ddThh (rounded to 0,6,12,18)
       const hour = Math.floor(now.getUTCHours() / 6) * 6;
       window = `${now.toISOString().slice(0, 10)}T${hour.toString().padStart(2, "0")}`;
       break;
-    case "run_outreach_queue":
+    }
+    case "run_outreach_queue": {
       // 15-minute window: yyyy-mm-ddThh:mm (rounded to 0,15,30,45)
       const minute = Math.floor(now.getUTCMinutes() / 15) * 15;
       window = `${now.toISOString().slice(0, 13)}:${minute.toString().padStart(2, "0")}`;
       break;
+    }
     default:
       window = now.toISOString();
   }

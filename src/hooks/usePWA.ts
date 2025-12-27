@@ -30,7 +30,7 @@ export function usePWA(): UsePWAResult {
     const checkInstalled = () => {
       const standalone =
         // iOS Safari
-        (window.navigator as any).standalone === true ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
         // Chromium
         window.matchMedia?.("(display-mode: standalone)")?.matches === true;
 

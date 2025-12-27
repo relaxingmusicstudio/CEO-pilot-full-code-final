@@ -119,7 +119,7 @@ export function selectMethodology(lead: LeadProfile): {
   confidence: number;
   reasoning: string;
 } {
-  let scores: Record<SalesMethodology, number> = {
+  const scores: Record<SalesMethodology, number> = {
     SPIN: 0,
     CHALLENGER: 0,
     CONSULTATIVE: 0,

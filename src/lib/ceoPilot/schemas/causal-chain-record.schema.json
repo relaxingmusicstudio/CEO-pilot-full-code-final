@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CausalChainRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chainId",
+    "candidateId",
+    "identityKey",
+    "actionType",
+    "status",
+    "triggers",
+    "alternatives",
+    "counterfactuals",
+    "explanation",
+    "explanationQuality",
+    "requiresHumanReview",
+    "createdAt"
+  ],
+  "properties": {
+    "chainId": { "type": "string", "minLength": 1 },
+    "candidateId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "actionType": {
+      "type": "string",
+      "enum": [
+        "routing_downgrade",
+        "routing_upgrade",
+        "cache_policy",
+        "distill_rule",
+        "schedule_policy",
+        "freeze_behavior",
+        "escalation_adjustment",
+        "emergency_mode"
+      ]
+    },
+    "status": { "type": "string", "enum": ["complete", "explanation_failed"] },
+    "triggers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "./causal-trigger.schema.json" }
+    },
+    "alternatives": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "./causal-alternative.schema.json" }
+    },
+    "counterfactuals": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "./counterfactual-record.schema.json" }
+    },
+    "explanation": { "$ref": "./human-explanation.schema.json" },
+    "explanationQuality": { "type": "string", "enum": ["clear", "insufficient"] },
+    "requiresHumanReview": { "type": "boolean" },
+    "failureReason": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "appliedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useClickThrough } from "@/hooks/useClickThrough";
+import type { EntityType } from "@/hooks/useClickThrough";
 import { 
   Target, 
   Clock, 
@@ -24,7 +25,7 @@ interface FocusItem {
   description: string;
   priority: "high" | "medium" | "low";
   action: string;
-  entity: string;
+  entity: EntityType;
   entityId?: string;
 }
 
@@ -137,7 +138,7 @@ export function TodaysFocusWidget() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: string): "destructive" | "secondary" | "outline" => {
     switch (priority) {
       case "high": return "destructive";
       case "medium": return "secondary";
@@ -146,7 +147,7 @@ export function TodaysFocusWidget() {
   };
 
   const handleItemClick = (item: FocusItem) => {
-    navigateToDetail(item.entity as any, item.entityId ? { id: item.entityId } : undefined);
+    navigateToDetail(item.entity, item.entityId ? { id: item.entityId } : undefined);
   };
 
   if (isLoading) {
@@ -225,7 +226,7 @@ export function TodaysFocusWidget() {
                     <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={getPriorityColor(item.priority) as any} className="text-xs">
+                    <Badge variant={getPriorityColor(item.priority)} className="text-xs">
                       {item.action}
                     </Badge>
                     <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

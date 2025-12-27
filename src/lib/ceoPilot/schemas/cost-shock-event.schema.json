@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CostShockEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["shockId", "identityKey", "type", "severity", "description", "simulated", "createdAt"],
+  "properties": {
+    "shockId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "enum": ["budget_shock", "traffic_spike", "provider_outage", "price_change"] },
+    "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+    "description": { "type": "string", "minLength": 1 },
+    "simulated": { "type": "boolean" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

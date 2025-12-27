@@ -7,7 +7,7 @@ import { Send, MessageSquare, Mail, User, Phone, Building, Users, PhoneCall, Clo
 import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 import {
   Select,
   SelectContent,

@@ -23,6 +23,12 @@ interface CEOVoiceAssistantProps {
   onTranscript?: (text: string, role: "user" | "assistant") => void;
 }
 
+type ConversationMessage = {
+  type?: string;
+  user_transcription_event?: { user_transcript?: string };
+  agent_response_event?: { agent_response?: string };
+};
+
 const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantProps) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -44,12 +50,12 @@ const CEOVoiceAssistant = ({ isOpen, onClose, onTranscript }: CEOVoiceAssistantP
       console.log("ElevenLabs message:", message);
       
       // Handle different message types
-      const messageType = (message as any).type;
+      const messageType = (message as ConversationMessage).type;
       if (messageType === "user_transcript" || messageType === "agent_response") {
         const isUser = messageType === "user_transcript";
         const text = isUser 
-          ? (message as any).user_transcription_event?.user_transcript 
-          : (message as any).agent_response_event?.agent_response;
+          ? (message as ConversationMessage).user_transcription_event?.user_transcript 
+          : (message as ConversationMessage).agent_response_event?.agent_response;
         
         if (text) {
           const role = isUser ? "user" : "assistant";

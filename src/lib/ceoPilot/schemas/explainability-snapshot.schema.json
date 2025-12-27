@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExplainabilitySnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["whyDecision", "alternativesRejected", "whatWouldChangeDecision"],
+  "properties": {
+    "whyDecision": { "type": "string", "minLength": 1 },
+    "alternativesRejected": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "whatWouldChangeDecision": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  }
+}

@@ -42,9 +42,9 @@ const CRITICAL_PATTERNS = [
   { regex: /\bstub\b/i, name: "stub marker" },
   { regex: /\bmock(?:ed|ing)?\b/i, name: "mock marker (in production)" },
   { regex: /return\s+null\s*;?\s*\/\/\s*(?:TODO|TEMP|placeholder)/i, name: "Placeholder return null" },
-  { regex: /<Route[^>]*element=\\{null\\}/, name: "Route with null element" },
-  { regex: /import\s+.*from\s+['\"][^'\"]*(?:PLACEHOLDER|TEMP|TODO)[^'\"]*['\"]/, name: "Import from placeholder path" },
-  { regex: /['\"](?:YOUR_|MY_|EXAMPLE_|DEMO_)[A-Z_]+['\"]/, name: "Example/demo placeholder string" },
+  { regex: /<Route[^>]*element=\{null\}/, name: "Route with null element" },
+  { regex: /import\s+.*from\s+["'][^"']*(?:PLACEHOLDER|TEMP|TODO)[^"']*["']/, name: "Import from placeholder path" },
+  { regex: /["'](?:YOUR_|MY_|EXAMPLE_|DEMO_)[A-Z_]+["']/, name: "Example/demo placeholder string" },
 ];
 
 // Warning patterns - code smells
@@ -54,7 +54,7 @@ const WARNING_PATTERNS = [
   { regex: /\/\/\s*HACK/i, name: "HACK comment" },
   { regex: /\(undefined\)/, name: "(undefined) in string" },
   { regex: /\(not set\)/, name: "(not set) in string" },
-  { regex: /as\s+any\b/, name: "as any type assertion" },
+  { regex: /as\s+any\b/, name: "as unknown type assertion" },
   { regex: /console\.log\s*\(/, name: "console.log (debug)" },
   { regex: /console\.error\s*\(/, name: "console.error (may be intentional)" },
   { regex: /\bXXX\b/, name: "XXX marker" },

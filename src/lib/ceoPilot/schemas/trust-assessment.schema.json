@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TrustAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assessmentId", "agentId", "tier", "eligibleForPromotion", "reasons", "metrics", "assessedAt"],
+  "properties": {
+    "assessmentId": { "type": "string", "minLength": 1 },
+    "agentId": { "type": "string", "minLength": 1 },
+    "tier": { "type": "string", "enum": ["draft", "suggest", "execute"] },
+    "eligibleForPromotion": { "type": "boolean" },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluationPassRate", "failureDebt", "uncertaintyVariance", "rollbackRate"],
+      "properties": {
+        "evaluationPassRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "failureDebt": { "type": "number", "minimum": 0 },
+        "uncertaintyVariance": { "type": "number", "minimum": 0 },
+        "rollbackRate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "assessedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -11,9 +11,22 @@ interface Service {
   is_connected: boolean;
   connection_status: string | null;
   last_health_check: string | null;
-  setup_instructions: any[];
-  credential_fields: any[];
+  setup_instructions: SetupInstruction[];
+  credential_fields: CredentialField[];
   documentation_url: string;
+}
+
+interface CredentialField {
+  key: string;
+  label: string;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+interface SetupInstruction {
+  step: string | number;
+  description: string;
 }
 
 interface Suggestion {
@@ -36,6 +49,18 @@ interface IntegrationTemplate {
   recommended_services: string[];
   required_services: string[];
   setup_order: string[];
+}
+
+interface CredentialRecord {
+  service_key: string;
+  connection_status?: string | null;
+  display_name?: string;
+  icon_emoji?: string;
+  category?: string;
+  credential_type?: string;
+  last_tested_at?: string | null;
+  expires_at?: string | null;
+  [key: string]: unknown;
 }
 
 export function useIntegrations() {
@@ -129,7 +154,7 @@ export function useIntegrations() {
   // Store a credential
   const storeCredential = useCallback(async (
     serviceKey: string,
-    credentialData: Record<string, any>,
+    credentialData: Record<string, unknown>,
     agentName: string = 'user'
   ): Promise<boolean> => {
     setIsLoading(true);
@@ -189,7 +214,7 @@ export function useIntegrations() {
   }, []);
 
   // List all connected credentials
-  const listCredentials = useCallback(async () => {
+  const listCredentials = useCallback(async (): Promise<CredentialRecord[]> => {
     setIsLoading(true);
     setError(null);
     
@@ -199,7 +224,7 @@ export function useIntegrations() {
       });
       
       if (fnError) throw fnError;
-      return data?.credentials || [];
+      return (data?.credentials || []) as CredentialRecord[];
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to list credentials';
       setError(message);
@@ -245,12 +270,12 @@ export function useIntegrations() {
         listCredentials(),
       ]);
       
-      const credentialMap = new Map(credentials.map((c: any) => [c.service_key, c]));
+      const credentialMap = new Map(credentials.map((c) => [c.service_key, c]));
       
       const connected = credentials.length;
-      const healthy = credentials.filter((c: any) => c.connection_status === 'healthy').length;
-      const degraded = credentials.filter((c: any) => c.connection_status === 'degraded').length;
-      const expired = credentials.filter((c: any) => c.connection_status === 'expired').length;
+      const healthy = credentials.filter((c) => c.connection_status === 'healthy').length;
+      const degraded = credentials.filter((c) => c.connection_status === 'degraded').length;
+      const expired = credentials.filter((c) => c.connection_status === 'expired').length;
       
       return {
         total_available: services.length,
@@ -258,7 +283,7 @@ export function useIntegrations() {
         healthy,
         degraded,
         expired,
-        by_category: services.reduce((acc: Record<string, any>, svc: Service) => {
+        by_category: services.reduce((acc: Record<string, { total: number; connected: number }>, svc: Service) => {
           const cat = svc.category;
           if (!acc[cat]) acc[cat] = { total: 0, connected: 0 };
           acc[cat].total++;

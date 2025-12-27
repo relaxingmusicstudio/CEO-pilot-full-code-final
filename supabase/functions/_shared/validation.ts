@@ -17,7 +17,7 @@ export function isValidEmail(email: string): boolean {
 export function isValidPhone(phone: string): boolean {
   if (!phone) return true; // Optional field
   if (typeof phone !== 'string') return false;
-  const phoneRegex = /^[\d\s\-\+\(\)]{7,20}$/;
+  const phoneRegex = /^[\d\s+()-]{7,20}$/;
   return phoneRegex.test(phone);
 }
 
@@ -44,7 +44,10 @@ export function isValidUUID(id: string): boolean {
 export function sanitizeString(str: string | undefined | null, maxLength: number = 500): string {
   if (!str || typeof str !== 'string') return '';
   // Remove null bytes and control characters
-  const cleaned = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  const cleaned = Array.from(str).filter((char) => {
+    const code = char.charCodeAt(0);
+    return !(code <= 0x1f || code === 0x7f);
+  }).join('');
   return cleaned.trim().slice(0, maxLength);
 }
 

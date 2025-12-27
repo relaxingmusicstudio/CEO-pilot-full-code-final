@@ -16,7 +16,7 @@ interface LearningStats {
   avg_success_score: number;
   total_queries: number;
   cache_hit_rate: number;
-  performance_history: any[];
+  performance_history: Array<Record<string, unknown>>;
 }
 
 interface MemoryAuthResult {
@@ -94,7 +94,7 @@ export const useLearningSystem = () => {
     agentType: string,
     query: string,
     response: string,
-    metadata: Record<string, any> = {},
+    metadata: Record<string, unknown> = {},
     isSummary: boolean = false
   ): Promise<AgentMemory | null> => {
     // GOVERNANCE: Pre-check memory authority before making request

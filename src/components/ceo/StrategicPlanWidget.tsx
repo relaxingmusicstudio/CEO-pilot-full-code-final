@@ -87,13 +87,30 @@ export const StrategicPlanWidget = ({ compact = false, className = "" }: Strateg
       if (error) throw error;
       
       if (data) {
+        const weekly_objectives = Array.isArray(data.weekly_objectives)
+          ? (data.weekly_objectives as StrategicPlan["weekly_objectives"])
+          : [];
+        const daily_focus = Array.isArray(data.daily_focus)
+          ? (data.daily_focus as StrategicPlan["daily_focus"])
+          : [];
+        const milestones = Array.isArray(data.milestones)
+          ? (data.milestones as StrategicPlan["milestones"])
+          : [];
+        const blockers = Array.isArray(data.blockers)
+          ? (data.blockers as StrategicPlan["blockers"])
+          : [];
+        const agent_workloads =
+          data.agent_workloads && typeof data.agent_workloads === "object"
+            ? (data.agent_workloads as StrategicPlan["agent_workloads"])
+            : {};
+
         setPlan({
           ...data,
-          weekly_objectives: data.weekly_objectives as any[] || [],
-          daily_focus: data.daily_focus as any[] || [],
-          agent_workloads: data.agent_workloads as Record<string, any> || {},
-          milestones: data.milestones as any[] || [],
-          blockers: data.blockers as any[] || [],
+          weekly_objectives,
+          daily_focus,
+          agent_workloads,
+          milestones,
+          blockers,
         });
       }
     } catch (err) {

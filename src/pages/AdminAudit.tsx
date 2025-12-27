@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +45,8 @@ interface AuditLogEntry {
   description: string;
   success: boolean;
   user_id: string | null;
-  request_snapshot: any;
-  response_snapshot: any;
+  request_snapshot: Record<string, unknown> | null;
+  response_snapshot: Record<string, unknown> | null;
 }
 
 interface AuditStats {
@@ -91,12 +91,7 @@ const AdminAudit = () => {
 
   const PAGE_SIZE = 50;
 
-  useEffect(() => {
-    fetchLogs();
-    fetchStats();
-  }, [agentFilter, actionFilter, dateRange, page]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const startDate = subDays(new Date(), parseInt(dateRange)).toISOString();
@@ -136,9 +131,9 @@ const AdminAudit = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [actionFilter, agentFilter, dateRange, page, searchTerm]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -174,7 +169,12 @@ const AdminAudit = () => {
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+    fetchStats();
+  }, [fetchLogs, fetchStats]);
 
   const handleExportCSV = () => {
     if (!logs.length) {

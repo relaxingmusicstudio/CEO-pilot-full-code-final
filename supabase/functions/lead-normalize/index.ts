@@ -65,7 +65,7 @@ interface RateLimitResult {
 }
 
 // deno-lint-ignore no-explicit-any
-async function checkRateLimitDb(supabase: any, key: string): Promise<RateLimitResult> {
+async function checkRateLimitDb(supabase: unknown, key: string): Promise<RateLimitResult> {
   try {
     const { data, error } = await supabase.rpc("check_and_increment_rate_limit", {
       p_rate_key: key,
@@ -222,7 +222,7 @@ function makeSuccessResponse(
 let auditColumnsCache: AuditColumns | null = null;
 
 // deno-lint-ignore no-explicit-any
-async function checkAuditColumns(supabase: any): Promise<AuditColumns> {
+async function checkAuditColumns(supabase: unknown): Promise<AuditColumns> {
   if (auditColumnsCache) return auditColumnsCache;
   
   try {
@@ -248,7 +248,7 @@ async function checkAuditColumns(supabase: any): Promise<AuditColumns> {
 }
 
 // deno-lint-ignore no-explicit-any
-async function safeAuditInsert(supabase: any, auditData: Json, auditColumns: AuditColumns): Promise<void> {
+async function safeAuditInsert(supabase: unknown, auditData: Json, auditColumns: AuditColumns): Promise<void> {
   try {
     const insertData: Json = {
       tenant_id: auditData.tenant_id,

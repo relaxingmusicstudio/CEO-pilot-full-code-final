@@ -38,7 +38,7 @@ serve(async (req) => {
         
         // Group costs by agent
         const costsByAgent: Record<string, { calls: number; cost: number; successRate: number }> = {};
-        (costsRes.data || []).forEach((c: any) => {
+        (costsRes.data || []).forEach((c: unknown) => {
           if (!costsByAgent[c.agent_type]) {
             costsByAgent[c.agent_type] = { calls: 0, cost: 0, successRate: 0 };
           }
@@ -155,7 +155,7 @@ serve(async (req) => {
           .order('date', { ascending: true })
           .limit(30);
 
-        const dailyTotals = (costs || []).reduce((acc: Record<string, number>, c: any) => {
+        const dailyTotals = (costs || []).reduce((acc: Record<string, number>, c: unknown) => {
           acc[c.date] = (acc[c.date] || 0) + (c.cost_cents || 0);
           return acc;
         }, {});
@@ -191,7 +191,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Infrastructure Agent error:', error);
     await audit.logError('Infrastructure agent failed', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
@@ -201,7 +201,7 @@ serve(async (req) => {
   }
 });
 
-function calculateOverallHealth(metrics: any[]): string {
+function calculateOverallHealth(metrics: unknown[]): string {
   if (!metrics.length) return 'unknown';
   const critical = metrics.filter(m => m.status === 'critical').length;
   const warning = metrics.filter(m => m.status === 'warning').length;
@@ -211,7 +211,7 @@ function calculateOverallHealth(metrics: any[]): string {
   return 'healthy';
 }
 
-async function checkForAnomalies(supabase: any, agentType: string, latency: number, cost: number): Promise<string[]> {
+async function checkForAnomalies(supabase: unknown, agentType: string, latency: number, cost: number): Promise<string[]> {
   const anomalies: string[] = [];
   
   // Get historical averages
@@ -223,8 +223,8 @@ async function checkForAnomalies(supabase: any, agentType: string, latency: numb
     .limit(7);
 
   if (history && history.length > 3) {
-    const avgLatency = history.reduce((sum: number, h: any) => sum + (h.avg_latency_ms || 0), 0) / history.length;
-    const avgCost = history.reduce((sum: number, h: any) => sum + (h.cost_cents || 0), 0) / history.length;
+    const avgLatency = history.reduce((sum: number, h: unknown) => sum + (h.avg_latency_ms || 0), 0) / history.length;
+    const avgCost = history.reduce((sum: number, h: unknown) => sum + (h.cost_cents || 0), 0) / history.length;
 
     if (latency && latency > avgLatency * 2) {
       anomalies.push(`High latency detected: ${latency}ms (avg: ${Math.round(avgLatency)}ms)`);

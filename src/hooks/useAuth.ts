@@ -94,7 +94,7 @@ export function useAuth() {
       const isAdmin = Boolean(data);
 
       setState((s) => ({ ...s, role: isAdmin ? "admin" : "user" }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!hasRoleErrorLoggedRef.current) {
         hasRoleErrorLoggedRef.current = true;
         console.warn("[useAuth] has_role error (non-fatal)", err);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +26,7 @@ export function CEOAlertsPanel({ tenantId }: CEOAlertsPanelProps) {
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
-  useEffect(() => {
-    if (tenantId) {
-      loadAlerts();
-    }
-  }, [tenantId]);
-
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     if (!tenantId) return;
 
     setLoading(true);
@@ -58,7 +52,13 @@ export function CEOAlertsPanel({ tenantId }: CEOAlertsPanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (tenantId) {
+      loadAlerts();
+    }
+  }, [loadAlerts, tenantId]);
 
   const acknowledgeAlert = async (alertId: string) => {
     if (!tenantId) return;

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CausalTrigger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["triggerId", "type", "summary", "recordedAt"],
+  "properties": {
+    "triggerId": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": [
+        "quality_metric",
+        "quality_regression",
+        "cost_event",
+        "cooperation_metric",
+        "failure_memory",
+        "human_control",
+        "emergency_mode",
+        "outcome_sample"
+      ]
+    },
+    "refId": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "recordedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -11,9 +11,9 @@ interface StandingOrder {
   id: string;
   rule_name: string;
   rule_type: string;
-  conditions: Record<string, any>;
+  conditions: Record<string, unknown>;
   action_type: string;
-  action_payload: Record<string, any>;
+  action_payload: Record<string, unknown>;
   priority: number;
 }
 
@@ -111,8 +111,8 @@ serve(async (req) => {
   }
 });
 
-async function runScheduledChecks(supabase: any, config: AutopilotConfig | null) {
-  const results: any[] = [];
+async function runScheduledChecks(supabase: unknown, config: AutopilotConfig | null) {
+  const results: unknown[] = [];
 
   // Get all active scheduled standing orders
   const { data: orders } = await supabase
@@ -214,8 +214,8 @@ async function runScheduledChecks(supabase: any, config: AutopilotConfig | null)
   return results;
 }
 
-async function processEvent(supabase: any, eventType: string, eventData: any, config: AutopilotConfig | null) {
-  const results: any[] = [];
+async function processEvent(supabase: unknown, eventType: string, eventData: unknown, config: AutopilotConfig | null) {
+  const results: unknown[] = [];
 
   // Get trigger-based standing orders that match this event
   const { data: orders } = await supabase
@@ -299,7 +299,7 @@ async function processEvent(supabase: any, eventType: string, eventData: any, co
   return results;
 }
 
-async function evaluateConditions(supabase: any, order: StandingOrder): Promise<boolean> {
+async function evaluateConditions(supabase: unknown, order: StandingOrder): Promise<boolean> {
   const { conditions, rule_type } = order;
 
   if (rule_type === "schedule") {
@@ -342,7 +342,7 @@ async function evaluateConditions(supabase: any, order: StandingOrder): Promise<
         .gte("created_at", today.toISOString())
         .not("revenue_value", "is", null);
 
-      const todayRevenue = (todayLeads || []).reduce((sum: number, l: any) => sum + (l.revenue_value || 0), 0);
+      const todayRevenue = (todayLeads || []).reduce((sum: number, l: unknown) => sum + (l.revenue_value || 0), 0);
       
       // Get average
       const weekAgo = new Date();
@@ -353,7 +353,7 @@ async function evaluateConditions(supabase: any, order: StandingOrder): Promise<
         .gte("created_at", weekAgo.toISOString())
         .not("revenue_value", "is", null);
 
-      const avgDailyRevenue = (weekLeads || []).reduce((sum: number, l: any) => sum + (l.revenue_value || 0), 0) / 7;
+      const avgDailyRevenue = (weekLeads || []).reduce((sum: number, l: unknown) => sum + (l.revenue_value || 0), 0) / 7;
       
       if (avgDailyRevenue > 0) {
         const percentOfAvg = (todayRevenue / avgDailyRevenue) * 100;

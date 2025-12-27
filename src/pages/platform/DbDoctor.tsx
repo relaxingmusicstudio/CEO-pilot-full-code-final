@@ -20,7 +20,9 @@ export default function DbDoctor() {
     setReport(null);
     
     try {
-      const { data, error } = await (supabase.rpc as any)("qa_dependency_check");
+      const runRpc = (fn: string) =>
+        supabase.rpc(fn) as unknown as Promise<{ data: PreflightReport | null; error: { message?: string; code?: string } | null }>;
+      const { data, error } = await runRpc("qa_dependency_check");
       
       if (error) {
         setReport({ ok: false, error: error.message, error_code: error.code });

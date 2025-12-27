@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Search, User, Phone, Mail, MessageSquare, Tag, Edit2, X, Save, Home, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,14 @@ export default function AdminContacts() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", email: "", phone: "", tags: "" });
 
-  useEffect(() => {
-    loadContacts();
-  }, []);
-
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     const data = await fetchContacts();
     setContacts(data);
-  };
+  }, [fetchContacts]);
+
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
 
   const filteredContacts = contacts.filter((c) => {
     const query = searchQuery.toLowerCase();

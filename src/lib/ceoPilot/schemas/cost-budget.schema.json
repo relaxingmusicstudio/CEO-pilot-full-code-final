@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CostBudget",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "budgetId",
+    "scope",
+    "period",
+    "limitCents",
+    "softLimitCents",
+    "status",
+    "createdAt"
+  ],
+  "properties": {
+    "budgetId": { "type": "string", "minLength": 1 },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "goalId": { "type": "string", "minLength": 1 },
+        "agentId": { "type": "string", "minLength": 1 },
+        "taskType": { "type": "string", "minLength": 1 }
+      }
+    },
+    "period": { "type": "string", "enum": ["daily", "weekly", "monthly", "total"] },
+    "limitCents": { "type": "integer", "minimum": 0 },
+    "softLimitCents": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string", "enum": ["active", "paused"] },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

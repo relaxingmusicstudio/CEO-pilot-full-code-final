@@ -40,10 +40,18 @@ interface FollowUpTask {
   leads: { name: string | null; email: string | null; phone: string | null; business_name: string | null } | null;
 }
 
+type DraftEdit =
+  | { type: "email"; subject?: string; body?: string }
+  | { type: "script"; content?: string }
+  | { type: "sms"; content?: string };
+
+type EditedContentMap = Record<string, DraftEdit>;
+type ReplyContent = string | { subject?: string; body?: string };
+
 export function FollowUpTasksWidget() {
   const queryClient = useQueryClient();
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [editedContent, setEditedContent] = useState<Record<string, any>>({});
+  const [editedContent, setEditedContent] = useState<EditedContentMap>({});
   const [generatingDraft, setGeneratingDraft] = useState<string | null>(null);
 
   const { data: tasks, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -107,7 +115,7 @@ export function FollowUpTasksWidget() {
     mutationFn: async ({ taskId, method, content, recipient }: { 
       taskId: string; 
       method: string; 
-      content: any;
+      content: ReplyContent;
       recipient?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke('voice-agent-handler', {
@@ -199,7 +207,9 @@ export function FollowUpTasksWidget() {
   }
 
   if (isError) {
-    const message = (error as any)?.message || "Voice follow-up service is temporarily unavailable.";
+    const message = error instanceof Error
+      ? error.message
+      : "Voice follow-up service is temporarily unavailable.";
     return (
       <Card>
         <CardHeader>

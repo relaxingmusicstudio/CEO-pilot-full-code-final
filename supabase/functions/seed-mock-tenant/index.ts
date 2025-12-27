@@ -128,7 +128,7 @@ const scenarios = {
 };
 
 // Generate mock leads based on scenario
-function generateMockLeads(scenario: any, count: number = 50) {
+function generateMockLeads(scenario: unknown, count: number = 50) {
   const firstNames = ["John", "Jane", "Mike", "Sarah", "David", "Emily", "Chris", "Amanda", "Robert", "Lisa"];
   const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"];
   const companies = scenario.business_model === "saas" 
@@ -161,7 +161,7 @@ function generateMockLeads(scenario: any, count: number = 50) {
 }
 
 // Generate mock deals
-function generateMockDeals(leads: any[], scenario: any, count: number = 20) {
+function generateMockDeals(leads: unknown[], scenario: unknown, count: number = 20) {
   const stages = ["discovery", "demo", "proposal", "negotiation", "closed_won", "closed_lost"];
   const selectedLeads = leads.slice(0, count);
 
@@ -185,8 +185,8 @@ function generateMockDeals(leads: any[], scenario: any, count: number = 20) {
 }
 
 // Generate timeline events for 180-day simulation
-function generateTimelineEvents(tenantId: string, simulationId: string, scenario: any, leadCount: number = 50) {
-  const events: any[] = [];
+function generateTimelineEvents(tenantId: string, simulationId: string, scenario: unknown, leadCount: number = 50) {
+  const events: unknown[] = [];
   
   // Lead generation events (Day 1-60)
   for (let day = 1; day <= 60; day++) {
@@ -434,7 +434,7 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Seed mock tenant error:", error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unknown error" }),

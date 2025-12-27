@@ -71,3 +71,21 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Control Room
+
+The Control Room is the governance UI for the CEO Pilot runtime. Use it to inspect routing, budgets, improvements, and interpretability artifacts, and to apply emergency controls.
+
+- Overview: current mode, autonomy ceiling, and recent outcomes.
+- Routing: recent model tier decisions and caps.
+- Costs/Budgets: budget limits and cost events.
+- Improvement Queue: approve/reject improvement candidates and distilled rules.
+- Interpretability: browse causal chains, alternatives, and counterfactuals.
+- Emergency & Controls: emergency mode, autonomy cap, kill switch, and behavior freezes.
+- Export/Import: download or restore runtime state snapshots.
+
+Run the scheduler worker:
+
+```sh
+npm run scheduler:run
+```

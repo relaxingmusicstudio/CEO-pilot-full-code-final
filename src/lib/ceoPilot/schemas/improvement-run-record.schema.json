@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ImprovementRunRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "identityKey",
+    "createdAt",
+    "completedAt",
+    "candidates",
+    "appliedCount",
+    "rolledBackCount",
+    "skippedCount"
+  ],
+  "properties": {
+    "runId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "candidates": { "type": "array", "items": { "$ref": "./improvement-candidate.schema.json" } },
+    "appliedCount": { "type": "integer", "minimum": 0 },
+    "rolledBackCount": { "type": "integer", "minimum": 0 },
+    "skippedCount": { "type": "integer", "minimum": 0 }
+  }
+}

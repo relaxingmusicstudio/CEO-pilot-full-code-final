@@ -15,6 +15,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { getOnboardingData } from "@/lib/onboarding";
 import { useCEOAgent } from "@/hooks/useCEOAgent";
 import { CEOPlan, computeOnboardingHash, loadCEOPlan, saveCEOPlan } from "@/lib/ceoPlan";
+import { DEFAULT_GOAL_IDS } from "@/lib/ceoPilot/goals";
 import {
   ChecklistItem,
   ChecklistState,
@@ -63,6 +64,8 @@ import {
 import { loadFlightMode, type FlightMode } from "@/lib/flightMode";
 import { clearPreflightTeam, loadPreflightTeam, savePreflightTeam, type TeamSelection } from "@/lib/preflightTeam";
 import { BRAND } from "@/config/brand";
+import { DEFAULT_AGENT_IDS } from "@/lib/ceoPilot/agents";
+import { deriveTaskClass, estimateActionCostCents } from "@/lib/ceoPilot/costUtils";
 
 export default function CEOHome() {
   const { email, role, signOut, userId } = useAuth();
@@ -131,7 +134,35 @@ export default function CEOHome() {
     !!context.primaryGoal ||
     !!context.offerPricing;
 
-  const onboardingHash = useMemo(() => computeOnboardingHash(userId, email), [userId, email, context]);
+  const ceoGovernanceContext = useMemo(
+    () => ({
+      agentId: DEFAULT_AGENT_IDS.ceo,
+      actionDomain: "ceo",
+      goalId: DEFAULT_GOAL_IDS.ceoPilot,
+      taskId: "ceo-action",
+      taskDescription: "CEO Pilot decision support task.",
+      taskType: "ceo:dashboard",
+      taskClass: "routine" as const,
+      estimatedCostCents: 3,
+      explorationMode: true,
+      actionTags: [],
+      permissionTier: "suggest" as const,
+      confidence: {
+        confidenceScore: 0.72,
+        uncertaintyExplanation: "Simulation-only guidance with limited live feedback.",
+        knownBlindSpots: ["live execution data", "provider outages"],
+        evidenceRefs: ["onboarding:context"],
+      },
+      metrics: {
+        uncertaintyVariance: 0.02,
+        rollbackRate: 0.01,
+        stableRuns: 6,
+      },
+    }),
+    []
+  );
+
+  const onboardingHash = useMemo(() => computeOnboardingHash(userId, email), [userId, email]);
   const identityKey = useMemo(() => computeIdentityKey(userId, email), [userId, email]);
   const allowPlanSections = isOnboardingComplete || isMockMode;
   const planHash = useMemo(() => computePlanHash(plan?.planMarkdown || ""), [plan?.planMarkdown]);
@@ -541,6 +572,20 @@ export default function CEOHome() {
             action: actionSpec,
             identity: { userId, email },
             provider: "ceo_agent",
+            agentContext: {
+              ...ceoGovernanceContext,
+              tool: actionSpec.action_type,
+              decisionType: actionSpec.action_type,
+              impact: actionSpec.irreversible ? "irreversible" : "reversible",
+              taskId: actionSpec.action_id,
+              taskDescription: actionSpec.description,
+              taskType: `action:${actionSpec.action_type}`,
+              taskClass: deriveTaskClass({
+                impact: actionSpec.irreversible ? "irreversible" : "reversible",
+                riskLevel: actionSpec.risk_level,
+              }),
+              estimatedCostCents: estimateActionCostCents(actionSpec),
+            },
           });
           setLastPipelineResult(result);
         } catch {
@@ -559,15 +604,28 @@ export default function CEOHome() {
       const checklistProgress = { completed: checklistState.completedIds.length, total: checklist.length };
       const lastEntry = actionPlan || (doNextHistory.length > 0 ? doNextHistory[0] : null);
       const lastDoNextContext = lastEntry
-        ? {
-            taskId: (lastEntry as any).taskId || (lastEntry as any).checklistItemId,
-            text: (lastEntry as any).checklistItemText || (lastEntry as any).taskId || nextTask?.text || "",
-            summary:
-              (lastEntry as any).parsedJson?.steps?.map((s: any) => `${s.label}: ${s.expectedOutcome}`).join("; ") ||
-              (lastEntry as any).responseMarkdown ||
-              (lastEntry as any).rawResponse ||
-              "",
-          }
+        ? (() => {
+            const typedEntry = lastEntry as {
+              taskId?: string;
+              checklistItemId?: string;
+              checklistItemText?: string;
+              parsedJson?: { steps?: Array<{ label?: string; expectedOutcome?: string }> };
+              responseMarkdown?: string;
+              rawResponse?: string;
+            };
+            const summary =
+              typedEntry.parsedJson?.steps
+                ?.map((step) => `${step.label}: ${step.expectedOutcome}`)
+                .join("; ") ||
+              typedEntry.responseMarkdown ||
+              typedEntry.rawResponse ||
+              "";
+            return {
+              taskId: typedEntry.taskId || typedEntry.checklistItemId,
+              text: typedEntry.checklistItemText || typedEntry.taskId || nextTask?.text || "",
+              summary,
+            };
+          })()
         : null;
 
       let rawResponse = "";

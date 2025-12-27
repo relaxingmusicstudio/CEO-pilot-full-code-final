@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +26,7 @@ export function CEOSchedulerHealth({ tenantId }: CEOSchedulerHealthProps) {
   const [tenantJobs, setTenantJobs] = useState<JobRun[]>([]);
   const [globalJobs, setGlobalJobs] = useState<JobRun[]>([]);
 
-  useEffect(() => {
-    if (tenantId) {
-      loadJobRuns();
-    }
-  }, [tenantId]);
-
-  const loadJobRuns = async () => {
+  const loadJobRuns = useCallback(async () => {
     if (!tenantId) return;
 
     setLoading(true);
@@ -71,7 +65,13 @@ export function CEOSchedulerHealth({ tenantId }: CEOSchedulerHealthProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (tenantId) {
+      loadJobRuns();
+    }
+  }, [loadJobRuns, tenantId]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

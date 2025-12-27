@@ -84,7 +84,7 @@ export default function PlasticSurgeonPipeline() {
           const parsed = JSON.parse(raw);
           setLeads(parsed.leads || []);
           setConsults(parsed.consults || []);
-          setFeedback(parsed.feedback || feedback);
+          setFeedback((prev) => parsed.feedback || prev);
           setAdSpend(parsed.adSpend || 0);
         } catch {
           // ignore parse error

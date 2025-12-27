@@ -10,7 +10,7 @@ const corsHeaders = {
 const mockAdapters = {
   // Twilio SMS/Voice Mock
   twilio: {
-    sms: (payload: any) => ({
+    sms: (payload: unknown) => ({
       sid: `SM_mock_${Date.now()}`,
       status: "queued",
       to: payload.to,
@@ -21,7 +21,7 @@ const mockAdapters = {
       price: null,
       price_unit: "USD",
     }),
-    call: (payload: any) => ({
+    call: (payload: unknown) => ({
       sid: `CA_mock_${Date.now()}`,
       status: "queued",
       to: payload.to,
@@ -34,7 +34,7 @@ const mockAdapters = {
 
   // Stripe Payment Mock
   stripe: {
-    charge: (payload: any) => ({
+    charge: (payload: unknown) => ({
       id: `ch_mock_${Date.now()}`,
       object: "charge",
       amount: payload.amount || 1000,
@@ -47,7 +47,7 @@ const mockAdapters = {
       created: Math.floor(Date.now() / 1000),
       receipt_url: `https://pay.stripe.com/receipts/mock_${Date.now()}`,
     }),
-    subscription: (payload: any) => ({
+    subscription: (payload: unknown) => ({
       id: `sub_mock_${Date.now()}`,
       object: "subscription",
       status: "active",
@@ -60,7 +60,7 @@ const mockAdapters = {
         interval: "month",
       },
     }),
-    invoice: (payload: any) => ({
+    invoice: (payload: unknown) => ({
       id: `in_mock_${Date.now()}`,
       object: "invoice",
       status: "paid",
@@ -73,7 +73,7 @@ const mockAdapters = {
 
   // Email Mock (Resend/SendGrid)
   email: {
-    send: (payload: any) => ({
+    send: (payload: unknown) => ({
       id: `email_mock_${Date.now()}`,
       status: "queued",
       to: Array.isArray(payload.to) ? payload.to : [payload.to],
@@ -85,7 +85,7 @@ const mockAdapters = {
 
   // D-ID Video Mock
   did: {
-    create_talk: (payload: any) => ({
+    create_talk: (payload: unknown) => ({
       id: `tlk_mock_${Date.now()}`,
       status: "created",
       result_url: null,
@@ -93,7 +93,7 @@ const mockAdapters = {
       source_url: payload.source_url,
       script: payload.script,
     }),
-    get_talk: (payload: any) => ({
+    get_talk: (payload: unknown) => ({
       id: payload.talk_id || `tlk_mock_${Date.now()}`,
       status: "done",
       result_url: `https://d-id.com/mock_video_${Date.now()}.mp4`,
@@ -103,14 +103,14 @@ const mockAdapters = {
 
   // Vapi Voice AI Mock
   vapi: {
-    create_call: (payload: any) => ({
+    create_call: (payload: unknown) => ({
       id: `call_mock_${Date.now()}`,
       status: "queued",
       assistant_id: payload.assistant_id,
       phone_number: payload.phone_number,
       created_at: new Date().toISOString(),
     }),
-    end_call: (payload: any) => ({
+    end_call: (payload: unknown) => ({
       id: payload.call_id,
       status: "ended",
       duration_seconds: Math.floor(Math.random() * 300) + 30,
@@ -120,7 +120,7 @@ const mockAdapters = {
 
   // ElevenLabs TTS Mock
   elevenlabs: {
-    tts: (payload: any) => ({
+    tts: (payload: unknown) => ({
       audio_url: `https://api.elevenlabs.io/mock_audio_${Date.now()}.mp3`,
       text: payload.text,
       voice_id: payload.voice_id || "mock_voice",
@@ -130,7 +130,7 @@ const mockAdapters = {
 
   // OpenAI Mock (returns plausible AI responses)
   openai: {
-    chat: (payload: any) => {
+    chat: (payload: unknown) => {
       const mockResponses: Record<string, string> = {
         content: "This is a mock AI-generated content response for testing purposes.",
         email: "Subject: Mock Email\n\nDear Customer,\n\nThis is a mock email generated for testing.",
@@ -163,7 +163,7 @@ const mockAdapters = {
 
   // Social Media Mock
   social: {
-    post: (payload: any) => ({
+    post: (payload: unknown) => ({
       id: `post_mock_${Date.now()}`,
       platform: payload.platform,
       status: "published",
@@ -171,7 +171,7 @@ const mockAdapters = {
       content: payload.content,
       created_at: new Date().toISOString(),
     }),
-    schedule: (payload: any) => ({
+    schedule: (payload: unknown) => ({
       id: `scheduled_mock_${Date.now()}`,
       platform: payload.platform,
       status: "scheduled",
@@ -182,7 +182,7 @@ const mockAdapters = {
 
   // Google Maps / Places Mock
   google_maps: {
-    search: (payload: any) => ({
+    search: (payload: unknown) => ({
       results: [
         {
           place_id: `place_mock_${Date.now()}_1`,
@@ -254,7 +254,7 @@ serve(async (req) => {
     }
 
     // Get the action handler
-    const actionHandler = (serviceAdapter as any)[action];
+    const actionHandler = (serviceAdapter as unknown)[action];
     if (!actionHandler) {
       return new Response(
         JSON.stringify({ error: `No mock handler for action: ${action} on service: ${service_key}` }),
@@ -295,7 +295,7 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Mock adapter error:", error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unknown error" }),

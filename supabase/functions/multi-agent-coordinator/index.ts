@@ -58,7 +58,7 @@ serve(async (req) => {
   }
 });
 
-async function predictTools(params: any, audit: any) {
+async function predictTools(params: unknown, audit: unknown) {
   const { query, context, available_tools } = params;
 
   const response = await aiChat({
@@ -102,7 +102,7 @@ Analyze the query and output JSON:
   }
 }
 
-async function multiCriticReview(params: any, audit: any) {
+async function multiCriticReview(params: unknown, audit: unknown) {
   const { content, content_type, critics = ['quality', 'clarity', 'engagement'] } = params;
 
   const reviewPromises = critics.map(async (critic: string) => {
@@ -148,7 +148,7 @@ async function multiCriticReview(params: any, audit: any) {
   });
 }
 
-async function managerDecompose(params: any, audit: any) {
+async function managerDecompose(params: unknown, audit: unknown) {
   const { task, available_agents = ['content', 'ads', 'sequences', 'inbox', 'social'] } = params;
 
   const response = await aiChat({
@@ -193,7 +193,7 @@ Output JSON:
   }
 }
 
-async function parallelRace(params: any, audit: any) {
+async function parallelRace(params: unknown, audit: unknown) {
   const { prompt, variants = 3 } = params;
 
   const racePromises = Array(variants).fill(null).map(async (_, i) => {

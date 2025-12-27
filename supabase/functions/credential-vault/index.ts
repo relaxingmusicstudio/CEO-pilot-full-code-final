@@ -42,7 +42,7 @@ async function decrypt(encryptedBase64: string): Promise<string> {
 
 // Log credential usage
 async function logUsage(
-  supabase: any,
+  supabase: unknown,
   credentialId: string | null,
   serviceKey: string,
   agentName: string,
@@ -322,13 +322,13 @@ serve(async (req) => {
           .from('service_registry')
           .select('service_key, display_name, category, icon_emoji');
         
-        const serviceMap = new Map(services?.map((s: any) => [s.service_key, s]) || []);
+        const serviceMap = new Map(services?.map((s: unknown) => [s.service_key, s]) || []);
         
-        const enrichedCredentials = credentials?.map((c: any) => ({
+        const enrichedCredentials = credentials?.map((c: unknown) => ({
           ...c,
-          display_name: (serviceMap.get(c.service_key) as any)?.display_name || c.service_key,
-          category: (serviceMap.get(c.service_key) as any)?.category || 'unknown',
-          icon_emoji: (serviceMap.get(c.service_key) as any)?.icon_emoji || '🔌',
+          display_name: (serviceMap.get(c.service_key) as unknown)?.display_name || c.service_key,
+          category: (serviceMap.get(c.service_key) as unknown)?.category || 'unknown',
+          icon_emoji: (serviceMap.get(c.service_key) as unknown)?.icon_emoji || '🔌',
         }));
         
         return new Response(

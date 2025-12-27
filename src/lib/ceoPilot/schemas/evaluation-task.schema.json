@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvaluationTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taskId",
+    "version",
+    "status",
+    "domain",
+    "failureClass",
+    "priority",
+    "type",
+    "description",
+    "input",
+    "expected",
+    "tags"
+  ],
+  "properties": {
+    "taskId": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["active", "deprecated"] },
+    "replacedBy": { "type": "string", "minLength": 1 },
+    "domain": {
+      "type": "string",
+      "enum": ["safety", "memory", "tooling", "coordination", "trust", "contract", "system"]
+    },
+    "failureClass": {
+      "type": "string",
+      "enum": ["schema", "policy", "budget", "scope", "regression", "stability", "unknown"]
+    },
+    "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+    "type": {
+      "type": "string",
+      "enum": [
+        "safety_gate",
+        "memory_scope",
+        "tool_validation",
+        "tool_adaptation",
+        "contract_validation"
+      ]
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "input": { "type": "object" },
+    "expected": { "type": "object" },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  }
+}

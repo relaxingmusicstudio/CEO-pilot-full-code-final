@@ -193,7 +193,7 @@ serve(async (req) => {
   }
 });
 
-function determinePlanFromLead(lead: any): string {
+function determinePlanFromLead(lead: unknown): string {
   const teamSize = lead.team_size || "";
   if (teamSize.includes("10+") || teamSize.includes("10")) return "scale";
   if (teamSize.includes("5-10") || teamSize.includes("6-10")) return "growth";

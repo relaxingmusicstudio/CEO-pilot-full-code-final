@@ -15,13 +15,15 @@ const SANDBOX_ENDPOINTS: Record<string, string> = {
 // Get test credentials for sandbox mode
 function getTestCredentials(serviceKey: string): Record<string, string> | null {
   switch (serviceKey) {
-    case 'stripe':
+    case 'stripe': {
       const stripeTestKey = Deno.env.get('STRIPE_TEST_SECRET_KEY');
       return stripeTestKey ? { api_key: stripeTestKey } : null;
-    case 'twilio':
+    }
+    case 'twilio': {
       const twilioSid = Deno.env.get('TWILIO_TEST_ACCOUNT_SID');
       const twilioToken = Deno.env.get('TWILIO_TEST_AUTH_TOKEN');
       return twilioSid && twilioToken ? { account_sid: twilioSid, auth_token: twilioToken } : null;
+    }
     default:
       return null;
   }

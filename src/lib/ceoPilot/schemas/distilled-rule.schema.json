@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DistilledRule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ruleId",
+    "version",
+    "taskType",
+    "inputHash",
+    "goalId",
+    "output",
+    "successCount",
+    "failureCount",
+    "errorRate",
+    "status",
+    "provenance",
+    "confidenceLowerBound",
+    "confidenceUpperBound",
+    "ruleCostCents",
+    "sourceCostCents",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "ruleId": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "inputHash": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "output": { "type": "object" },
+    "successCount": { "type": "integer", "minimum": 0 },
+    "failureCount": { "type": "integer", "minimum": 0 },
+    "errorRate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "status": { "type": "string", "enum": ["active", "demoted"] },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceOutcomeIds", "createdBy"],
+      "properties": {
+        "sourceOutcomeIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "timeWindowStart": { "type": "string", "format": "date-time" },
+        "timeWindowEnd": { "type": "string", "format": "date-time" },
+        "confidenceDecay": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reviewBy": { "type": "string", "format": "date-time" },
+        "sourceModelTier": { "type": "string", "enum": ["economy", "standard", "advanced", "frontier"] },
+        "sourceModelId": { "type": "string", "minLength": 1 },
+        "createdBy": { "type": "string", "enum": ["improvement_loop", "human", "system"] }
+      }
+    },
+    "confidenceLowerBound": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidenceUpperBound": { "type": "number", "minimum": 0, "maximum": 1 },
+    "ruleCostCents": { "type": "integer", "minimum": 0 },
+    "sourceCostCents": { "type": "integer", "minimum": 0 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "lastValidatedAt": { "type": "string", "format": "date-time" },
+    "lastUsedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

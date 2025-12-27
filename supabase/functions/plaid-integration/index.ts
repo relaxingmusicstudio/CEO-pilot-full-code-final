@@ -115,7 +115,7 @@ serve(async (req) => {
 
         // Insert new transactions
         if (data.added && data.added.length > 0) {
-          const transactions = data.added.map((tx: any) => ({
+          const transactions = data.added.map((tx: unknown) => ({
             connection_id: params.connection_id,
             plaid_transaction_id: tx.transaction_id,
             name: tx.name,
@@ -238,7 +238,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Plaid integration error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

@@ -35,8 +35,8 @@ export interface AIChatOptions {
   purpose?: string;
   temperature?: number;
   max_tokens?: number;
-  tools?: any[];
-  tool_choice?: any;
+  tools?: unknown[];
+  tool_choice?: unknown;
 }
 
 export interface AIVisionOptions {
@@ -69,7 +69,7 @@ export interface AITokenUsage {
  */
 export interface AIChatResponse {
   text: string;
-  raw: any;
+  raw: unknown;
   provider: AIProvider;
   model: string;
   usage?: AITokenUsage;
@@ -226,7 +226,7 @@ function safeBase64Encode(buffer: ArrayBuffer): string {
 /**
  * Extract token usage from Gemini response
  */
-function extractGeminiUsage(data: any): AITokenUsage | undefined {
+function extractGeminiUsage(data: unknown): AITokenUsage | undefined {
   const usageMetadata = data?.usageMetadata;
   if (usageMetadata) {
     return {
@@ -241,7 +241,7 @@ function extractGeminiUsage(data: any): AITokenUsage | undefined {
 /**
  * Extract token usage from OpenAI response
  */
-function extractOpenAIUsage(data: any): AITokenUsage | undefined {
+function extractOpenAIUsage(data: unknown): AITokenUsage | undefined {
   const usage = data?.usage;
   if (usage) {
     return {
@@ -292,10 +292,10 @@ export function estimateCostCents(
  * Calls Google Gemini API with retry logic
  */
 async function callGeminiWithRetry(
-  requestBody: any,
+  requestBody: unknown,
   model: string,
   maxRetries: number = 2
-): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
+): Promise<{ data: unknown; error?: AIError; latency_ms?: number }> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   
   if (!apiKey || apiKey.length === 0) {
@@ -391,9 +391,9 @@ async function callGeminiWithRetry(
 async function callOpenAIWithRetry(
   messages: Array<{ role: string; content: string }>,
   model: string,
-  options: { temperature?: number; max_tokens?: number; tools?: any[]; tool_choice?: any } = {},
+  options: { temperature?: number; max_tokens?: number; tools?: unknown[]; tool_choice?: unknown } = {},
   maxRetries: number = 2
-): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
+): Promise<{ data: unknown; error?: AIError; latency_ms?: number }> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   
   if (!apiKey || apiKey.length === 0) {
@@ -403,7 +403,7 @@ async function callOpenAIWithRetry(
     };
   }
 
-  const requestBody: any = {
+  const requestBody: unknown = {
     model,
     messages,
     temperature: options.temperature ?? 0.7,
@@ -504,8 +504,8 @@ async function callOpenAIWithRetry(
  */
 async function callLovableAIGateway(
   messages: Array<{ role: string; content: string }>,
-  options: { temperature?: number; max_tokens?: number; tools?: any[]; tool_choice?: any } = {},
-): Promise<{ data: any; error?: AIError; latency_ms?: number }> {
+  options: { temperature?: number; max_tokens?: number; tools?: unknown[]; tool_choice?: unknown } = {},
+): Promise<{ data: unknown; error?: AIError; latency_ms?: number }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   
   if (!apiKey || apiKey.length === 0) {
@@ -516,7 +516,7 @@ async function callLovableAIGateway(
     };
   }
 
-  const requestBody: any = {
+  const requestBody: unknown = {
     model: LOVABLE_AI_MODEL,
     messages,
     stream: false,
@@ -697,7 +697,7 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       }
     }
 
-    const requestBody: any = {
+    const requestBody: unknown = {
       contents,
       generationConfig: {
         temperature: options.temperature ?? 0.7,
@@ -709,7 +709,7 @@ export async function aiChat(options: AIChatOptions): Promise<AIChatResponse> {
       requestBody.systemInstruction = { parts: [{ text: enhancedSystemMessage }] };
     }
 
-    let { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
+    const { data, error, latency_ms } = await callGeminiWithRetry(requestBody, model || DEFAULT_MODEL);
     
     // Fallback to Lovable AI Gateway if Gemini quota exceeded
     if (error && (error.code === "QUOTA_EXCEEDED" || error.code === "RATE_LIMITED")) {
@@ -835,7 +835,7 @@ export async function aiVision(options: AIVisionOptions): Promise<AIChatResponse
   }
 
   // Build parts array for multimodal
-  const parts: any[] = [];
+  const parts: unknown[] = [];
   
   // Add text prompt first
   parts.push({ text: options.prompt });
@@ -880,7 +880,7 @@ export async function aiVision(options: AIVisionOptions): Promise<AIChatResponse
     throw new Error("Either image_url or image_base64 is required for vision");
   }
 
-  const requestBody: any = {
+  const requestBody: unknown = {
     contents: [{ role: "user", parts }],
     generationConfig: {
       temperature: 0.4,
@@ -946,7 +946,7 @@ export async function* aiChatStream(options: AIChatOptions): AsyncGenerator<stri
     parts: [{ text: msg.content }],
   }));
 
-  const requestBody: any = {
+  const requestBody: unknown = {
     contents,
     generationConfig: {
       temperature: options.temperature ?? 0.7,

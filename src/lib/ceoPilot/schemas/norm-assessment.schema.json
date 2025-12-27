@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NormAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["violations", "checkedAt"],
+  "properties": {
+    "violations": {
+      "type": "array",
+      "items": { "$ref": "./norm-violation.schema.json" }
+    },
+    "justification": { "type": "string", "minLength": 1 },
+    "checkedAt": { "type": "string", "format": "date-time" }
+  }
+}

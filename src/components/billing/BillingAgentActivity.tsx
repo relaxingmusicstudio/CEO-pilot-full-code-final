@@ -37,18 +37,29 @@ interface BillingAction {
   clients?: { name: string };
 }
 
+interface PendingWorkItem {
+  type: string;
+  count: number;
+}
+
+interface AgentStatus {
+  status?: string;
+  message?: string;
+  pending_work?: PendingWorkItem[];
+}
+
 export default function BillingAgentActivity() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'pending'>('all');
 
-  const { data: agentStatus, refetch: refetchStatus } = useQuery({
+  const { data: agentStatus, refetch: refetchStatus } = useQuery<AgentStatus | null>({
     queryKey: ['billing-agent-status'],
-    queryFn: async () => {
+    queryFn: async (): Promise<AgentStatus | null> => {
       const { data, error } = await supabase.functions.invoke('billing-agent', {
         body: { action: 'check_pending_work' }
       });
       if (error) throw error;
-      return data;
+      return data as AgentStatus;
     },
     refetchInterval: 30000 // Check every 30 seconds
   });
@@ -155,7 +166,7 @@ export default function BillingAgentActivity() {
           </div>
           {agentStatus?.pending_work?.length > 0 && (
             <div className="mt-3 flex gap-2 flex-wrap">
-              {agentStatus.pending_work.map((work: any, i: number) => (
+              {agentStatus.pending_work.map((work, i) => (
                 <Badge key={i} variant="outline">
                   {work.type}: {work.count}
                 </Badge>

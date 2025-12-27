@@ -97,7 +97,7 @@ serve(async (req) => {
 });
 
 // Save a new memory with embedding - ENFORCES MEMORY AUTHORITY
-async function saveMemory(supabase: any, params: any) {
+async function saveMemory(supabase: unknown, params: unknown) {
   const { agent_type, query, response, metadata = {}, is_summary = false } = params;
 
   if (!agent_type || !query || !response) {
@@ -191,7 +191,7 @@ async function saveMemory(supabase: any, params: any) {
 }
 
 // Search for similar memories using vector similarity
-async function searchMemories(supabase: any, params: any) {
+async function searchMemories(supabase: unknown, params: unknown) {
   const { agent_type, query, threshold = 0.8, limit = 3 } = params;
 
   if (!query) {
@@ -242,13 +242,13 @@ async function searchMemories(supabase: any, params: any) {
 
   // Calculate similarity scores in-memory
   const memoriesWithScores = memories
-    .filter((m: any) => m.query_embedding)
-    .map((memory: any) => {
+    .filter((m: unknown) => m.query_embedding)
+    .map((memory: unknown) => {
       const similarity = cosineSimilarity(queryEmbedding, memory.query_embedding);
       return { ...memory, similarity };
     })
-    .filter((m: any) => m.similarity >= threshold)
-    .sort((a: any, b: any) => b.similarity - a.similarity)
+    .filter((m: unknown) => m.similarity >= threshold)
+    .sort((a: unknown, b: unknown) => b.similarity - a.similarity)
     .slice(0, limit);
 
   // Update performance metrics
@@ -267,7 +267,7 @@ async function searchMemories(supabase: any, params: any) {
 }
 
 // Update memory score based on feedback
-async function updateMemory(supabase: any, params: any) {
+async function updateMemory(supabase: unknown, params: unknown) {
   const { memory_id, success_score, metadata } = params;
 
   if (!memory_id) {
@@ -277,7 +277,7 @@ async function updateMemory(supabase: any, params: any) {
     );
   }
 
-  const updates: any = { updated_at: new Date().toISOString() };
+  const updates: unknown = { updated_at: new Date().toISOString() };
   if (success_score !== undefined) updates.success_score = success_score;
   if (metadata) updates.metadata = metadata;
 
@@ -303,7 +303,7 @@ async function updateMemory(supabase: any, params: any) {
 }
 
 // Delete a memory
-async function deleteMemory(supabase: any, params: any) {
+async function deleteMemory(supabase: unknown, params: unknown) {
   const { memory_id } = params;
 
   if (!memory_id) {
@@ -333,7 +333,7 @@ async function deleteMemory(supabase: any, params: any) {
 }
 
 // Get agent stats
-async function getStats(supabase: any, params: any) {
+async function getStats(supabase: unknown, params: unknown) {
   const { agent_type } = params;
 
   // Get memory count and avg score
@@ -356,11 +356,11 @@ async function getStats(supabase: any, params: any) {
 
   // Calculate averages
   const avgScore = memories && memories.length > 0
-    ? memories.reduce((sum: number, m: any) => sum + (m.success_score || 0), 0) / memories.length
+    ? memories.reduce((sum: number, m: unknown) => sum + (m.success_score || 0), 0) / memories.length
     : 0;
 
-  const totalQueries = performance?.reduce((sum: number, p: any) => sum + (p.total_queries || 0), 0) || 0;
-  const totalCacheHits = performance?.reduce((sum: number, p: any) => sum + (p.cache_hits || 0), 0) || 0;
+  const totalQueries = performance?.reduce((sum: number, p: unknown) => sum + (p.total_queries || 0), 0) || 0;
+  const totalCacheHits = performance?.reduce((sum: number, p: unknown) => sum + (p.cache_hits || 0), 0) || 0;
   const cacheHitRate = totalQueries > 0 ? (totalCacheHits / totalQueries) * 100 : 0;
 
   return new Response(
@@ -379,7 +379,7 @@ async function getStats(supabase: any, params: any) {
 }
 
 // Increment usage count for a memory
-async function incrementUsage(supabase: any, params: any) {
+async function incrementUsage(supabase: unknown, params: unknown) {
   const { memory_id } = params;
 
   if (!memory_id) {
@@ -428,7 +428,7 @@ async function incrementUsage(supabase: any, params: any) {
 }
 
 // Helper: Update performance metric
-async function updatePerformanceMetric(supabase: any, agent_type: string, metric: string, value: number) {
+async function updatePerformanceMetric(supabase: unknown, agent_type: string, metric: string, value: number) {
   const today = new Date().toISOString().split('T')[0];
 
   // Try to update existing record
@@ -440,7 +440,7 @@ async function updatePerformanceMetric(supabase: any, agent_type: string, metric
     .single();
 
   if (existing) {
-    const updates: any = {};
+    const updates: unknown = {};
     updates[metric] = (existing[metric] || 0) + value;
     
     await supabase
@@ -448,7 +448,7 @@ async function updatePerformanceMetric(supabase: any, agent_type: string, metric
       .update(updates)
       .eq('id', existing.id);
   } else {
-    const insert: any = {
+    const insert: unknown = {
       agent_type,
       date: today,
       [metric]: value,

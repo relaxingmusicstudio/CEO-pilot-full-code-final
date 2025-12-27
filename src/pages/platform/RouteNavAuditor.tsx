@@ -52,7 +52,9 @@ export default function RouteNavAuditor() {
     try {
       const stored = localStorage.getItem(ISSUE_COUNTS_KEY);
       if (stored) setIssueCounts(JSON.parse(stored));
-    } catch {}
+    } catch {
+      // ignore localStorage parse errors
+    }
   }, []);
 
   // Check for recurring issues

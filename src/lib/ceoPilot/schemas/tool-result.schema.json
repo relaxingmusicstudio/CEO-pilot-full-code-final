@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "tool", "status", "metrics", "completedAt"],
+  "properties": {
+    "requestId": { "type": "string", "minLength": 1 },
+    "tool": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["success", "failure"] },
+    "output": { "type": "object" },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "message", "retryable"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "schema_validation_error",
+            "tool_runtime_error",
+            "timeout",
+            "permission_denied",
+            "budget_exceeded",
+            "policy_blocked",
+            "unknown"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latencyMs", "costCents", "tokens", "sideEffects"],
+      "properties": {
+        "latencyMs": { "type": "integer", "minimum": 0 },
+        "costCents": { "type": "integer", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "sideEffects": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "completedAt": { "type": "string", "format": "date-time" }
+  }
+}

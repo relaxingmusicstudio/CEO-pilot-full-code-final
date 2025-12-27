@@ -182,7 +182,9 @@ export function saveBuildOutput(text: string): void {
       text,
     };
     localStorage.setItem(BUILD_OUTPUT_KEY, JSON.stringify(data));
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -195,7 +197,9 @@ export function loadBuildOutput(): string {
       const data = JSON.parse(stored);
       return data.text || "";
     }
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return "";
 }
 
@@ -205,7 +209,9 @@ export function loadBuildOutput(): string {
 export function clearBuildOutput(): void {
   try {
     localStorage.removeItem(BUILD_OUTPUT_KEY);
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -221,7 +227,9 @@ export function getBuildOutputMeta(): { timestamp: string; length: number } | nu
         length: data.text?.length || 0,
       };
     }
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return null;
 }
 
@@ -237,7 +245,9 @@ export function saveClaimLog(text: string): void {
       text,
     };
     localStorage.setItem(CLAIM_LOG_KEY, JSON.stringify(data));
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -250,7 +260,9 @@ export function loadClaimLog(): string {
       const data = JSON.parse(stored);
       return data.text || "";
     }
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return "";
 }
 
@@ -260,7 +272,9 @@ export function loadClaimLog(): string {
 export function clearClaimLog(): void {
   try {
     localStorage.removeItem(CLAIM_LOG_KEY);
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 // ============= FS Reality Check Storage =============
@@ -271,7 +285,9 @@ export function clearClaimLog(): void {
 export function storeFSRealityCheck(result: FSRealityCheckResult): void {
   try {
     localStorage.setItem(FS_REALITY_CHECK_KEY, JSON.stringify(result));
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -281,7 +297,9 @@ export function loadStoredFSRealityCheck(): FSRealityCheckResult | null {
   try {
     const stored = localStorage.getItem(FS_REALITY_CHECK_KEY);
     if (stored) return JSON.parse(stored) as FSRealityCheckResult;
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return null;
 }
 

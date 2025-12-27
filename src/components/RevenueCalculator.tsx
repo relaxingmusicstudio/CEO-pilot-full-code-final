@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Calculator, TrendingDown, TrendingUp, Phone } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const RevenueCalculator = () => {
   const { trackCalculatorUse, trackCtaClick } = useVisitor();

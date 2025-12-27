@@ -45,7 +45,7 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ms);
   try {
-    // @ts-ignore AbortSignal may be unused for some callers
+    // @ts-expect-error AbortSignal may be unused for some callers
     const result = await promise;
     clearTimeout(timeout);
     return result;

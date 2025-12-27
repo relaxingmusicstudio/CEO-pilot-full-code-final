@@ -193,10 +193,13 @@ export default function QATests() {
     if (!tenantIdA) {
       return { ceo_alerts: { ok: false, error: "No tenant ID" }, lead_data: { ok: false, error: "No tenant ID" } };
     }
+
+    const runRpc = (fn: string, args?: Record<string, unknown>) =>
+      supabase.rpc(fn, args) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>;
     
     try {
       // Seed ceo_alerts
-      const { data: alertData, error: alertError } = await (supabase.rpc as any)("qa_seed_ceo_alerts", { p_tenant_id: tenantIdA });
+      const { data: alertData, error: alertError } = await runRpc("qa_seed_ceo_alerts", { p_tenant_id: tenantIdA });
       if (alertError) {
         result.ceo_alerts = { ok: false, error: alertError.message };
       } else {
@@ -209,7 +212,7 @@ export default function QATests() {
     
     try {
       // Seed lead data
-      const { data: leadData, error: leadError } = await (supabase.rpc as any)("qa_seed_minimal_lead_data", { p_tenant_id: tenantIdA });
+      const { data: leadData, error: leadError } = await runRpc("qa_seed_minimal_lead_data", { p_tenant_id: tenantIdA });
       if (leadError) {
         result.lead_data = { ok: false, error: leadError.message };
       } else {

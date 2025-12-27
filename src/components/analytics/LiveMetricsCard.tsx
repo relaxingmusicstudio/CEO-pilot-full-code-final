@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useClickThrough } from "@/hooks/useClickThrough";
+import type { EntityType } from "@/hooks/useClickThrough";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,7 +19,7 @@ interface LiveMetricsCardProps {
   format?: "number" | "currency" | "percentage";
   icon: LucideIcon;
   isLive?: boolean;
-  entity?: string;
+  entity?: EntityType;
   filter?: Record<string, string>;
   className?: string;
 }
@@ -36,14 +37,19 @@ export function LiveMetricsCard({
 }: LiveMetricsCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const displayValueRef = useRef(displayValue);
   const { navigateToDetail } = useClickThrough();
+
+  useEffect(() => {
+    displayValueRef.current = displayValue;
+  }, [displayValue]);
 
   // Animate value changes
   useEffect(() => {
-    if (displayValue !== value) {
+    if (displayValueRef.current !== value) {
       setIsAnimating(true);
       const duration = 500;
-      const startValue = displayValue;
+      const startValue = displayValueRef.current;
       const diff = value - startValue;
       const startTime = Date.now();
 
@@ -90,7 +96,7 @@ export function LiveMetricsCard({
 
   const handleClick = () => {
     if (entity) {
-      navigateToDetail(entity as any, filter);
+      navigateToDetail(entity, filter);
     }
   };
 

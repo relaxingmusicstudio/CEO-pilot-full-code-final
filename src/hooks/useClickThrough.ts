@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback } from "react";
 
-type EntityType = "leads" | "pipeline" | "content" | "sequences" | "clients" | "approvals" | "vault" | "crm" | "system-health" | "settings";
+export type EntityType = "leads" | "pipeline" | "content" | "sequences" | "clients" | "approvals" | "vault" | "crm" | "system-health" | "settings";
 
 interface NavigationOptions {
   filter?: string;

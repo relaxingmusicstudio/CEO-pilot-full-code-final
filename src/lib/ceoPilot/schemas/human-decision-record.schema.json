@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HumanDecisionRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisionId", "identityKey", "targetType", "targetId", "decision", "createdAt"],
+  "properties": {
+    "decisionId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "targetType": {
+      "type": "string",
+      "enum": ["improvement_candidate", "distilled_rule", "control_profile", "emergency_mode"]
+    },
+    "targetId": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "string",
+      "enum": ["approve", "reject", "request_more_evidence", "escalate"]
+    },
+    "notes": { "type": "string", "minLength": 1 },
+    "decidedBy": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

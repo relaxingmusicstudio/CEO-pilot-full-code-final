@@ -7,7 +7,7 @@ import { getPostBySlug, getRecentPosts } from "@/data/blogPosts";
 import { Calendar, Clock, ArrowLeft, User, Tag, Share2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();

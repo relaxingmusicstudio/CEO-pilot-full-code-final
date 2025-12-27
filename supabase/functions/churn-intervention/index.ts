@@ -129,7 +129,7 @@ CLIENT DATA:
 - Last Contact: ${client.last_contact || "Never"}
 
 USAGE (last 30 days):
-${JSON.stringify(usage?.reduce((acc: any, d: any) => ({
+${JSON.stringify(usage?.reduce((acc: unknown, d: unknown) => ({
   logins: (acc.logins || 0) + (d.login_count || 0),
   conversations: (acc.conversations || 0) + (d.conversations_handled || 0),
   leads: (acc.leads || 0) + (d.leads_captured || 0),
@@ -257,7 +257,7 @@ ${interventions?.slice(0, 5).map(i => `- ${i.intervention_type}: ${i.outcome || 
   }
 });
 
-function generateFallbackStrategy(client: any, usage: any[], tickets: any[]) {
+function generateFallbackStrategy(client: unknown, usage: unknown[], tickets: unknown[]) {
   const totalLogins = usage.reduce((sum, d) => sum + (d.login_count || 0), 0);
   const hasTickets = tickets.some(t => t.status === "open");
 

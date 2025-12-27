@@ -179,9 +179,9 @@ serve(async (req) => {
 
 // Extracted send logic - use any for Deno edge function context
 async function performSend(
-  supabase: any,
+  supabase: unknown,
   params: {
-    contact: any;
+    contact: unknown;
     contact_id: string;
     channel: string;
     content: string;

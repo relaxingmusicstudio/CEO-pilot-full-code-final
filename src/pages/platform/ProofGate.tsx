@@ -113,6 +113,8 @@ export default function ProofGate() {
     setShowTextarea(false);
     setValidationResult(null);
     setSteps(steps.map(s => ({ ...s, status: "pending", result: undefined, error: undefined })));
+    const runRpc = (fn: string) =>
+      supabase.rpc(fn) as unknown as Promise<{ data: PreflightReport | null; error: { message?: string } | null }>;
     
     // Create recorder context for proof capture
     const recorderCtx = createRecorderContext();
@@ -136,7 +138,9 @@ export default function ProofGate() {
       const { data: tenants } = await supabase.from("tenants").select("id").limit(5);
       pack.tenant_ids = tenants?.map(t => t.id) || [];
       newBundle.tenant_ids = pack.tenant_ids;
-    } catch {}
+    } catch {
+      // ignore tenant lookup errors
+    }
 
     // === STEP 1: Access/Role Snapshot ===
     updateStep("access_check", { status: "running" });
@@ -277,7 +281,7 @@ export default function ProofGate() {
     updateStep("db_doctor", { status: "running" });
     await runWithProof(recorderCtx, "db_doctor", async () => {
       try {
-        const { data, error } = await (supabase.rpc as any)("qa_dependency_check");
+        const { data, error } = await runRpc("qa_dependency_check");
         if (error) throw error;
         newBundle.db_doctor_report = data;
         updateStep("db_doctor", { status: data?.ok ? "pass" : "fail", result: data });
@@ -367,7 +371,10 @@ export default function ProofGate() {
         pack.human_actions_required.push({
           action: "Run Fix SQL in Supabase",
           location: "Supabase Dashboard → SQL Editor",
-          value: newBundle.db_doctor_report?.suspects?.map((s: any) => s.fix_sql).join("\n\n"),
+          value: newBundle.db_doctor_report?.suspects
+            ?.map((s) => (s as { fix_sql?: string }).fix_sql || "")
+            .filter((fixSql) => fixSql.length > 0)
+            .join("\n\n"),
         });
       }
       

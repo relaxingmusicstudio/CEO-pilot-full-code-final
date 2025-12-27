@@ -183,17 +183,21 @@ const resolveDecisionOutcome = (
   payload: DoNextPayload | null
 ): DecisionOutcome => ensureOutcome(outcome ?? buildDoNextOutcome(rawResponse, payload), "INVALID_OUTCOME");
 
-const normalizeDoNextPayload = (value: any): DoNextPayload | null => {
+const normalizeDoNextPayload = (value: unknown): DoNextPayload | null => {
   if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
 
-  const steps: DoNextStep[] = Array.isArray(value.steps)
-    ? value.steps
-        .map((step: any) => {
+  const steps: DoNextStep[] = Array.isArray(record.steps)
+    ? record.steps
+        .map((step) => {
           if (!step || typeof step !== "object") return null;
-          const label = isNonEmptyString(step.label) ? step.label.trim() : null;
-          const expectedOutcome = isNonEmptyString(step.expectedOutcome) ? step.expectedOutcome.trim() : null;
+          const stepRecord = step as Record<string, unknown>;
+          const label = isNonEmptyString(stepRecord.label) ? stepRecord.label.trim() : null;
+          const expectedOutcome = isNonEmptyString(stepRecord.expectedOutcome)
+            ? stepRecord.expectedOutcome.trim()
+            : null;
           if (!label || !expectedOutcome) return null;
-          const estimatedMinutes = coerceMinutes(step.estimatedMinutes);
+          const estimatedMinutes = coerceMinutes(stepRecord.estimatedMinutes);
           return estimatedMinutes !== undefined
             ? { label, expectedOutcome, estimatedMinutes }
             : { label, expectedOutcome };
@@ -202,16 +206,18 @@ const normalizeDoNextPayload = (value: any): DoNextPayload | null => {
     : [];
 
   const payload: DoNextPayload = {
-    title: isNonEmptyString(value.title) ? value.title.trim() : "",
-    objective: isNonEmptyString(value.objective) ? value.objective.trim() : "",
+    title: isNonEmptyString(record.title) ? record.title.trim() : "",
+    objective: isNonEmptyString(record.objective) ? record.objective.trim() : "",
     steps,
-    successCriteria: Array.isArray(value.successCriteria)
-      ? value.successCriteria.filter(isNonEmptyString).map((item: string) => item.trim())
+    successCriteria: Array.isArray(record.successCriteria)
+      ? record.successCriteria.filter(isNonEmptyString).map((item) => item.trim())
       : [],
-    blockers: Array.isArray(value.blockers)
-      ? value.blockers.filter(isNonEmptyString).map((item: string) => item.trim())
+    blockers: Array.isArray(record.blockers)
+      ? record.blockers.filter(isNonEmptyString).map((item) => item.trim())
       : [],
-    escalationPrompt: isNonEmptyString(value.escalationPrompt) ? value.escalationPrompt.trim() : "",
+    escalationPrompt: isNonEmptyString(record.escalationPrompt)
+      ? record.escalationPrompt.trim()
+      : "",
   };
 
   if (!payload.title || !payload.objective || payload.steps.length === 0 || !payload.escalationPrompt) {

@@ -23,9 +23,22 @@ interface Deal {
   value: number;
   stage: string;
   probability: number;
-  buying_signals: any[];
-  competitor_mentions: any[];
+  buying_signals: BuyingSignal[];
+  competitor_mentions: CompetitorMention[];
   sentiment_score: number;
+}
+
+interface BuyingSignal {
+  type?: string;
+  text?: string;
+  strength?: number;
+}
+
+interface CompetitorMention {
+  name?: string;
+  mentions?: number;
+  avgDealValue?: number;
+  threatLevel?: string;
 }
 
 interface Props {
@@ -117,29 +130,35 @@ export function RevenueIntelligence({ deals }: Props) {
             <p className="text-sm text-muted-foreground">
               Buying signals extracted from conversations and interactions
             </p>
-            {displaySignals.slice(0, 5).map((signal, i) => (
-              <div key={i} className="p-3 rounded-lg border bg-card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={
-                        signal.type === 'urgency' ? 'default' :
-                        signal.type === 'budget' ? 'secondary' :
-                        signal.type === 'decision' ? 'outline' : 'outline'
-                      }>
-                        {signal.type}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">{signal.dealName}</span>
+            {displaySignals.slice(0, 5).map((signal, i) => {
+              const signalType = signal.type ?? "signal";
+              const signalText = signal.text ?? "Signal detected";
+              const signalStrength = typeof signal.strength === "number" ? signal.strength : 0;
+
+              return (
+                <div key={i} className="p-3 rounded-lg border bg-card">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          signalType === 'urgency' ? 'default' :
+                          signalType === 'budget' ? 'secondary' :
+                          signalType === 'decision' ? 'outline' : 'outline'
+                        }>
+                          {signalType}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">{signal.dealName}</span>
+                      </div>
+                      <p className="text-sm mt-1">{signalText}</p>
                     </div>
-                    <p className="text-sm mt-1">{signal.text}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Strength</p>
-                    <Progress value={signal.strength * 100} className="w-16 h-2 mt-1" />
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Strength</p>
+                      <Progress value={signalStrength * 100} className="w-16 h-2 mt-1" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </TabsContent>
 
           <TabsContent value="competitors" className="mt-4 space-y-3">

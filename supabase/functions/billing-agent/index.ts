@@ -15,15 +15,15 @@ interface BillingAction {
 const REFUND_THRESHOLD_REQUIRES_APPROVAL = 500; // $500+ requires human approval
 
 // Audit logging helper
-async function logAudit(supabase: any, entry: {
+async function logAudit(supabase: unknown, entry: {
   agent_name: string;
   action_type: string;
   entity_type?: string;
   entity_id?: string;
   description: string;
   success: boolean;
-  request_snapshot?: any;
-  response_snapshot?: any;
+  request_snapshot?: unknown;
+  response_snapshot?: unknown;
 }) {
   try {
     await supabase.from('platform_audit_log').insert({
@@ -98,7 +98,7 @@ serve(async (req: Request): Promise<Response> => {
       // ==================== STRIPE PRODUCT MANAGEMENT ====================
       case 'create_stripe_product': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { name, description, unit_amount, pricing_type = 'recurring', billing_interval = 'month', metered_usage_type } = body as any;
+        const { name, description, unit_amount, pricing_type = 'recurring', billing_interval = 'month', metered_usage_type } = body as unknown;
 
         // Create product in Stripe
         const product = await stripe.products.create({
@@ -107,7 +107,7 @@ serve(async (req: Request): Promise<Response> => {
         });
 
         // Create price
-        const priceParams: any = {
+        const priceParams: unknown = {
           product: product.id,
           currency: 'usd',
         };
@@ -174,7 +174,7 @@ serve(async (req: Request): Promise<Response> => {
 
       case 'update_pricing': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { product_id, new_unit_amount, reason } = body as any;
+        const { product_id, new_unit_amount, reason } = body as unknown;
 
         // Get existing product
         const { data: existingProduct } = await supabase
@@ -186,7 +186,7 @@ serve(async (req: Request): Promise<Response> => {
         if (!existingProduct) throw new Error('Product not found');
 
         // Create new price (Stripe doesn't allow updating prices, must create new)
-        const priceParams: any = {
+        const priceParams: unknown = {
           product: existingProduct.stripe_product_id,
           currency: 'usd',
           unit_amount: new_unit_amount,
@@ -237,7 +237,7 @@ serve(async (req: Request): Promise<Response> => {
 
       case 'delete_product': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { product_id, reason } = body as any;
+        const { product_id, reason } = body as unknown;
 
         const { data: product } = await supabase
           .from('stripe_products')
@@ -277,7 +277,7 @@ serve(async (req: Request): Promise<Response> => {
       // ==================== REFUNDS ====================
       case 'process_refund': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { invoice_id, amount, reason, client_id } = body as any;
+        const { invoice_id, amount, reason, client_id } = body as unknown;
 
         // Get invoice to find payment intent
         const { data: invoice } = await supabase
@@ -365,7 +365,7 @@ serve(async (req: Request): Promise<Response> => {
       // GOVERNANCE: approve_action ONLY changes status - NO execution
       // System is Propose-Only. Approved actions sit in queue until manual execution is implemented.
       case 'approve_action': {
-        const { action_id, approved_by } = body as any;
+        const { action_id, approved_by } = body as unknown;
 
         const { data: actionRecord } = await supabase
           .from('billing_agent_actions')
@@ -408,7 +408,7 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       case 'reject_action': {
-        const { action_id, rejected_by, reason } = body as any;
+        const { action_id, rejected_by, reason } = body as unknown;
 
         await supabase
           .from('billing_agent_actions')
@@ -427,7 +427,7 @@ serve(async (req: Request): Promise<Response> => {
       // ==================== USAGE SYNC ====================
       case 'sync_usage_to_stripe': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { client_id } = body as any;
+        const { client_id } = body as unknown;
 
         // Get client's Stripe subscription
         const { data: client } = await supabase
@@ -457,7 +457,7 @@ serve(async (req: Request): Promise<Response> => {
 
         // Get subscription items
         const subscription = await stripe.subscriptions.retrieve(client.subscription_id);
-        const meteredItems = subscription.items.data.filter((item: any) =>
+        const meteredItems = subscription.items.data.filter((item: unknown) =>
           item.price.recurring?.usage_type === 'metered'
         );
 
@@ -557,7 +557,7 @@ serve(async (req: Request): Promise<Response> => {
           });
 
           // Send dunning notifications via messaging-send
-          const client = invoice.clients as any;
+          const client = invoice.clients as unknown;
           if (client?.email) {
             try {
               await supabase.functions.invoke('messaging-send', {
@@ -609,7 +609,7 @@ serve(async (req: Request): Promise<Response> => {
 
       case 'retry_failed_payment': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { invoice_id } = body as any;
+        const { invoice_id } = body as unknown;
 
         const { data: invoice } = await supabase
           .from('client_invoices')
@@ -655,7 +655,7 @@ serve(async (req: Request): Promise<Response> => {
       // ==================== DISPUTES ====================
       case 'handle_dispute': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { dispute_id, evidence } = body as any;
+        const { dispute_id, evidence } = body as unknown;
 
         // Submit evidence for the dispute
         const dispute = await stripe.disputes.update(dispute_id, {
@@ -688,7 +688,7 @@ serve(async (req: Request): Promise<Response> => {
       // ==================== CUSTOMER MANAGEMENT ====================
       case 'create_stripe_customer': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { client_id } = body as any;
+        const { client_id } = body as unknown;
 
         const { data: client } = await supabase
           .from('clients')
@@ -728,7 +728,7 @@ serve(async (req: Request): Promise<Response> => {
 
       case 'get_customer_portal_link': {
         if (!stripe) throw new Error('Stripe not configured');
-        const { client_id, return_url } = body as any;
+        const { client_id, return_url } = body as unknown;
 
         const { data: client } = await supabase
           .from('clients')
@@ -753,7 +753,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // ==================== USAGE & ANALYTICS ====================
       case 'get_usage_summary': {
-        const { client_id, period_start, period_end } = body as any;
+        const { client_id, period_start, period_end } = body as unknown;
 
         let query = supabase
           .from('usage_records')
@@ -783,7 +783,7 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       case 'get_agent_activity': {
-        const { limit = 50, action_type, requires_review } = body as any;
+        const { limit = 50, action_type, requires_review } = body as unknown;
 
         let query = supabase
           .from('billing_agent_actions')
@@ -824,7 +824,7 @@ serve(async (req: Request): Promise<Response> => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Billing agent error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

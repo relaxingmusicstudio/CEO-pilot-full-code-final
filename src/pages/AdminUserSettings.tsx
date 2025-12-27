@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,12 +94,7 @@ const AdminUserSettings = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Load data from Supabase
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Load business profile
@@ -132,7 +127,12 @@ const AdminUserSettings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Load data from Supabase
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSaveProfile = async () => {
     setSaving(true);

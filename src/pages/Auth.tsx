@@ -8,7 +8,7 @@ import { useAuth } from "../hooks/useAuth";
 export default function Auth() {
   const { signIn, signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation() as any;
+  const location = useLocation();
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");

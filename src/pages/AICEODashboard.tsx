@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,30 +47,10 @@ export default function AICEODashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seededGreetingRef = useRef(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, streamingContent]);
-
-  useEffect(() => {
-    fetchMetrics();
-    const handleRefresh = () => fetchMetrics();
-    window.addEventListener("workspace-refresh", handleRefresh);
-    return () => window.removeEventListener("workspace-refresh", handleRefresh);
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("metrics-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => fetchMetrics())
-      .on("postgres_changes", { event: "*", schema: "public", table: "content" }, () => fetchMetrics())
-      .on("postgres_changes", { event: "*", schema: "public", table: "deal_pipeline" }, () => fetchMetrics())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     setIsLoadingMetrics(true);
     try {
       const today = new Date();
@@ -94,7 +74,7 @@ export default function AICEODashboard() {
 
       setMetrics({ revenue, revenueChange: 12.5, hotLeads: hotLeads.length, pipelineValue, pendingApprovals: content.length });
 
-      if (messages.length === 0) {
+      if (!seededGreetingRef.current) {
         const hour = new Date().getHours();
         const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
         setMessages([{
@@ -102,13 +82,37 @@ export default function AICEODashboard() {
           content: `${greeting}, CEO! 👋\n\n**Today's Snapshot:**\n• Revenue: $${revenue.toLocaleString()}\n• ${hotLeads.length} hot leads ready to close\n• ${content.length} items pending approval\n• Pipeline: $${pipelineValue.toLocaleString()}\n\nHow can I help you today?`,
           timestamp: new Date(),
         }]);
+        seededGreetingRef.current = true;
       }
     } catch (error) {
       console.error("Error fetching metrics:", error);
     } finally {
       setIsLoadingMetrics(false);
     }
-  };
+  }, []);
+
+
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, streamingContent]);
+
+  useEffect(() => {
+    fetchMetrics();
+    const handleRefresh = () => fetchMetrics();
+    window.addEventListener("workspace-refresh", handleRefresh);
+    return () => window.removeEventListener("workspace-refresh", handleRefresh);
+  }, [fetchMetrics]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("metrics-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => fetchMetrics())
+      .on("postgres_changes", { event: "*", schema: "public", table: "content" }, () => fetchMetrics())
+      .on("postgres_changes", { event: "*", schema: "public", table: "deal_pipeline" }, () => fetchMetrics())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMetrics]);
 
   const sendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
@@ -142,7 +146,7 @@ export default function AICEODashboard() {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6).trim();
           if (data === "[DONE]") continue;
-          try { const parsed = JSON.parse(data); const content = parsed.choices?.[0]?.delta?.content; if (content) { fullContent += content; setStreamingContent(fullContent); } } catch {}
+          try { const parsed = JSON.parse(data); const content = parsed.choices?.[0]?.delta?.content; if (content) { fullContent += content; setStreamingContent(fullContent); } } catch { /* ignore streaming parse errors */ }
         }
       }
       setMessages(prev => [...prev, { role: "assistant", content: fullContent, timestamp: new Date() }]);

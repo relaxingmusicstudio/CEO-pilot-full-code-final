@@ -35,6 +35,7 @@ export const ROUTE_GUARDS: RouteGuard[] = [
   { path: "/app/onboarding", requires: "authenticated", description: "Onboarding" },
   { path: "/app/portal", requires: "authenticated", description: "Client portal" },
   { path: "/app/decisions", requires: "owner", description: "Decisions" },
+  { path: "/app/control-room", requires: "owner", description: "Control Room" },
   { path: "/app/pipeline", requires: "owner", description: "Pipeline" },
   { path: "/app/inbox", requires: "owner", description: "Inbox" },
   { path: "/app/analytics", requires: "owner", description: "Analytics" },

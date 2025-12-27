@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Play, Pause, Edit2, Trash2, Clock, Mail, Phone, MessageSquare, ChevronDown, ChevronRight, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,14 +39,14 @@ export default function AdminSequences() {
     steps: [] as SequenceStep[],
   });
 
-  useEffect(() => {
-    loadSequences();
-  }, []);
-
-  const loadSequences = async () => {
+  const loadSequences = useCallback(async () => {
     const data = await fetchSequences();
     setSequences(data);
-  };
+  }, [fetchSequences]);
+
+  useEffect(() => {
+    loadSequences();
+  }, [loadSequences]);
 
   const handleToggleActive = async (seq: Sequence) => {
     const { error } = await supabase

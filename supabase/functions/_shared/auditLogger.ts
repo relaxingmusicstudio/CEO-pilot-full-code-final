@@ -9,9 +9,9 @@ export interface AuditLogEntry {
   description: string;
   success: boolean;
   user_id?: string;
-  request_snapshot?: any;
-  response_snapshot?: any;
-  metadata?: any;
+  request_snapshot?: unknown;
+  response_snapshot?: unknown;
+  metadata?: unknown;
 }
 
 /**
@@ -22,7 +22,7 @@ export interface AuditLogEntry {
  * @returns Promise<boolean> - true if logging succeeded, false otherwise
  */
 export async function logAudit(
-  supabase: any,
+  supabase: unknown,
   entry: AuditLogEntry
 ): Promise<boolean> {
   try {
@@ -60,14 +60,14 @@ export async function logAudit(
  * @param actionType - Type of action being performed
  */
 export function createAuditContext(
-  supabase: any,
+  supabase: unknown,
   agentName: string,
   actionType: string
 ) {
   const startTime = Date.now();
 
   return {
-    logStart: async (description: string, request?: any) => {
+    logStart: async (description: string, request?: unknown) => {
       await logAudit(supabase, {
         agent_name: agentName,
         action_type: `${actionType}_started`,
@@ -77,7 +77,7 @@ export function createAuditContext(
       });
     },
 
-    logSuccess: async (description: string, entityType?: string, entityId?: string, response?: any) => {
+    logSuccess: async (description: string, entityType?: string, entityId?: string, response?: unknown) => {
       const duration = Date.now() - startTime;
       await logAudit(supabase, {
         agent_name: agentName,
@@ -90,7 +90,7 @@ export function createAuditContext(
       });
     },
 
-    logError: async (description: string, error: any, request?: any) => {
+    logError: async (description: string, error: unknown, request?: unknown) => {
       const duration = Date.now() - startTime;
       await logAudit(supabase, {
         agent_name: agentName,

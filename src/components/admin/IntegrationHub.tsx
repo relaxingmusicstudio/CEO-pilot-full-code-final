@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,9 +30,30 @@ interface Service {
   category: string;
   icon_emoji: string;
   auth_method: string;
-  credential_fields: any[];
-  setup_instructions: any[];
+  credential_fields: CredentialField[];
+  setup_instructions: SetupInstruction[];
   documentation_url?: string;
+}
+
+interface CredentialField {
+  key: string;
+  label: string;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+interface SetupInstruction {
+  step: string | number;
+  description: string;
+}
+
+interface IntegrationSuggestion {
+  service_key: string;
+  display_name: string;
+  icon_emoji: string;
+  category: string;
+  reason?: string;
 }
 
 interface ConnectedService {
@@ -61,7 +82,7 @@ export function IntegrationHub() {
 
   const [services, setServices] = useState<Service[]>([]);
   const [connectedServices, setConnectedServices] = useState<ConnectedService[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<IntegrationSuggestion[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
@@ -74,11 +95,7 @@ export function IntegrationHub() {
   const [isTesting, setIsTesting] = useState<string | null>(null);
 
   // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const [servicesData, credentialsData, suggestionsData] = await Promise.all([
         listServices(),
@@ -101,7 +118,11 @@ export function IntegrationHub() {
         variant: "destructive",
       });
     }
-  }
+  }, [getSuggestions, listCredentials, listServices, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleConnect(service: Service) {
     const fullService = await getService(service.service_key);
@@ -400,7 +421,7 @@ export function IntegrationHub() {
             <div className="space-y-3 my-4">
               <p className="font-medium text-sm">Setup Steps:</p>
               <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                {selectedService.setup_instructions.map((step: any) => (
+                {selectedService.setup_instructions.map((step: SetupInstruction) => (
                   <li key={step.step}>{step.description}</li>
                 ))}
               </ol>
@@ -408,7 +429,7 @@ export function IntegrationHub() {
           )}
 
           <div className="space-y-4">
-            {selectedService?.credential_fields?.map((field: any) => (
+            {selectedService?.credential_fields?.map((field: CredentialField) => (
               <div key={field.key}>
                 <label className="block text-sm font-medium mb-1">
                   {field.label} {field.required && <span className="text-destructive">*</span>}

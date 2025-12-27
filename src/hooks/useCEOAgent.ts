@@ -96,7 +96,7 @@ export const useCEOAgent = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [email, userId]);
 
   // Streaming request
   const askCEOStream = useCallback(async (

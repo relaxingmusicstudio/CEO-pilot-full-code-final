@@ -17,6 +17,7 @@ import {
   Share2,
   Check,
   RefreshCw,
+  type LucideIcon,
 } from "lucide-react";
 
 interface VideoClip {
@@ -38,7 +39,7 @@ interface SocialRepurposerProps {
   onPostClip?: (clipId: string, platforms: string[]) => void;
 }
 
-const platformIcons: Record<string, any> = {
+const platformIcons: Record<string, LucideIcon> = {
   instagram: Instagram,
   tiktok: Play,
   twitter: Twitter,

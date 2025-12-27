@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoopResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["loopId", "plan", "execution", "verification", "status"],
+  "properties": {
+    "loopId": { "type": "string", "minLength": 1 },
+    "plan": { "$ref": "execution-plan.schema.json" },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionId", "planId", "taskId", "toolCalls", "toolResults", "startedAt", "completedAt"],
+      "properties": {
+        "executionId": { "type": "string", "minLength": 1 },
+        "planId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "toolCalls": { "type": "array", "items": { "$ref": "tool-call.schema.json" } },
+        "toolResults": { "type": "array", "items": { "$ref": "tool-result.schema.json" } },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "verification": { "$ref": "verification-report.schema.json" },
+    "nextPlan": { "$ref": "execution-plan.schema.json" },
+    "status": { "type": "string", "enum": ["complete", "replan_required", "blocked"] },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

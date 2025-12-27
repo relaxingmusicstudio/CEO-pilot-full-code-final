@@ -14,6 +14,7 @@ import {
   RefreshCw, Copy, AlertTriangle, Info
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database as SupabaseDatabase } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { PlatformStatusBanner } from "@/components/platform/PlatformStatusBanner";
 
@@ -62,8 +63,9 @@ export default function SchemaSnapshot() {
 
   const checkTable = async (tableName: string): Promise<Partial<TableCheck>> => {
     try {
+      const tableKey = tableName as keyof SupabaseDatabase["public"]["Tables"];
       const { count, error } = await supabase
-        .from(tableName as any)
+        .from(tableKey)
         .select("*", { count: "exact", head: true });
       
       if (error) {
@@ -78,7 +80,9 @@ export default function SchemaSnapshot() {
   const checkRpc = async (rpcName: string): Promise<Partial<RpcCheck>> => {
     try {
       // Try calling with empty/null params - this tests if RPC exists and is callable
-      const { error } = await (supabase.rpc as any)(rpcName, {});
+      const runRpc = (fn: string, args?: Record<string, unknown>) =>
+        supabase.rpc(fn, args) as unknown as Promise<{ error: { code?: string; message?: string } | null }>;
+      const { error } = await runRpc(rpcName, {});
       
       // Some RPCs might fail due to missing params but still be callable
       if (error) {

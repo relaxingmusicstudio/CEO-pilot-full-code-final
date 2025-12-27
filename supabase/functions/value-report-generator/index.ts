@@ -34,7 +34,7 @@ serve(async (req) => {
     // Calculate date range
     const now = new Date();
     let periodStart: Date;
-    let periodEnd = now;
+    const periodEnd = now;
 
     if (report_type === 'monthly') {
       periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -150,7 +150,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in value-report-generator:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

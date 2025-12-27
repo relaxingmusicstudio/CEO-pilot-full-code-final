@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,11 +123,7 @@ export default function AdminAutomation() {
   const [runningFunctions, setRunningFunctions] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('automation_logs')
@@ -142,7 +138,11 @@ export default function AdminAutomation() {
       setLogs(data || []);
     }
     setIsLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const runFunction = async (func: AutomationFunction) => {
     setRunningFunctions(prev => new Set(prev).add(func.id));
@@ -182,9 +182,10 @@ export default function AdminAutomation() {
 
       toast.success(`${func.name} completed successfully!`);
       fetchLogs();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error.";
       console.error(`Error running ${func.name}:`, error);
-      toast.error(`${func.name} failed: ${error.message}`);
+      toast.error(`${func.name} failed: ${message}`);
       
       // Log the error
       await supabase
@@ -194,7 +195,7 @@ export default function AdminAutomation() {
           status: 'failed',
           started_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
-          error_message: error.message
+          error_message: message
         });
       
       fetchLogs();

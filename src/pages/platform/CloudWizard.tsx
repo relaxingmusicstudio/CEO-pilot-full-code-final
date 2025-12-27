@@ -87,12 +87,16 @@ export default function CloudWizard() {
 
   const runRecheck = async () => {
     setRecheckRunning(true);
+    const runRpc = (fn: string) =>
+      supabase.rpc(fn) as unknown as Promise<{ data: PreflightReport | null; error: { message?: string } | null }>;
     
     // Run DB Doctor
     try {
-      const { data } = await (supabase.rpc as any)("qa_dependency_check");
+      const { data } = await runRpc("qa_dependency_check");
       setPreflightStatus(data);
-    } catch {}
+    } catch {
+      // ignore dependency check errors
+    }
     
     // Run Edge Preflight
     try {
@@ -103,7 +107,9 @@ export default function CloudWizard() {
       });
       const data = await response.json();
       setPreflightStatus(prev => ({ ...prev, ...data.report }));
-    } catch {}
+    } catch {
+      // ignore preflight fetch errors
+    }
     
     setRecheckRunning(false);
     toast.success("Recheck complete");

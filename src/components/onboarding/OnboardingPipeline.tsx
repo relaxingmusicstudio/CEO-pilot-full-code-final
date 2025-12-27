@@ -8,7 +8,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface OnboardingPipelineProps {
-  onboardingData: any[];
+  onboardingData: OnboardingClient[];
+}
+
+interface OnboardingClient {
+  id: string;
+  status: string;
+  client_id: string;
+  progress_percentage?: number | null;
+  clients?: {
+    name?: string | null;
+    plan?: string | null;
+    mrr?: number | null;
+  } | null;
 }
 
 const OnboardingPipeline = ({ onboardingData }: OnboardingPipelineProps) => {
@@ -59,7 +71,7 @@ const OnboardingPipeline = ({ onboardingData }: OnboardingPipelineProps) => {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {getClientsByStage(stage.key).map((item: any) => (
+            {getClientsByStage(stage.key).map((item) => (
               <Card key={item.id} className="p-3 bg-muted/50">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">

@@ -14,6 +14,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Mail, MessageSquare, Phone, Users, Play, Pause, Plus, Target, TrendingUp, Zap } from "lucide-react";
 
+interface OutreachCampaign {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  campaign_type?: string | null;
+  total_contacts?: number | null;
+  contacts_reached?: number | null;
+  replies_received?: number | null;
+  meetings_booked?: number | null;
+  enrolled_count?: number | null;
+  converted_count?: number | null;
+  trigger_type?: string | null;
+  touchpoints?: Array<{ count?: number | null }> | null;
+}
+
 const AdminOutreach = () => {
   const queryClient = useQueryClient();
   const [showNewCampaign, setShowNewCampaign] = useState(false);
@@ -26,7 +42,7 @@ const AdminOutreach = () => {
   });
 
   // Get cold outreach campaigns
-  const { data: coldCampaigns, isLoading: coldLoading } = useQuery({
+  const { data: coldCampaigns, isLoading: coldLoading } = useQuery<OutreachCampaign[]>({
     queryKey: ['cold-campaigns'],
     queryFn: async () => {
       const { data } = await supabase.functions.invoke('cold-outreach-send', {
@@ -37,7 +53,7 @@ const AdminOutreach = () => {
   });
 
   // Get warm nurture campaigns
-  const { data: warmCampaigns, isLoading: warmLoading } = useQuery({
+  const { data: warmCampaigns, isLoading: warmLoading } = useQuery<OutreachCampaign[]>({
     queryKey: ['warm-campaigns'],
     queryFn: async () => {
       const { data } = await supabase.functions.invoke('warm-nurture-trigger', {
@@ -81,8 +97,9 @@ const AdminOutreach = () => {
       queryClient.invalidateQueries({ queryKey: ['cold-campaigns'] });
       queryClient.invalidateQueries({ queryKey: ['warm-campaigns'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to create campaign");
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to create campaign";
+      toast.error(message);
     }
   });
 
@@ -231,8 +248,8 @@ const AdminOutreach = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Active Campaigns</p>
                   <p className="text-2xl font-bold">
-                    {(coldCampaigns?.filter((c: any) => c.status === 'active').length || 0) +
-                     (warmCampaigns?.filter((c: any) => c.status === 'active').length || 0)}
+                    {(coldCampaigns?.filter((c) => c.status === 'active').length || 0) +
+                     (warmCampaigns?.filter((c) => c.status === 'active').length || 0)}
                   </p>
                 </div>
                 <Target className="h-8 w-8 text-primary" />
@@ -246,7 +263,7 @@ const AdminOutreach = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Contacts</p>
                   <p className="text-2xl font-bold">
-                    {coldCampaigns?.reduce((acc: number, c: any) => acc + (c.total_contacts || 0), 0) || 0}
+                    {coldCampaigns?.reduce((acc: number, c) => acc + (c.total_contacts || 0), 0) || 0}
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
@@ -260,7 +277,7 @@ const AdminOutreach = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Replies</p>
                   <p className="text-2xl font-bold">
-                    {coldCampaigns?.reduce((acc: number, c: any) => acc + (c.replies_received || 0), 0) || 0}
+                    {coldCampaigns?.reduce((acc: number, c) => acc + (c.replies_received || 0), 0) || 0}
                   </p>
                 </div>
                 <MessageSquare className="h-8 w-8 text-green-500" />
@@ -274,7 +291,7 @@ const AdminOutreach = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Meetings Booked</p>
                   <p className="text-2xl font-bold">
-                    {coldCampaigns?.reduce((acc: number, c: any) => acc + (c.meetings_booked || 0), 0) || 0}
+                    {coldCampaigns?.reduce((acc: number, c) => acc + (c.meetings_booked || 0), 0) || 0}
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-emerald-500" />
@@ -306,7 +323,7 @@ const AdminOutreach = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {coldCampaigns?.map((campaign: any) => (
+                {coldCampaigns?.map((campaign) => (
                   <Card key={campaign.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -389,7 +406,7 @@ const AdminOutreach = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {warmCampaigns?.map((campaign: any) => (
+                {warmCampaigns?.map((campaign) => (
                   <Card key={campaign.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">

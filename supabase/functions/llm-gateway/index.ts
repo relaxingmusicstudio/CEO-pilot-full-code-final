@@ -85,7 +85,7 @@ serve(async (req) => {
 
   const safeLog = (payload: Record<string, unknown>) => {
     const copy = { ...payload };
-    delete (copy as any).apiKey;
+    delete (copy as unknown).apiKey;
     console.log("[llm-gateway]", copy);
   };
 

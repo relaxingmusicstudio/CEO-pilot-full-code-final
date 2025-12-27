@@ -422,13 +422,15 @@ serve(async (req) => {
       case 'resources/list':
         return jsonResponse({ resources: RESOURCES });
 
-      case 'tools/call':
+      case 'tools/call': {
         const result = await executeTool(supabase, request.params as { name: string; arguments?: Record<string, unknown> });
         return jsonResponse({ content: [{ type: "text", text: JSON.stringify(result, null, 2) }] });
+      }
 
-      case 'resources/read':
+      case 'resources/read': {
         const resourceData = await readResource(supabase, request.params as { uri: string });
         return jsonResponse({ contents: [{ uri: request.params?.uri, mimeType: "application/json", text: JSON.stringify(resourceData, null, 2) }] });
+      }
 
       default:
         return jsonResponse({ error: { code: -32601, message: `Unknown method: ${request.method}` } }, 400);
@@ -447,7 +449,7 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-async function executeTool(supabase: any, params: { name: string; arguments?: Record<string, unknown> }) {
+async function executeTool(supabase: unknown, params: { name: string; arguments?: Record<string, unknown> }) {
   const { name, arguments: args = {} } = params;
   const now = new Date();
 
@@ -498,7 +500,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       const days = (args.days as number) || 30;
       const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
       
-      let query = supabase
+      const query = supabase
         .from('agent_memories')
         .select('*')
         .eq('agent_type', 'ceo-training')
@@ -562,7 +564,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       const { data, error } = await query;
       if (error) throw error;
       
-      const pipeline = (data || []).reduce((acc: Record<string, any[]>, lead: any) => {
+      const pipeline = (data || []).reduce((acc: Record<string, unknown[]>, lead: unknown) => {
         const status = lead.status || 'new';
         if (!acc[status]) acc[status] = [];
         acc[status].push(lead);
@@ -587,7 +589,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       const objectionKeywords = ['price', 'cost', 'expensive', 'budget', 'competitor', 'think about it', 'not ready', 'call back'];
       const objectionCounts: Record<string, number> = {};
       
-      (data || []).forEach((conv: any) => {
+      (data || []).forEach((conv: unknown) => {
         const transcript = (conv.transcript || '').toLowerCase();
         objectionKeywords.forEach(keyword => {
           if (transcript.includes(keyword)) {
@@ -625,7 +627,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
     // === NIGHT WATCHMAN MONITORING TOOLS ===
     case 'get_system_anomalies': {
       const checkTypes = (args.check_types as string[]) || ['lead_drops', 'failed_agents', 'low_conversions', 'system_errors'];
-      const anomalies: any[] = [];
+      const anomalies: unknown[] = [];
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
@@ -857,7 +859,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
 
     case 'execute_standing_order': {
       const orderId = args.order_id as string;
-      const context = (args.context as Record<string, any>) || {};
+      const context = (args.context as Record<string, unknown>) || {};
 
       // Get the standing order
       const { data: order, error: orderError } = await supabase
@@ -872,7 +874,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       }
 
       // Check conditions (simplified - in production this would be more sophisticated)
-      const conditions = order.conditions as Record<string, any>;
+      const conditions = order.conditions as Record<string, unknown>;
       let conditionsMet = true;
       
       for (const [key, value] of Object.entries(conditions)) {
@@ -968,7 +970,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       if (error) throw error;
       
       // Group by category for easier consumption
-      const grouped = (data || []).reduce((acc: Record<string, any>, item: any) => {
+      const grouped = (data || []).reduce((acc: Record<string, unknown>, item: unknown) => {
         if (!acc[item.category]) acc[item.category] = {};
         acc[item.category][item.key] = {
           value: item.value,
@@ -984,7 +986,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
 
     case 'get_ceo_style_recommendation': {
       const situationType = args.situation_type as string;
-      const context = (args.context as Record<string, any>) || {};
+      const context = (args.context as Record<string, unknown>) || {};
       const includeExamples = args.include_examples !== false;
       
       // Get style profile
@@ -994,7 +996,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
         .order('confidence_score', { ascending: false });
       
       // Get similar past decisions
-      let examples: any[] = [];
+      let examples: unknown[] = [];
       if (includeExamples) {
         const { data: memories } = await supabase
           .from('agent_memories')
@@ -1007,9 +1009,9 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       }
       
       // Build recommendation based on style and situation
-      const communication = styleProfile?.find((s: any) => s.category === 'communication' && s.key === 'tone');
-      const decisions = styleProfile?.find((s: any) => s.category === 'decisions' && s.key === 'risk_tolerance');
-      const priorities = styleProfile?.find((s: any) => s.category === 'priorities');
+      const communication = styleProfile?.find((s: unknown) => s.category === 'communication' && s.key === 'tone');
+      const decisions = styleProfile?.find((s: unknown) => s.category === 'decisions' && s.key === 'risk_tolerance');
+      const priorities = styleProfile?.find((s: unknown) => s.category === 'priorities');
       
       return {
         situation_type: situationType,
@@ -1019,7 +1021,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
           priority_guidance: priorities?.value || {},
           confidence: (communication?.confidence_score || 0.3 + (decisions?.confidence_score || 0.3)) / 2
         },
-        similar_decisions: examples.map((e: any) => ({
+        similar_decisions: examples.map((e: unknown) => ({
           query: e.query,
           response: e.response,
           success_score: e.success_score
@@ -1030,7 +1032,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
 
     case 'draft_as_ceo': {
       const draftType = args.draft_type as string;
-      const context = (args.context as Record<string, any>) || {};
+      const context = (args.context as Record<string, unknown>) || {};
       const toneOverride = args.tone_override as string | undefined;
       
       // Get style profile
@@ -1053,8 +1055,8 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       if (error) throw error;
       
       // Build style guidance for Claude
-      const toneProfile = styleProfile?.find((s: any) => s.category === 'communication' && s.key === 'tone');
-      const lengthProfile = styleProfile?.find((s: any) => s.category === 'communication' && s.key === 'response_length');
+      const toneProfile = styleProfile?.find((s: unknown) => s.category === 'communication' && s.key === 'tone');
+      const lengthProfile = styleProfile?.find((s: unknown) => s.category === 'communication' && s.key === 'response_length');
       
       return {
         draft_id: draft.id,
@@ -1116,7 +1118,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
     case 'update_style_profile': {
       const category = args.category as string;
       const key = args.key as string;
-      const value = args.value as Record<string, any>;
+      const value = args.value as Record<string, unknown>;
       const confidenceBoost = Math.min((args.confidence_boost as number) || 0.02, 0.1);
       const example = args.example as string | undefined;
       
@@ -1183,7 +1185,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
         .not('similarity_score', 'is', null);
       
       // Calculate metrics
-      const feedbackCounts = (feedback || []).reduce((acc: Record<string, number>, f: any) => {
+      const feedbackCounts = (feedback || []).reduce((acc: Record<string, number>, f: unknown) => {
         acc[f.feedback_type] = (acc[f.feedback_type] || 0) + 1;
         return acc;
       }, {});
@@ -1192,7 +1194,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
       const approvalRate = totalFeedback > 0 ? ((feedbackCounts.approved || 0) / totalFeedback * 100).toFixed(1) : 'N/A';
       
       const avgSimilarity = drafts && drafts.length > 0
-        ? (drafts.reduce((sum: number, d: any) => sum + (d.similarity_score || 0), 0) / drafts.length * 100).toFixed(1)
+        ? (drafts.reduce((sum: number, d: unknown) => sum + (d.similarity_score || 0), 0) / drafts.length * 100).toFixed(1)
         : 'N/A';
       
       return {
@@ -1216,7 +1218,7 @@ async function executeTool(supabase: any, params: { name: string; arguments?: Re
   }
 }
 
-async function readResource(supabase: any, params: { uri: string }) {
+async function readResource(supabase: unknown, params: { uri: string }) {
   const { uri } = params;
 
   switch (uri) {
@@ -1290,7 +1292,7 @@ async function readResource(supabase: any, params: { uri: string }) {
         .select('*')
         .order('confidence_score', { ascending: false });
       
-      const grouped = (data || []).reduce((acc: Record<string, any>, item: any) => {
+      const grouped = (data || []).reduce((acc: Record<string, unknown>, item: unknown) => {
         if (!acc[item.category]) acc[item.category] = {};
         acc[item.category][item.key] = {
           value: item.value,

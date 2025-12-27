@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NormViolation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["normId", "severity", "reason", "requiresJustification"],
+  "properties": {
+    "normId": { "type": "string", "minLength": 1 },
+    "severity": { "type": "string", "enum": ["hard", "soft"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "requiresJustification": { "type": "boolean" }
+  }
+}

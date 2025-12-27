@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { evaluateAction, type PolicyContext } from "../../src/lib/policyEngine";
 import { executeActionPipeline } from "../../src/lib/actionPipeline";
 import { computeActionId, type ActionSpec } from "../../src/types/actions";
+import { buildTestAgentContext } from "./helpers/agentContext";
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -68,18 +69,27 @@ describe("actionPipeline", () => {
       action_type: "email",
       payload: { to: "ops@example.com" },
     });
-    const record = await executeActionPipeline(action, { identityKey: "tester" });
+    const record = await executeActionPipeline(action, {
+      identityKey: "tester",
+      agentContext: buildTestAgentContext(action.action_type),
+    });
     expect(record.status).toBe("blocked");
     expect(record.evidence.value).toContain("OFFLINE");
   });
 
   it("appends ledger entries without mutating prior records", async () => {
     const action = buildAction();
-    const first = await executeActionPipeline(action, { identityKey: "tester" });
+    const first = await executeActionPipeline(action, {
+      identityKey: "tester",
+      agentContext: buildTestAgentContext(action.action_type),
+    });
     const key = "ppp:execLedger:v1::tester";
     const initial = JSON.parse(storage.getItem(key) || "[]") as unknown[];
     expect(initial).toHaveLength(1);
-    const second = await executeActionPipeline(action, { identityKey: "tester" });
+    const second = await executeActionPipeline(action, {
+      identityKey: "tester",
+      agentContext: buildTestAgentContext(action.action_type),
+    });
     const updated = JSON.parse(storage.getItem(key) || "[]") as unknown[];
     expect(updated).toHaveLength(2);
     expect(updated[0]).toEqual(first);

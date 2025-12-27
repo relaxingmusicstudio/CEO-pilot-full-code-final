@@ -280,8 +280,8 @@ serve(async (req) => {
           .select("*");
 
         // Aggregate metrics
-        const byProvider: Record<string, any> = {};
-        const dailyData: Record<string, any> = {};
+        const byProvider: Record<string, unknown> = {};
+        const dailyData: Record<string, unknown> = {};
 
         (events || []).forEach(event => {
           // By provider

@@ -148,7 +148,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in qbr-generator:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
@@ -157,7 +157,7 @@ serve(async (req) => {
   }
 });
 
-function generateRecommendations(client: any, conversations: number, leads: number, roi: number): string[] {
+function generateRecommendations(client: unknown, conversations: number, leads: number, roi: number): string[] {
   const recommendations: string[] = [];
 
   if (leads / Math.max(conversations, 1) < 0.1) {
@@ -184,7 +184,7 @@ function generateRecommendations(client: any, conversations: number, leads: numb
   return recommendations;
 }
 
-function generateGoals(client: any, conversations: number, leads: number): string[] {
+function generateGoals(client: unknown, conversations: number, leads: number): string[] {
   const goals: string[] = [];
 
   goals.push(`Increase lead capture rate to ${Math.min(Math.round(leads / Math.max(conversations, 1) * 100) + 5, 25)}%`);

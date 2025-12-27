@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CacheEntry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cacheKey",
+    "kind",
+    "taskType",
+    "goalId",
+    "goalVersion",
+    "inputHash",
+    "policy",
+    "payload",
+    "createdAt",
+    "expiresAt",
+    "hitCount"
+  ],
+  "properties": {
+    "cacheKey": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["tool", "artifact", "conclusion"] },
+    "taskType": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "goalVersion": { "type": "string", "minLength": 1 },
+    "inputHash": { "type": "string", "minLength": 1 },
+    "policy": { "$ref": "./cache-policy.schema.json" },
+    "payload": { "type": "object" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "hitCount": { "type": "integer", "minimum": 0 }
+  }
+}

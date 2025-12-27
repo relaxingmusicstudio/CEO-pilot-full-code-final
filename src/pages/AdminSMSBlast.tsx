@@ -15,6 +15,22 @@ import { MessageSquare, Send, Users, CheckCircle, XCircle, Clock, Plus, AlertTri
 import { PageChatHeader } from "@/components/PageChatHeader";
 import { StatCardWithTooltip } from "@/components/StatCardWithTooltip";
 
+interface SmsConfigStatus {
+  twilio_configured?: boolean;
+}
+
+interface SmsCampaign {
+  id: string;
+  name: string;
+  message?: string | null;
+  status?: string | null;
+  total_recipients?: number | null;
+  sent_count?: number | null;
+  delivered_count?: number | null;
+  reply_count?: number | null;
+  opt_out_count?: number | null;
+}
+
 const AdminSMSBlast = () => {
   const queryClient = useQueryClient();
   const [showNewCampaign, setShowNewCampaign] = useState(false);
@@ -29,7 +45,7 @@ const AdminSMSBlast = () => {
   const [recipients, setRecipients] = useState<string>("");
 
   // Check Twilio config
-  const { data: configStatus } = useQuery({
+  const { data: configStatus } = useQuery<SmsConfigStatus>({
     queryKey: ['twilio-config'],
     queryFn: async () => {
       const { data } = await supabase.functions.invoke('sms-blast', {
@@ -40,7 +56,7 @@ const AdminSMSBlast = () => {
   });
 
   // Get SMS campaigns
-  const { data: campaigns, isLoading } = useQuery({
+  const { data: campaigns, isLoading } = useQuery<SmsCampaign[]>({
     queryKey: ['sms-campaigns'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -90,8 +106,9 @@ const AdminSMSBlast = () => {
       setRecipients("");
       queryClient.invalidateQueries({ queryKey: ['sms-campaigns'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to create campaign");
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to create campaign";
+      toast.error(message);
     }
   });
 
@@ -151,8 +168,8 @@ const AdminSMSBlast = () => {
     }
   };
 
-  const totalSent = campaigns?.reduce((acc: number, c: any) => acc + (c.sent_count || 0), 0) || 0;
-  const totalDelivered = campaigns?.reduce((acc: number, c: any) => acc + (c.delivered_count || 0), 0) || 0;
+  const totalSent = campaigns?.reduce((acc: number, c) => acc + (c.sent_count || 0), 0) || 0;
+  const totalDelivered = campaigns?.reduce((acc: number, c) => acc + (c.delivered_count || 0), 0) || 0;
 
   return (
     <AdminLayout title="SMS Campaigns">
@@ -310,7 +327,7 @@ const AdminSMSBlast = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {campaigns?.map((campaign: any) => (
+                {campaigns?.map((campaign) => (
                   <Card key={campaign.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">

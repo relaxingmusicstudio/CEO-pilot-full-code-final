@@ -167,7 +167,7 @@ const AdminClients = () => {
         `Updated health scores for ${data.results?.length || 0} clients`
       );
       fetchClients();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error refreshing health scores:", error);
       toast.error("Failed to refresh health scores");
     } finally {
@@ -193,14 +193,15 @@ const AdminClients = () => {
       setIsTicketOpen(false);
       setNewTicket({ subject: "", description: "", priority: "medium" });
       fetchTickets(selectedClient.id);
-    } catch (error: any) {
-      toast.error("Failed to create ticket: " + error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create ticket.";
+      toast.error("Failed to create ticket: " + message);
     }
   };
 
   const updateTicketStatus = async (ticketId: string, status: string) => {
     try {
-      const updates: any = { status };
+      const updates: { status: string; resolved_at?: string } = { status };
       if (status === "resolved" || status === "closed") {
         updates.resolved_at = new Date().toISOString();
       }

@@ -228,6 +228,7 @@ const AICostAnalytics = () => {
 
   const budgetUsage = metrics ? (metrics.todayCost / dailyBudget) * 100 : 0;
   const weekBudgetUsage = metrics ? (metrics.weekCost / weeklyBudget) * 100 : 0;
+  const costTrend = metrics?.costTrend ?? 0;
 
   return (
     <Card>
@@ -318,10 +319,10 @@ const AICostAnalytics = () => {
                   <span className="font-medium">
                     ${metrics?.weekCost.toFixed(2)} / ${weeklyBudget}
                   </span>
-                  {metrics?.costTrend !== 0 && (
-                    <Badge variant={metrics?.costTrend! > 0 ? "destructive" : "default"} className="text-xs">
-                      {metrics?.costTrend! > 0 ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
-                      {Math.abs(metrics?.costTrend || 0).toFixed(1)}%
+                  {costTrend !== 0 && (
+                    <Badge variant={costTrend > 0 ? "destructive" : "default"} className="text-xs">
+                      {costTrend > 0 ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+                      {Math.abs(costTrend).toFixed(1)}%
                     </Badge>
                   )}
                 </div>
@@ -440,7 +441,7 @@ const AICostAnalytics = () => {
               ? "Tip: Low cache hit rate. Consider increasing cache TTL for repeated queries."
               : metrics?.rateLimitedCount && metrics.rateLimitedCount > 5
               ? "Tip: Multiple rate-limited requests. Review agent priority levels."
-              : (metrics?.costTrend || 0) > 20
+              : costTrend > 20
               ? "Tip: Costs trending up. Review high-usage agents and enable model tiering."
               : "AI costs are optimized. Great job!"}
           </div>

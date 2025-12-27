@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch stuck content: ${stuckError.message}`);
     }
 
-    let itemsProcessed = (overdueContent?.length || 0) + (upcomingContent?.length || 0) + (stuckContent?.length || 0);
+    const itemsProcessed = (overdueContent?.length || 0) + (upcomingContent?.length || 0) + (stuckContent?.length || 0);
     let workItemsCreated = 0;
 
     // Create urgent work item for overdue content

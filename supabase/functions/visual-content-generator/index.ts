@@ -47,7 +47,7 @@ serve(async (req) => {
   }
 });
 
-async function generateImage(params: any) {
+async function generateImage(params: unknown) {
   const { prompt, style = 'professional', aspect_ratio = '16:9', brand_colors } = params;
 
   const enhancedPrompt = `${prompt}. Style: ${style}. ${brand_colors ? `Use brand colors: ${brand_colors}` : ''}. Professional quality, ${aspect_ratio} aspect ratio.`;
@@ -65,7 +65,7 @@ async function generateImage(params: any) {
   });
 }
 
-async function generateVideo(params: any) {
+async function generateVideo(params: unknown) {
   const { script, style = 'professional', duration = 30 } = params;
 
   return new Response(JSON.stringify({
@@ -79,7 +79,7 @@ async function generateVideo(params: any) {
   });
 }
 
-async function enhancePrompt(params: any) {
+async function enhancePrompt(params: unknown) {
   const { prompt, target = 'image', style } = params;
 
   const response = await aiChat({
@@ -122,7 +122,7 @@ Output format:
   }
 }
 
-async function getBrandStyle(params: any) {
+async function getBrandStyle(params: unknown) {
   const { brand_name, industry } = params;
 
   const response = await aiChat({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,15 +16,49 @@ import AdminLayout from "@/components/AdminLayout";
 
 const AGENT_TYPES = ['funnel', 'content', 'ads', 'sequences', 'inbox', 'social', 'youtube', 'ceo'];
 
+interface LearningStats {
+  memory_count?: number;
+  avg_success_score?: number;
+  cache_hit_rate?: number;
+  total_queries?: number;
+  performance_history?: PerformanceEntry[];
+}
+
+interface PerformanceEntry {
+  agent_type: string;
+  date: string;
+  total_queries: number;
+  positive_feedback: number;
+  negative_feedback: number;
+  cache_hits: number;
+}
+
+interface AgentMemory {
+  id: string;
+  agent_type: string;
+  success_score: number;
+  usage_count: number;
+  query: string;
+  response: string;
+}
+
+interface LearningEvent {
+  id: string;
+  event_type: string;
+  old_score: number;
+  new_score: number;
+  created_at: string;
+}
+
 const AdminLearning = () => {
   const { getStats, deleteMemory } = useLearningSystem();
-  const [stats, setStats] = useState<any>(null);
-  const [memories, setMemories] = useState<any[]>([]);
-  const [learningEvents, setLearningEvents] = useState<any[]>([]);
+  const [stats, setStats] = useState<LearningStats | null>(null);
+  const [memories, setMemories] = useState<AgentMemory[]>([]);
+  const [learningEvents, setLearningEvents] = useState<LearningEvent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Get stats
@@ -58,11 +92,11 @@ const AdminLearning = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getStats, selectedAgent]);
 
   useEffect(() => {
     loadData();
-  }, [selectedAgent]);
+  }, [loadData]);
 
   const handleDeleteMemory = async (memoryId: string) => {
     const success = await deleteMemory(memoryId);
@@ -297,7 +331,7 @@ const AdminLearning = () => {
               <CardContent>
                 <ScrollArea className="h-[500px]">
                   <div className="space-y-2">
-                    {stats?.performance_history?.map((perf: any, idx: number) => (
+                    {stats?.performance_history?.map((perf, idx) => (
                       <div
                         key={idx}
                         className="flex items-center justify-between p-3 border rounded-lg"

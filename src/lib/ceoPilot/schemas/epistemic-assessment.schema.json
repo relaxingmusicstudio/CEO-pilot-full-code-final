@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EpistemicAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "noveltyScore",
+    "confidenceScore",
+    "confidenceLevel",
+    "evidenceCount",
+    "evidenceSufficient",
+    "mode",
+    "reasons"
+  ],
+  "properties": {
+    "noveltyScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidenceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidenceLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+    "evidenceCount": { "type": "integer", "minimum": 0 },
+    "evidenceSufficient": { "type": "boolean" },
+    "mode": { "type": "string", "enum": ["normal", "exploration"] },
+    "reasons": { "type": "array", "items": { "type": "string" } }
+  }
+}

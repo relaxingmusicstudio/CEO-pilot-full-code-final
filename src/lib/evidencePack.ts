@@ -282,7 +282,9 @@ export function loadStoredEvidencePack(): EvidencePack | null {
   try {
     const stored = localStorage.getItem(EVIDENCE_PACK_KEY);
     if (stored) return JSON.parse(stored) as EvidencePack;
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return null;
 }
 
@@ -295,7 +297,9 @@ export function loadIssueCounts(): Record<string, number> {
   try {
     const stored = localStorage.getItem(ISSUE_COUNTS_KEY);
     if (stored) return JSON.parse(stored);
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return {};
 }
 
@@ -305,7 +309,9 @@ export function loadIssueCounts(): Record<string, number> {
 export function saveIssueCounts(counts: Record<string, number>): void {
   try {
     localStorage.setItem(ISSUE_COUNTS_KEY, JSON.stringify(counts));
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -314,7 +320,9 @@ export function saveIssueCounts(counts: Record<string, number>): void {
 export function resetIssueCounts(): void {
   try {
     localStorage.removeItem(ISSUE_COUNTS_KEY);
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 /**
@@ -352,7 +360,9 @@ export function loadLatestEdgeRun(): EdgeConsoleRun | null {
       const runs = JSON.parse(stored) as EdgeConsoleRun[];
       if (runs.length > 0) return runs[runs.length - 1];
     }
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
   return null;
 }
 
@@ -367,7 +377,9 @@ export function saveEdgeRun(run: EdgeConsoleRun): void {
     // Keep only last 10 runs
     const trimmed = runs.slice(-10);
     localStorage.setItem(EDGE_RUNS_KEY, JSON.stringify(trimmed));
-  } catch {}
+  } catch {
+    // Ignore storage errors.
+  }
 }
 
 // ============= Mini QA Runner =============

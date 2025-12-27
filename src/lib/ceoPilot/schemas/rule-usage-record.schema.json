@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RuleUsageRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usageId", "ruleId", "taskId", "success", "createdAt"],
+  "properties": {
+    "usageId": { "type": "string", "minLength": 1 },
+    "ruleId": { "type": "string", "minLength": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "success": { "type": "boolean" },
+    "reason": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2, CheckCircle, Clock, Search, Bot, Phone } from "lucide-react";
 import { ElevenLabsVoiceDemo } from "@/components/ElevenLabsVoiceDemo";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const transcriptData = [
   { time: 0, speaker: "Customer", text: "Hello? My AC just stopped working and it's 95 degrees in here!", emotion: "urgent" },
@@ -27,6 +27,7 @@ const VoiceDemo = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalDuration = 60; // seconds
+  const currentSecond = Math.floor(currentTime);
 
   useEffect(() => {
     if (isPlaying) {
@@ -54,10 +55,10 @@ const VoiceDemo = () => {
 
   // Track demo progress every 10 seconds
   useEffect(() => {
-    if (currentTime > 0 && Math.floor(currentTime) % 10 === 0) {
-      trackDemoProgress(Math.floor(currentTime));
+    if (currentSecond > 0 && currentSecond % 10 === 0) {
+      trackDemoProgress(currentSecond);
     }
-  }, [Math.floor(currentTime), trackDemoProgress]);
+  }, [currentSecond, trackDemoProgress]);
 
   useEffect(() => {
     const index = transcriptData.findIndex(

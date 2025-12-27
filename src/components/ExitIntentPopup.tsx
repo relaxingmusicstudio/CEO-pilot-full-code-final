@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Download, Mail, Gift, User, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 import leadMagnetCover from "@/assets/lead-magnet-cover.png";
 
 const ExitIntentPopup = () => {
@@ -43,7 +43,7 @@ const ExitIntentPopup = () => {
       document.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("scroll", handleScroll);
     };
-  }, [hasShown]);
+  }, [hasShown, trackCtaClick]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

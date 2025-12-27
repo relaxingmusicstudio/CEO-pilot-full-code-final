@@ -2,6 +2,11 @@ import type { ActionSpec, ExecutionRecord } from "../types/actions";
 import { computeIdentityKey } from "./spine";
 import { evaluateAction, type PolicyContext, type PolicyMode } from "./policyEngine";
 import { runAction } from "./actionRunner";
+import { enforceRuntimeGovernance, type AgentRuntimeContext } from "./ceoPilot/runtimeGovernance";
+import { assertCostContext } from "./ceoPilot/costUtils";
+import { scheduleDueToCost } from "./ceoPilot/scheduling";
+import { recordCostEvent } from "./ceoPilot/runtimeState";
+import { createId, nowIso } from "./ceoPilot/utils";
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -13,6 +18,8 @@ type ExecuteActionOptions = {
   requireUserConfirm?: boolean;
   identityKey?: string;
   policyContext?: PolicyContext;
+  initiator?: "agent" | "human" | "system";
+  agentContext?: AgentRuntimeContext;
 };
 
 const LEDGER_PREFIX = "ppp:execLedger:v1::";
@@ -114,6 +121,18 @@ export const executeActionPipeline = async (
   const trustLevel = opts.policyContext?.trustLevel ?? resolveTrustLevel(mode);
   const ctx: PolicyContext = { mode, trustLevel };
   const identityKey = opts.identityKey || computeIdentityKey(undefined, undefined);
+  const governanceContext = opts.agentContext
+    ? {
+        ...opts.agentContext,
+        tool: opts.agentContext.tool || action.action_type,
+        decisionType: opts.agentContext.decisionType || action.action_type,
+        impact: opts.agentContext.impact ?? (action.irreversible ? "irreversible" : "reversible"),
+      }
+    : undefined;
+  if (governanceContext) {
+    assertCostContext(governanceContext);
+  }
+  const governance = await enforceRuntimeGovernance(identityKey, governanceContext, opts.initiator ?? "agent");
   const safeIntentId =
     action.intent_id && action.intent_id.trim().length > 0
       ? action.intent_id
@@ -121,6 +140,60 @@ export const executeActionPipeline = async (
         ? "intent:default"
         : "intent:missing";
   const timestamp = nextClock(storage, identityKey);
+
+  if (!governance.allowed) {
+    if (
+      governance.details.cost?.hardLimitExceeded &&
+      governanceContext?.goalId &&
+      governanceContext.taskType
+    ) {
+      const schedulingDecision = scheduleDueToCost({
+        identityKey,
+        taskId: action.action_id,
+        goalId: governanceContext.goalId,
+        agentId: governanceContext.agentId,
+        taskType: governanceContext.taskType,
+        action,
+        agentContext: governanceContext,
+        initiator: opts.initiator ?? "agent",
+        reason: "cost_budget_exceeded",
+      });
+      if (schedulingDecision.scheduledTask) {
+        recordCostEvent(identityKey, {
+          eventId: createId("cost-event"),
+          type: "scheduled_due_to_cost",
+          identityKey,
+          goalId: governanceContext.goalId,
+          agentId: governanceContext.agentId,
+          taskType: governanceContext.taskType,
+          taskClass: governanceContext.taskClass,
+          reason: "scheduled_due_to_cost",
+          justification: governanceContext.taskDescription,
+          createdAt: nowIso(),
+          metadata: { scheduleId: schedulingDecision.scheduledTask.scheduleId },
+        });
+        const deferred = buildRecord(
+          { action_id: action.action_id, intent_id: safeIntentId },
+          "cooldown",
+          { kind: "log", value: `SCHEDULED_DUE_TO_COST:${schedulingDecision.scheduledTask.scheduleId}` },
+          timestamp
+        );
+        const nextEntries = [...readLedger(storage, identityKey), deferred];
+        writeLedger(storage, identityKey, nextEntries);
+        return deferred;
+      }
+    }
+    const blocked = buildRecord(
+      { action_id: action.action_id, intent_id: safeIntentId },
+      "blocked",
+      { kind: "log", value: `GOVERNANCE_BLOCKED:${governance.reason}` },
+      timestamp
+    );
+    const nextEntries = [...readLedger(storage, identityKey), blocked];
+    writeLedger(storage, identityKey, nextEntries);
+    return blocked;
+  }
+
   const policy = evaluateAction({ ...action, intent_id: safeIntentId }, ctx);
 
   if (!policy.allowed) {
@@ -147,7 +220,14 @@ export const executeActionPipeline = async (
     return cooldown;
   }
 
-  const result = await runAction({ ...action, intent_id: safeIntentId }, ctx);
+  if (!opts.agentContext) {
+    throw new Error("governance_context_missing_for_execution");
+  }
+  const result = await runAction({ ...action, intent_id: safeIntentId }, ctx, {
+    identityKey,
+    agentContext: opts.agentContext,
+    initiator: opts.initiator,
+  });
   const status: ExecutionRecord["status"] = result.status === "executed" ? "executed" : "failed";
   const executed = buildRecord({ action_id: action.action_id, intent_id: safeIntentId }, status, result.evidence, timestamp);
   const nextEntries = [...readLedger(storage, identityKey), executed];

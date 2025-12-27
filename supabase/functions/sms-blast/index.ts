@@ -85,7 +85,7 @@ serve(async (req) => {
 
       // Add recipients
       if (recipients?.length > 0) {
-        const recipientRows = recipients.map((r: any) => ({
+        const recipientRows = recipients.map((r: unknown) => ({
           campaign_id: campaign.id,
           contact_id: r.contact_id,
           phone_number: r.phone_number,
@@ -211,7 +211,7 @@ serve(async (req) => {
               .eq('id', recipient.id);
             failedCount++;
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           await supabase
             .from('sms_campaign_recipients')
             .update({
@@ -382,7 +382,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('SMS blast error:', error);
     await audit.logError('SMS blast failed', error);
     return new Response(JSON.stringify({ error: error.message }), {

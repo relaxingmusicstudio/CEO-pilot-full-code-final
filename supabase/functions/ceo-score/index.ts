@@ -102,7 +102,7 @@ serve(async (req) => {
   }
 });
 
-async function calculateAllScores(supabase: any): Promise<Record<string, ScoreComponent>> {
+async function calculateAllScores(supabase: unknown): Promise<Record<string, ScoreComponent>> {
   const scores: Record<string, ScoreComponent> = {
     clientHealth: { score: 50, weight: 0.25, insights: [] },
     revenueHealth: { score: 50, weight: 0.25, insights: [] },

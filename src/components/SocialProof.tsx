@@ -1,5 +1,5 @@
 import { Star, Quote } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const SocialProof = () => {
   const { trackCtaClick } = useVisitor();

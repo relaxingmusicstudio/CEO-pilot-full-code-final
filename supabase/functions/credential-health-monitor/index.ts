@@ -44,8 +44,8 @@ serve(async (req) => {
     
     console.log(`[CredentialHealthMonitor] Checking ${credentials.length} credentials`);
     
-    const results: any[] = [];
-    const statusChanges: any[] = [];
+    const results: unknown[] = [];
+    const statusChanges: unknown[] = [];
     
     // Check each credential
     for (const cred of credentials) {

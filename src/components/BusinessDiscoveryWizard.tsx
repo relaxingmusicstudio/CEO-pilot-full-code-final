@@ -102,14 +102,7 @@ export function BusinessDiscoveryWizard({
     }
   }, [messages]);
 
-  // Initialize conversation
-  useEffect(() => {
-    if (messages.length === 0) {
-      initializeConversation();
-    }
-  }, []);
-
-  const initializeConversation = async () => {
+  const initializeConversation = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('business-discovery', {
@@ -141,7 +134,16 @@ export function BusinessDiscoveryWizard({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const hasMessages = messages.length > 0;
+
+  // Initialize conversation
+  useEffect(() => {
+    if (!hasMessages) {
+      initializeConversation();
+    }
+  }, [hasMessages, initializeConversation]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;

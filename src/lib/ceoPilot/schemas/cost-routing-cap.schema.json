@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CostRoutingCap",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capId", "identityKey", "tier", "reason", "createdAt"],
+  "properties": {
+    "capId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "tier": { "type": "string", "enum": ["economy", "standard", "advanced", "frontier"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "budgetId": { "type": "string", "minLength": 1 },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "goalId": { "type": "string", "minLength": 1 },
+        "agentId": { "type": "string", "minLength": 1 },
+        "taskType": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

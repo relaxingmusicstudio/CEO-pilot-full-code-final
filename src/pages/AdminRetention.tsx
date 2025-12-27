@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,17 +58,35 @@ interface RetentionMetrics {
   interventions_completed: number;
 }
 
+interface RetentionClientRow {
+  id: string;
+  name?: string | null;
+  business_name?: string | null;
+  health_score?: number | null;
+  last_contact?: string | null;
+  mrr?: number | null;
+}
+
+const getRiskFactors = (client: RetentionClientRow): string[] => {
+  const factors: string[] = [];
+  if ((client.health_score || 50) < 40) factors.push('Critical health score');
+  if (client.last_contact) {
+    const days = Math.floor((Date.now() - new Date(client.last_contact).getTime()) / (1000 * 60 * 60 * 24));
+    if (days > 30) factors.push('No contact in 30+ days');
+  } else {
+    factors.push('Never contacted');
+  }
+  if (!client.mrr || client.mrr < 500) factors.push('Low MRR');
+  return factors;
+};
+
 export default function AdminRetention() {
   const [atRiskClients, setAtRiskClients] = useState<AtRiskClient[]>([]);
   const [metrics, setMetrics] = useState<RetentionMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<AtRiskClient | null>(null);
 
-  useEffect(() => {
-    fetchRetentionData();
-  }, []);
-
-  const fetchRetentionData = async () => {
+  const fetchRetentionData = useCallback(async () => {
     try {
       // Fetch clients with health scores
       const { data: clients, error: clientsError } = await supabase
@@ -120,20 +138,11 @@ export default function AdminRetention() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const getRiskFactors = (client: any): string[] => {
-    const factors: string[] = [];
-    if ((client.health_score || 50) < 40) factors.push('Critical health score');
-    if (client.last_contact) {
-      const days = Math.floor((Date.now() - new Date(client.last_contact).getTime()) / (1000 * 60 * 60 * 24));
-      if (days > 30) factors.push('No contact in 30+ days');
-    } else {
-      factors.push('Never contacted');
-    }
-    if (!client.mrr || client.mrr < 500) factors.push('Low MRR');
-    return factors;
-  };
+  useEffect(() => {
+    fetchRetentionData();
+  }, [fetchRetentionData]);
 
   const handleScheduleIntervention = async (clientId: string) => {
     try {

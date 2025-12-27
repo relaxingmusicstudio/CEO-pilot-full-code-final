@@ -60,12 +60,14 @@ export default function VideoProviderHealthMonitor({ compact = false }: VideoPro
         supabase.from("video_provider_config").select("*"),
       ]);
 
-      const combined = (configRes.data || []).map(config => {
-        const health = (healthRes.data || []).find(h => h.provider === config.provider);
+      const configData = (configRes.data || []) as ProviderConfig[];
+      const healthData = (healthRes.data || []) as ProviderHealth[];
+      const combined: Array<ProviderHealth & ProviderConfig> = configData.map((config) => {
+        const health = healthData.find(h => h.provider === config.provider);
         return { ...config, ...health };
       });
 
-      setProviders(combined as any);
+      setProviders(combined);
 
       // Calculate overall status
       const healthyCount = combined.filter(p => p.status === "healthy").length;

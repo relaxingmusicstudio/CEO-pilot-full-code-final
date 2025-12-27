@@ -107,7 +107,7 @@ export function PageChatHeader({
       const actions = parseSuggestedActions(aiResponse);
       setSuggestedActions(actions);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Chat error:", error);
       toast.error("Could not get a response. Try again.");
     } finally {

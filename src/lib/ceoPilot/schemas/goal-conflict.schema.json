@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoalConflict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conflictId", "goalIds", "reason", "status", "createdAt"],
+  "properties": {
+    "conflictId": { "type": "string", "minLength": 1 },
+    "goalIds": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reason": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["open", "resolved", "escalated"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "resolvedAt": { "type": "string", "format": "date-time" },
+    "arbitrationProtocolId": { "type": "string", "minLength": 1 },
+    "resolutionSummary": { "type": "string", "minLength": 1 }
+  }
+}

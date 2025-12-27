@@ -9,25 +9,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { CheckCircle2, Circle, Clock, AlertCircle } from "lucide-react";
 
+interface ClientOption {
+  id: string;
+  name: string;
+}
+
+interface TaskClient {
+  id: string;
+  name: string;
+}
+
+interface OnboardingTask {
+  id: string;
+  client_id: string;
+  task_name: string;
+  status: string;
+  category?: string | null;
+  description?: string | null;
+  clients?: TaskClient | null;
+}
+
 const TaskManager = () => {
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const queryClient = useQueryClient();
 
   const { data: clients } = useQuery({
     queryKey: ['clients-with-onboarding'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ClientOption[]> => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
         .order('name');
       if (error) throw error;
-      return data;
+      return (data || []) as ClientOption[];
     }
   });
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['onboarding-tasks', selectedClient],
-    queryFn: async () => {
+    queryFn: async (): Promise<OnboardingTask[]> => {
       let query = supabase
         .from('onboarding_tasks')
         .select(`
@@ -42,7 +62,7 @@ const TaskManager = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data || []) as OnboardingTask[];
     }
   });
 
@@ -87,12 +107,12 @@ const TaskManager = () => {
     }
   };
 
-  const tasksByCategory = tasks?.reduce((acc: any, task: any) => {
+  const tasksByCategory = (tasks || []).reduce<Record<string, OnboardingTask[]>>((acc, task) => {
     const category = task.category || 'other';
     if (!acc[category]) acc[category] = [];
     acc[category].push(task);
     return acc;
-  }, {}) || {};
+  }, {});
 
   if (isLoading) {
     return <div className="animate-pulse h-64 bg-muted rounded-lg" />;
@@ -107,7 +127,7 @@ const TaskManager = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients?.map((client: any) => (
+            {clients?.map((client) => (
               <SelectItem key={client.id} value={client.id}>
                 {client.name}
               </SelectItem>
@@ -117,18 +137,18 @@ const TaskManager = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {Object.entries(tasksByCategory).map(([category, categoryTasks]: [string, any]) => (
+        {Object.entries(tasksByCategory).map(([category, categoryTasks]: [string, OnboardingTask[]]) => (
           <Card key={category}>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CardTitle className="capitalize">{category}</CardTitle>
                 <Badge className={getCategoryColor(category)}>
-                  {categoryTasks.filter((t: any) => t.status === 'completed').length}/{categoryTasks.length}
+                  {categoryTasks.filter((t) => t.status === 'completed').length}/{categoryTasks.length}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {categoryTasks.map((task: any) => (
+              {categoryTasks.map((task) => (
                 <div 
                   key={task.id} 
                   className={`flex items-start gap-3 p-3 rounded-lg border ${

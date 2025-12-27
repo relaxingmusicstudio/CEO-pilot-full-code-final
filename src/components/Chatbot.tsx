@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageCircle, X, Send, User, Loader2, Check, AlertTriangle, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 type Message = {
   id: number;
@@ -95,6 +95,8 @@ const Chatbot = () => {
   const lastActivityRef = useRef<number>(Date.now());
   const conversationStartRef = useRef<number>(Date.now());
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const initializeChatRef = useRef<() => void>(() => {});
+  const savePartialLeadRef = useRef<() => void>(() => {});
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,7 +112,7 @@ const Chatbot = () => {
       if (!hasAutoOpened && !isOpen) {
         setIsOpen(true);
         setHasAutoOpened(true);
-        initializeChat();
+        initializeChatRef.current();
       }
     }, 15000);
 
@@ -118,7 +120,7 @@ const Chatbot = () => {
       if (window.scrollY > 500 && !hasAutoOpened && !isOpen) {
         setIsOpen(true);
         setHasAutoOpened(true);
-        initializeChat();
+        initializeChatRef.current();
       }
     };
 
@@ -127,14 +129,14 @@ const Chatbot = () => {
       clearTimeout(timer);
       window.removeEventListener("scroll", handleScroll);
     };
-  }, [hasAutoOpened, isOpen]);
+  }, [hasAutoOpened, initializeChatRef, isOpen]);
 
   // Inactivity timer - save data after 5 minutes
   useEffect(() => {
     const checkInactivity = () => {
       const now = Date.now();
       if (now - lastActivityRef.current > 300000 && !hasSubmitted && leadData.email) {
-        savePartialLead();
+        savePartialLeadRef.current();
       }
     };
 
@@ -145,7 +147,7 @@ const Chatbot = () => {
         clearInterval(inactivityTimerRef.current);
       }
     };
-  }, [hasSubmitted, leadData]);
+  }, [hasSubmitted, leadData, savePartialLeadRef]);
 
   // Rate limit countdown timer - dependency on countdownSeconds to re-run when it changes
   useEffect(() => {
@@ -191,7 +193,7 @@ const Chatbot = () => {
     updatedMessages: Array<{ role: string; content: string }>,
     phase: string,
     outcome?: string,
-    aiAnalysis?: any
+    aiAnalysis?: Record<string, unknown> | null
   ) => {
     try {
       const visitorGHLData = getGHLData();
@@ -274,6 +276,7 @@ Phase: ${leadData.conversationPhase}`;
       console.error("Error saving partial lead:", error);
     }
   };
+  savePartialLeadRef.current = savePartialLead;
 
   const handleClose = () => {
     if (!hasSubmitted && leadData.email) {
@@ -333,6 +336,7 @@ Phase: ${leadData.conversationPhase}`;
       );
     }
   };
+  initializeChatRef.current = initializeChat;
 
   const logUserInput = async (content: string) => {
     try {
@@ -374,16 +378,22 @@ Phase: ${leadData.conversationPhase}`;
       });
 
       // Helper to detect quota/rate limit errors
-      const detectQuotaError = (obj: any): { isQuota: boolean; retryAfter: number; code: string } => {
+      const detectQuotaError = (obj: unknown): { isQuota: boolean; retryAfter: number; code: string } => {
         if (!obj) return { isQuota: false, retryAfter: 60, code: '' };
         const str = typeof obj === 'string' ? obj : JSON.stringify(obj);
         const isQuota = str.includes('QUOTA_EXCEEDED') || str.includes('rate_limit') || str.includes('429');
         let retryAfter = 60;
         let code = 'QUOTA_EXCEEDED';
         try {
-          const parsed = typeof obj === 'string' ? JSON.parse(obj) : obj;
-          if (parsed?.retryAfter) retryAfter = parsed.retryAfter;
-          if (parsed?.code) code = parsed.code;
+          const parsed = typeof obj === 'string' ? JSON.parse(obj) : (obj as Record<string, unknown>);
+          const retryValue = (parsed as Record<string, unknown>)?.retryAfter;
+          const codeValue = (parsed as Record<string, unknown>)?.code;
+          if (typeof retryValue === 'number') retryAfter = retryValue;
+          if (typeof retryValue === 'string' && retryValue.trim()) {
+            const parsedRetry = Number(retryValue);
+            if (!Number.isNaN(parsedRetry)) retryAfter = parsedRetry;
+          }
+          if (typeof codeValue === 'string') code = codeValue;
         } catch { /* ignore */ }
         return { isQuota, retryAfter, code };
       };
@@ -447,11 +457,11 @@ Phase: ${leadData.conversationPhase}`;
       );
       
       return responseData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error calling alex-chat:", error);
       
       // Handle network errors (Failed to fetch)
-      const errorMessage = error?.message || String(error);
+      const errorMessage = (error as { message?: string })?.message ?? String(error);
       const isNetworkError = errorMessage.includes('Failed to fetch') || 
                              errorMessage.includes('NetworkError') ||
                              errorMessage.includes('network');
@@ -496,8 +506,9 @@ Phase: ${leadData.conversationPhase}`;
       const updated = { ...prev };
       
       Object.entries(extractedData).forEach(([key, value]) => {
-        if (key in updated) {
-          (updated as any)[key] = value;
+        if (Object.prototype.hasOwnProperty.call(updated, key)) {
+          const typedKey = key as keyof LeadData;
+          updated[typedKey] = value as LeadData[keyof LeadData];
         }
       });
       

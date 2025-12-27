@@ -13,7 +13,7 @@ interface VideoRequest {
   duration_priority?: "short" | "medium" | "long";
   quality_priority?: "cost" | "balanced" | "quality";
   project_id?: string;
-  scenes?: any[];
+  scenes?: unknown[];
 }
 
 serve(async (req) => {
@@ -252,7 +252,7 @@ serve(async (req) => {
       }
 
       case "get_cost_analytics": {
-        const { days = 30 } = request as any;
+        const { days = 30 } = request as unknown;
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
@@ -302,7 +302,7 @@ serve(async (req) => {
       }
 
       case "re_enable_provider": {
-        const { provider } = request as any;
+        const { provider } = request as unknown;
         
         await supabase.from("video_provider_health")
           .update({

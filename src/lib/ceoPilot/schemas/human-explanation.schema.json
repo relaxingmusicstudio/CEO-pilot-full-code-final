@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HumanExplanation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "whatChanged", "whyNow", "riskAccepted", "riskAvoided", "reevaluateBy"],
+  "properties": {
+    "summary": { "type": "string", "minLength": 1 },
+    "whatChanged": { "type": "string", "minLength": 1 },
+    "whyNow": { "type": "string", "minLength": 1 },
+    "riskAccepted": { "type": "string", "minLength": 1 },
+    "riskAvoided": { "type": "string", "minLength": 1 },
+    "reevaluateBy": { "type": "string", "format": "date-time" }
+  }
+}

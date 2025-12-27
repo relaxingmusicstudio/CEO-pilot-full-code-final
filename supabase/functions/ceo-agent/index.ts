@@ -8,15 +8,15 @@ const corsHeaders = {
 };
 
 // Audit logging helper
-async function logAudit(supabase: any, entry: {
+async function logAudit(supabase: unknown, entry: {
   agent_name: string;
   action_type: string;
   entity_type?: string;
   entity_id?: string;
   description: string;
   success: boolean;
-  request_snapshot?: any;
-  response_snapshot?: any;
+  request_snapshot?: unknown;
+  response_snapshot?: unknown;
 }) {
   try {
     await supabase.from('platform_audit_log').insert({
@@ -432,8 +432,8 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     
     // ═══ MEMORY RECALL: Search for relevant past discussions ═══
-    let relevantMemories: any[] = [];
-    let userPatterns: any[] = [];
+    let relevantMemories: unknown[] = [];
+    let userPatterns: unknown[] = [];
     
     try {
       // Search agent memory for similar past queries
@@ -480,7 +480,7 @@ serve(async (req) => {
     }
     
     // ═══ CHECK USER DIRECTIVES: Get pending user commands ═══
-    let userDirectives: any[] = [];
+    let userDirectives: unknown[] = [];
     let directivesContext = '';
     try {
       const { data: directives } = await supabase
@@ -546,23 +546,23 @@ serve(async (req) => {
     const conversionRate = totalVisitors > 0 ? ((totalLeads / totalVisitors) * 100).toFixed(2) : "0";
     
     const trafficSources: Record<string, number> = {};
-    visitors.forEach((v: any) => {
+    visitors.forEach((v: unknown) => {
       const source = v.utm_source || "Direct";
       trafficSources[source] = (trafficSources[source] || 0) + 1;
     });
     
-    const hotLeads = leads.filter((l: any) => l.lead_score >= 75).length;
-    const warmLeads = leads.filter((l: any) => l.lead_score >= 50 && l.lead_score < 75).length;
-    const coldLeads = leads.filter((l: any) => l.lead_score < 50).length;
+    const hotLeads = leads.filter((l: unknown) => l.lead_score >= 75).length;
+    const warmLeads = leads.filter((l: unknown) => l.lead_score >= 50 && l.lead_score < 75).length;
+    const coldLeads = leads.filter((l: unknown) => l.lead_score < 50).length;
     
     const outcomeBreakdown: Record<string, number> = {};
-    conversations.forEach((c: any) => {
+    conversations.forEach((c: unknown) => {
       const outcome = c.outcome || "unknown";
       outcomeBreakdown[outcome] = (outcomeBreakdown[outcome] || 0) + 1;
     });
     
     const avgEngagement = visitors.length > 0
-      ? Math.round(visitors.reduce((sum: number, v: any) => sum + (v.engagement_score || 0), 0) / visitors.length)
+      ? Math.round(visitors.reduce((sum: number, v: unknown) => sum + (v.engagement_score || 0), 0) / visitors.length)
       : 0;
     
     // Analyze transcripts
@@ -572,7 +572,7 @@ serve(async (req) => {
     let memoryContext = '';
     if (relevantMemories.length > 0) {
       memoryContext = `\n═══ RELEVANT PAST DISCUSSIONS (from your memory) ═══\n`;
-      relevantMemories.forEach((mem: any, i: number) => {
+      relevantMemories.forEach((mem: unknown, i: number) => {
         memoryContext += `${i + 1}. [${new Date(mem.created_at).toLocaleDateString()}] Q: "${mem.query.slice(0, 100)}..."\n   A: "${mem.response.slice(0, 150)}..."\n   (Similarity: ${Math.round(mem.similarity * 100)}%, Used ${mem.usage_count}x)\n`;
       });
     }
@@ -581,7 +581,7 @@ serve(async (req) => {
     let patternContext = '';
     if (userPatterns.length > 0) {
       patternContext = `\n═══ USER BEHAVIOR PATTERNS (proactive suggestions) ═══\n`;
-      userPatterns.forEach((pat: any, i: number) => {
+      userPatterns.forEach((pat: unknown, i: number) => {
         patternContext += `${i + 1}. ${pat.trigger_type}: ${JSON.stringify(pat.action_payload)} (Confidence: ${Math.round(pat.confidence_score * 100)}%)\n`;
       });
     }
@@ -621,7 +621,7 @@ INSTRUCTIONS:
     
     const messages = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...conversationHistory.slice(-10).map((msg: any) => ({
+      ...conversationHistory.slice(-10).map((msg: unknown) => ({
         role: msg.role === "ceo" ? "assistant" : msg.role,
         content: msg.content
       })),
@@ -631,7 +631,7 @@ INSTRUCTIONS:
     if (stream) {
       // Streaming mode using aiChatStream
       try {
-        const aiMessages = messages.map((m: any) => ({
+        const aiMessages = messages.map((m: unknown) => ({
           role: m.role as "system" | "user" | "assistant",
           content: m.content,
         }));
@@ -672,7 +672,7 @@ INSTRUCTIONS:
     }
     
     // Non-streaming with tool execution using aiChat
-    const aiMessages = messages.map((m: any) => ({
+    const aiMessages = messages.map((m: unknown) => ({
       role: m.role as "system" | "user" | "assistant",
       content: m.content,
     }));
@@ -686,7 +686,7 @@ INSTRUCTIONS:
     const aiResponse = aiResult.raw;
     console.log("CEO Agent response:", JSON.stringify(aiResponse).slice(0, 500));
     
-    let result: any = {
+    const result: unknown = {
       response: "",
       insights: [],
       actions: [],
@@ -748,7 +748,7 @@ INSTRUCTIONS:
                   leads: totalLeads,
                   conversion: conversionRate
                 },
-                tools_used: result.actions?.map((a: any) => a.tool) || [],
+                tools_used: result.actions?.map((a: unknown) => a.tool) || [],
                 timestamp: new Date().toISOString()
               }
             }),
@@ -791,7 +791,7 @@ INSTRUCTIONS:
 });
 
 // Execute tool calls
-async function executeToolCall(supabase: any, toolName: string, args: any, allLeads: any[]): Promise<any> {
+async function executeToolCall(supabase: unknown, toolName: string, args: unknown, allLeads: unknown[]): Promise<unknown> {
   console.log(`Executing tool: ${toolName}`, args);
   
   switch (toolName) {
@@ -849,7 +849,7 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
         return { success: false, message: `Lead "${lead_identifier}" not found` };
       }
       
-      const updateData: any = { status: new_status };
+      const updateData: unknown = { status: new_status };
       if (notes) updateData.notes = (lead.notes || "") + `\n[${new Date().toLocaleDateString()}] ${notes}`;
       if (revenue_value) updateData.revenue_value = revenue_value;
       if (new_status === "won") updateData.converted_at = new Date().toISOString();
@@ -898,12 +898,12 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
       let filtered = [...allLeads];
       
       if (filter === "hot") {
-        filtered = filtered.filter((l: any) => l.lead_score >= 70);
+        filtered = filtered.filter((l: unknown) => l.lead_score >= 70);
       } else if (filter === "follow_up") {
-        filtered = filtered.filter((l: any) => l.status === "contacted" || l.status === "qualified");
+        filtered = filtered.filter((l: unknown) => l.status === "contacted" || l.status === "qualified");
       }
       
-      filtered.sort((a: any, b: any) => (b.lead_score || 0) - (a.lead_score || 0));
+      filtered.sort((a: unknown, b: unknown) => (b.lead_score || 0) - (a.lead_score || 0));
       
       return { success: true, leads: filtered.slice(0, count) };
     }
@@ -912,7 +912,7 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
     case "update_strategic_plan": {
       const { current_phase, weekly_objectives, milestones, blockers } = args;
       
-      const updateData: any = { updated_at: new Date().toISOString() };
+      const updateData: unknown = { updated_at: new Date().toISOString() };
       if (current_phase) updateData.current_phase = current_phase;
       if (weekly_objectives) updateData.weekly_objectives = weekly_objectives;
       if (milestones) updateData.milestones = milestones;
@@ -944,7 +944,7 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
       
       // Update agent workload in strategic plan
       const { data: plan } = await supabase.from('ceo_strategic_plan').select('agent_workloads').limit(1).single();
-      const workloads = (plan?.agent_workloads as any) || {};
+      const workloads = (plan?.agent_workloads as unknown) || {};
       workloads[agent] = workloads[agent] || { active_tasks: 0, completed_today: 0, pending: 0 };
       workloads[agent].active_tasks += 1;
       
@@ -960,9 +960,9 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
         return { success: true, message: "No strategic plan created yet. Want me to create a 2-week plan based on your current business data?" };
       }
       
-      const objectives = (plan.weekly_objectives as any[]) || [];
-      const milestones = (plan.milestones as any[]) || [];
-      const blockers = (plan.blockers as any[]) || [];
+      const objectives = (plan.weekly_objectives as unknown[]) || [];
+      const milestones = (plan.milestones as unknown[]) || [];
+      const blockers = (plan.blockers as unknown[]) || [];
       
       let msg = `📋 **2-Week Strategic Plan** (Phase: ${plan.current_phase})\n\n`;
       
@@ -972,7 +972,7 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
       }
       
       if (milestones.length > 0) {
-        const completed = milestones.filter((m: any) => m.status === 'completed').length;
+        const completed = milestones.filter((m: unknown) => m.status === 'completed').length;
         msg += `\n**Milestones:** ${completed}/${milestones.length} complete\n`;
       }
       
@@ -999,13 +999,13 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
         }
         
         let statusMsg = `📊 **Integration Status** (${credentials.length} connected)\n\n`;
-        const byStatus: Record<string, any[]> = { healthy: [], degraded: [], expired: [], unknown: [] };
-        credentials.forEach((c: any) => byStatus[c.connection_status || 'unknown'].push(c));
+        const byStatus: Record<string, unknown[]> = { healthy: [], degraded: [], expired: [], unknown: [] };
+        credentials.forEach((c: unknown) => byStatus[c.connection_status || 'unknown'].push(c));
         
-        if (byStatus.healthy.length > 0) statusMsg += `✅ **Healthy:** ${byStatus.healthy.map((c: any) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
-        if (byStatus.degraded.length > 0) statusMsg += `⚠️ **Degraded:** ${byStatus.degraded.map((c: any) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
-        if (byStatus.expired.length > 0) statusMsg += `❌ **Expired:** ${byStatus.expired.map((c: any) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
-        if (byStatus.unknown.length > 0) statusMsg += `❓ **Unknown:** ${byStatus.unknown.map((c: any) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
+        if (byStatus.healthy.length > 0) statusMsg += `✅ **Healthy:** ${byStatus.healthy.map((c: unknown) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
+        if (byStatus.degraded.length > 0) statusMsg += `⚠️ **Degraded:** ${byStatus.degraded.map((c: unknown) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
+        if (byStatus.expired.length > 0) statusMsg += `❌ **Expired:** ${byStatus.expired.map((c: unknown) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
+        if (byStatus.unknown.length > 0) statusMsg += `❓ **Unknown:** ${byStatus.unknown.map((c: unknown) => `${c.icon_emoji} ${c.display_name}`).join(', ')}\n`;
         
         return { success: true, message: statusMsg };
       } catch (err) {
@@ -1029,7 +1029,7 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
         }
         
         let msg = `💡 **Recommended Integrations**\n\n`;
-        suggestions.slice(0, 5).forEach((s: any, i: number) => {
+        suggestions.slice(0, 5).forEach((s: unknown, i: number) => {
           msg += `${i + 1}. ${s.icon_emoji} **${s.display_name}** (${s.category})\n   _${s.reason}_\n\n`;
         });
         msg += `\nSay "Connect [service name]" to get started!`;
@@ -1056,13 +1056,13 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
         let msg = `${service.icon_emoji} **Connect ${service.display_name}**\n\n`;
         msg += `${service.description}\n\n`;
         msg += `**Setup Steps:**\n`;
-        (service.setup_instructions || []).forEach((step: any) => {
+        (service.setup_instructions || []).forEach((step: unknown) => {
           msg += `${step.step}. **${step.title}**: ${step.description}\n`;
         });
         
         if (service.credential_fields?.length > 0) {
           msg += `\n**What I need from you:**\n`;
-          service.credential_fields.forEach((f: any) => msg += `- ${f.label}${f.placeholder ? ` (e.g., ${f.placeholder})` : ''}\n`);
+          service.credential_fields.forEach((f: unknown) => msg += `- ${f.label}${f.placeholder ? ` (e.g., ${f.placeholder})` : ''}\n`);
           msg += `\nOnce you have these, just paste them here and I'll securely store them!`;
         } else if (service.auth_method === 'oauth2') {
           msg += `\n_This service uses OAuth. I'll guide you through the connection process._`;
@@ -1117,9 +1117,9 @@ async function executeToolCall(supabase: any, toolName: string, args: any, allLe
   }
 }
 
-function findLead(leads: any[], identifier: string): any {
+function findLead(leads: unknown[], identifier: string): unknown {
   const searchLower = identifier.toLowerCase();
-  return leads.find((l: any) => 
+  return leads.find((l: unknown) => 
     l.id === identifier ||
     l.email?.toLowerCase().includes(searchLower) ||
     l.name?.toLowerCase().includes(searchLower) ||
@@ -1127,7 +1127,7 @@ function findLead(leads: any[], identifier: string): any {
   );
 }
 
-function analyzeTranscripts(conversations: any[]) {
+function analyzeTranscripts(conversations: unknown[]) {
   const analysis = {
     totalMessages: 0,
     avgMessagesPerConversation: 0,
@@ -1138,7 +1138,7 @@ function analyzeTranscripts(conversations: any[]) {
 
   let totalMsgCount = 0;
   
-  conversations.forEach((conv: any) => {
+  conversations.forEach((conv: unknown) => {
     const messages = Array.isArray(conv.messages) ? conv.messages : [];
     totalMsgCount += messages.length;
     
@@ -1151,7 +1151,7 @@ function analyzeTranscripts(conversations: any[]) {
     const phase = conv.conversation_phase || "unknown";
     analysis.dropOffPhases[phase] = (analysis.dropOffPhases[phase] || 0) + 1;
     
-    messages.forEach((msg: any) => {
+    messages.forEach((msg: unknown) => {
       const content = (msg.content || msg.text || "").toLowerCase();
       if (content.includes("expensive") || content.includes("cost") || content.includes("price")) {
         if (!analysis.objectionPatterns.includes("pricing")) analysis.objectionPatterns.push("pricing");
@@ -1168,20 +1168,20 @@ function analyzeTranscripts(conversations: any[]) {
   return analysis;
 }
 
-function buildDataContext(data: any) {
+function buildDataContext(data: unknown) {
   const { daysAgo, totalVisitors, totalConversations, totalLeads, conversionRate, avgEngagement, trafficSources, hotLeads, warmLeads, coldLeads, outcomeBreakdown, leads, transcriptAnalysis, conversations, prompts } = data;
   
   // Sample transcripts
   interface TranscriptMessage { role: string; content: string; }
   interface SampleTranscript { outcome: string; phase: string; messageCount: number; messages: TranscriptMessage[]; }
   
-  const sampleTranscripts: SampleTranscript[] = conversations.slice(0, 5).map((c: any) => {
+  const sampleTranscripts: SampleTranscript[] = conversations.slice(0, 5).map((c: unknown) => {
     const messages = Array.isArray(c.messages) ? c.messages : [];
     return {
       outcome: c.outcome || "unknown",
       phase: c.conversation_phase || "unknown",
       messageCount: messages.length,
-      messages: messages.slice(0, 8).map((m: any) => ({ role: m.role || "unknown", content: (m.content || m.text || "").slice(0, 150) }))
+      messages: messages.slice(0, 8).map((m: unknown) => ({ role: m.role || "unknown", content: (m.content || m.text || "").slice(0, 150) }))
     };
   });
 
@@ -1204,17 +1204,17 @@ Objections: ${transcriptAnalysis.objectionPatterns.join(", ") || "None detected"
 Drop-offs: ${Object.entries(transcriptAnalysis.dropOffPhases).map(([p, c]) => `${p}: ${c}`).join(", ")}
 
 ═══ CURRENT CHATBOT PROMPTS (editable) ═══
-${prompts.map((p: any) => `[${p.prompt_key}] v${p.version}: ${p.prompt_value.slice(0, 80)}...`).join("\n")}
+${prompts.map((p: unknown) => `[${p.prompt_key}] v${p.version}: ${p.prompt_value.slice(0, 80)}...`).join("\n")}
 
 ═══ SAMPLE TRANSCRIPTS ═══
 ${sampleTranscripts.map((t: SampleTranscript, i: number) => `#${i + 1} ${t.outcome} (${t.messageCount} msgs)\n${t.messages.map((m: TranscriptMessage) => `  ${m.role}: ${m.content}`).join("\n")}`).join("\n\n")}
 
 ═══ RECENT LEADS (manageable) ═══
-${leads.slice(0, 10).map((l: any) => `• ${l.name || "?"} | ${l.email || "?"} | Score:${l.lead_score || "?"} | Status:${l.status || "new"} | Trade:${l.trade || "?"}`).join("\n")}
+${leads.slice(0, 10).map((l: unknown) => `• ${l.name || "?"} | ${l.email || "?"} | Score:${l.lead_score || "?"} | Status:${l.status || "new"} | Trade:${l.trade || "?"}`).join("\n")}
 `;
 }
 
-function formatLeadDetails(lead: any) {
+function formatLeadDetails(lead: unknown) {
   if (!lead) return "Lead not found";
   return `## Lead Details: ${lead.name || "Unknown"}
 
@@ -1235,16 +1235,16 @@ function formatLeadDetails(lead: any) {
 | Created | ${lead.created_at ? new Date(lead.created_at).toLocaleDateString() : "N/A"} |`;
 }
 
-function formatPriorityLeads(leads: any[]) {
+function formatPriorityLeads(leads: unknown[]) {
   if (!leads.length) return "No priority leads found.";
-  return `## Priority Leads\n\n` + leads.map((l: any, i: number) => 
+  return `## Priority Leads\n\n` + leads.map((l: unknown, i: number) => 
     `${i + 1}. **${l.name || l.email || "Unknown"}** - Score: ${l.lead_score || "?"} | ${l.trade || "?"} | ${l.status || "new"}\n   📧 ${l.email || "?"} | 📱 ${l.phone || "?"}`
   ).join("\n\n");
 }
 
-function formatPromptImprovements(data: any) {
+function formatPromptImprovements(data: unknown) {
   let output = "## Prompt Improvement Suggestions\n\n";
-  data.improvements.forEach((imp: any, i: number) => {
+  data.improvements.forEach((imp: unknown, i: number) => {
     output += `### ${i + 1}. ${imp.prompt_key || imp.area}\n`;
     output += `**Current:** ${imp.current_approach}\n\n`;
     output += `**Suggested:** ${imp.suggested_approach}\n\n`;
@@ -1255,9 +1255,9 @@ function formatPromptImprovements(data: any) {
   return output;
 }
 
-function formatObjectionAnalysis(analysis: any) {
+function formatObjectionAnalysis(analysis: unknown) {
   let output = `## Objection Analysis\n\nAnalyzed ${analysis.total_conversations_analyzed} conversations.\n\n`;
-  analysis.objections.forEach((obj: any, i: number) => {
+  analysis.objections.forEach((obj: unknown, i: number) => {
     output += `### ${i + 1}. "${obj.objection}"\n`;
     output += `- Frequency: ${obj.frequency}x\n`;
     output += `- Success Rate: ${obj.success_rate}%\n`;

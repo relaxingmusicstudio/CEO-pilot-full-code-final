@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   ShoppingCart,
   Activity,
   Archive,
-  Trash2
+  Trash2,
+  type LucideIcon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,7 +50,7 @@ interface TimelineEvent {
   event_type: string;
   event_description: string;
   status: string;
-  agent_response: any;
+  agent_response: Record<string, unknown> | null;
   executed_at: string | null;
 }
 
@@ -58,7 +59,7 @@ interface ActivityLog {
   service_key: string;
   action_type: string;
   event_day: number;
-  mock_response: any;
+  mock_response: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -84,11 +85,33 @@ export default function AdminMockMode() {
   const [environment, setEnvironment] = useState<string>("live");
   const [tenantId, setTenantId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
+  const loadSimulationDetails = useCallback(async (simulationId: string) => {
+    // Load timeline events
+    const { data: events } = await supabase
+      .from("simulation_timeline")
+      .select("*")
+      .eq("simulation_id", simulationId)
+      .order("event_day", { ascending: true })
+      .limit(100);
+    
+    if (events) {
+      setTimelineEvents(events);
+    }
+
+    // Load activity logs
+    const { data: logs } = await supabase
+      .from("mock_activity_log")
+      .select("*")
+      .eq("simulation_id", simulationId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    
+    if (logs) {
+      setActivityLogs(logs);
+    }
   }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     // Get current tenant
     const { data: profile } = await supabase
       .from("profiles")
@@ -125,33 +148,11 @@ export default function AdminMockMode() {
         }
       }
     }
-  };
+  }, [loadSimulationDetails]);
 
-  const loadSimulationDetails = async (simulationId: string) => {
-    // Load timeline events
-    const { data: events } = await supabase
-      .from("simulation_timeline")
-      .select("*")
-      .eq("simulation_id", simulationId)
-      .order("event_day", { ascending: true })
-      .limit(100);
-    
-    if (events) {
-      setTimelineEvents(events);
-    }
-
-    // Load activity logs
-    const { data: logs } = await supabase
-      .from("mock_activity_log")
-      .select("*")
-      .eq("simulation_id", simulationId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    
-    if (logs) {
-      setActivityLogs(logs);
-    }
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const startNewSimulation = async () => {
     if (!tenantId) {
@@ -178,8 +179,9 @@ export default function AdminMockMode() {
       if (data.simulation_id) {
         setActiveSimulation(simulations.find(s => s.id === data.simulation_id) || null);
       }
-    } catch (error: any) {
-      toast.error(`Failed to start simulation: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to start simulation.";
+      toast.error(`Failed to start simulation: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -206,8 +208,9 @@ export default function AdminMockMode() {
       if (activeSimulation) {
         loadSimulationDetails(activeSimulation.id);
       }
-    } catch (error: any) {
-      toast.error(`Failed to ${action} simulation: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : `Failed to ${action} simulation.`;
+      toast.error(`Failed to ${action} simulation: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -233,15 +236,16 @@ export default function AdminMockMode() {
       setActivityLogs([]);
       setEnvironment("live");
       await loadData();
-    } catch (error: any) {
-      toast.error(`Failed to archive: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to archive.";
+      toast.error(`Failed to archive: ${message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
+    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: LucideIcon }> = {
       pending: { variant: "outline", icon: Clock },
       running: { variant: "default", icon: Activity },
       paused: { variant: "secondary", icon: Pause },
@@ -261,7 +265,7 @@ export default function AdminMockMode() {
   };
 
   const getEventIcon = (eventType: string) => {
-    const icons: Record<string, any> = {
+    const icons: Record<string, LucideIcon> = {
       lead_created: Users,
       email_opened: TrendingUp,
       deal_created: Zap,

@@ -8,25 +8,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Package, CheckCircle2, Clock, Bot, Globe, MessageSquare, Phone } from "lucide-react";
 
+interface ClientOption {
+  id: string;
+  name: string;
+}
+
+interface DeliverableClientInfo {
+  name: string;
+  plan: string;
+}
+
+interface Deliverable {
+  id: string;
+  name: string;
+  deliverable_type: string;
+  status: string;
+  description?: string | null;
+  provisioned_at?: string | null;
+  clients?: DeliverableClientInfo | null;
+}
+
 const DeliverableTracker = () => {
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const queryClient = useQueryClient();
 
   const { data: clients } = useQuery({
     queryKey: ['clients-list'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ClientOption[]> => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
         .order('name');
       if (error) throw error;
-      return data;
+      return (data || []) as ClientOption[];
     }
   });
 
   const { data: deliverables, isLoading } = useQuery({
     queryKey: ['client-deliverables', selectedClient],
-    queryFn: async () => {
+    queryFn: async (): Promise<Deliverable[]> => {
       let query = supabase
         .from('client_deliverables')
         .select(`
@@ -41,7 +61,7 @@ const DeliverableTracker = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data || []) as Deliverable[];
     }
   });
 
@@ -101,7 +121,7 @@ const DeliverableTracker = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {clients?.map((client: any) => (
+            {clients?.map((client) => (
               <SelectItem key={client.id} value={client.id}>
                 {client.name}
               </SelectItem>
@@ -111,7 +131,7 @@ const DeliverableTracker = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {deliverables?.map((deliverable: any) => (
+        {deliverables?.map((deliverable) => (
           <Card key={deliverable.id}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">

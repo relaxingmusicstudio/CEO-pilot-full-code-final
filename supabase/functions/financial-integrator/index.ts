@@ -127,7 +127,7 @@ serve(async (req) => {
         ]);
 
         // Aggregate by agent
-        const agentMetrics: Record<string, any> = {};
+        const agentMetrics: Record<string, unknown> = {};
 
         for (const roi of roiRes.data || []) {
           if (!agentMetrics[roi.agent_type]) {
@@ -155,10 +155,10 @@ serve(async (req) => {
           success: true,
           agentROI: agentMetrics,
           summary: {
-            totalRevenue: Object.values(agentMetrics).reduce((sum: number, m: any) => sum + m.revenue, 0),
-            totalCost: Object.values(agentMetrics).reduce((sum: number, m: any) => sum + m.cost, 0),
+            totalRevenue: Object.values(agentMetrics).reduce((sum: number, m: unknown) => sum + m.revenue, 0),
+            totalCost: Object.values(agentMetrics).reduce((sum: number, m: unknown) => sum + m.cost, 0),
             averageROI: Object.values(agentMetrics).length > 0 
-              ? Object.values(agentMetrics).reduce((sum: number, m: any) => sum + m.roi, 0) / Object.values(agentMetrics).length 
+              ? Object.values(agentMetrics).reduce((sum: number, m: unknown) => sum + m.roi, 0) / Object.values(agentMetrics).length 
               : 0,
           }
         }), {
@@ -279,7 +279,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Financial Integrator error:', error);
     return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,

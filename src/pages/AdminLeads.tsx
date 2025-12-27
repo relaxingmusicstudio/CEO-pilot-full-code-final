@@ -161,9 +161,10 @@ const AdminLeads = () => {
       setIsConvertOpen(false);
       setSelectedLead(null);
       fetchLeads();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to convert lead.";
       console.error("Error converting lead:", error);
-      toast.error("Failed to convert lead: " + error.message);
+      toast.error("Failed to convert lead: " + message);
     }
   };
 

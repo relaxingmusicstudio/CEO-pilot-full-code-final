@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Video, VideoOff, Mic, MicOff, Phone, MessageSquare, Maximize2, Volume2 } from "lucide-react";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 interface LiveVideoCallProps {
   isOpen: boolean;

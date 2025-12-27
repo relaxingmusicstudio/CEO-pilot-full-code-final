@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useVisitor } from '@/contexts/VisitorContext';
+import { useVisitor } from '@/contexts/useVisitor';
 
 export const useScrollTracking = () => {
   const { updateScrollDepth, trackSectionView } = useVisitor();

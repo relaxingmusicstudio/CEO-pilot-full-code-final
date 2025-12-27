@@ -73,7 +73,7 @@ const METHODOLOGIES = {
   }
 };
 
-function selectMethodology(lead: LeadProfile, historicalData?: any[]): MethodologyResult {
+function selectMethodology(lead: LeadProfile, historicalData?: unknown[]): MethodologyResult {
   const scores: Record<SalesMethodology, number> = {
     SPIN: 0,
     CHALLENGER: 0,

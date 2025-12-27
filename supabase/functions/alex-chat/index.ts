@@ -228,7 +228,7 @@ const responseTool = {
 };
 
 // Select methodology based on lead profile
-function selectMethodology(leadData: any): { methodology: string; promptEnhancement: string } {
+function selectMethodology(leadData: unknown): { methodology: string; promptEnhancement: string } {
   const scores: Record<string, number> = { SPIN: 0, CHALLENGER: 0, CONSULTATIVE: 0, SOLUTION: 0 };
   
   // Team size factor

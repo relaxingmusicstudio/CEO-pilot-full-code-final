@@ -214,7 +214,7 @@ serve(async (req) => {
       }
 
       case "handle_fallback": {
-        const { failed_provider, original_request } = request as any;
+        const { failed_provider, original_request } = request as unknown;
 
         // Get next best provider
         const scoreResponse = await supabase.functions.invoke("video-router", {

@@ -28,7 +28,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const ceoPhone = profile?.phone;
-    const settings = profile?.notification_settings as Record<string, any> || {};
+    const settings = profile?.notification_settings as Record<string, unknown> || {};
 
     // Check if SMS is enabled for this priority
     const smsEnabled = settings.sms_enabled !== false;

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SchedulingPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policyId",
+    "mode",
+    "urgency",
+    "batchWindowMinutes",
+    "createdAt"
+  ],
+  "properties": {
+    "policyId": { "type": "string", "minLength": 1 },
+    "mode": { "type": "string", "enum": ["immediate", "deferred", "off-peak"] },
+    "urgency": { "type": "string", "enum": ["low", "medium", "high"] },
+    "batchWindowMinutes": { "type": "integer", "minimum": 0 },
+    "deadlineAt": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

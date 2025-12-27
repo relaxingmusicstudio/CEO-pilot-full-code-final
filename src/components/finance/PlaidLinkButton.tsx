@@ -90,8 +90,9 @@ export default function PlaidLinkButton() {
       } else if (data.error) {
         toast.error(`Plaid error: ${data.error.message || 'Configuration needed'}`);
       }
-    } catch (error: any) {
-      toast.error(`Connection failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Connection failed: ${message}`);
     } finally {
       setIsLinking(false);
     }

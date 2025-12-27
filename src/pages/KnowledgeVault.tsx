@@ -41,7 +41,7 @@ interface VaultItem {
   saved_to_vault: boolean;
   notes: string | null;
   created_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 const ENTITY_ICONS: Record<string, typeof Star> = {

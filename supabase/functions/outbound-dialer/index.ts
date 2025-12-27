@@ -199,7 +199,7 @@ serve(async (req) => {
           .single();
         
         if (queueItem) {
-          const linkedLead = queueItem.lead as any;
+          const linkedLead = queueItem.lead as unknown;
           hasConsent = queueItem.consent_verified === true || 
                        linkedLead?.consent_to_call === true || 
                        !!linkedLead?.form_submitted_at;
@@ -514,7 +514,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Outbound dialer error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

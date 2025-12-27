@@ -126,7 +126,7 @@ export default function OnboardingConversation() {
                   </label>
                   <Input
                     id={`field-${field.key}`}
-                    value={(formState as any)[field.key] || ""}
+                    value={formState[field.key] ?? ""}
                     placeholder={field.placeholder}
                     onChange={(e) => handleChange(field.key, e.target.value)}
                   />

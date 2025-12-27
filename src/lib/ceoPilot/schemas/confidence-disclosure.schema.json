@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfidenceDisclosure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["confidenceScore", "uncertaintyExplanation", "knownBlindSpots", "evidenceRefs"],
+  "properties": {
+    "confidenceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "uncertaintyExplanation": { "type": "string", "minLength": 1 },
+    "knownBlindSpots": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "evidenceRefs": { "type": "array", "items": { "type": "string" } }
+  }
+}

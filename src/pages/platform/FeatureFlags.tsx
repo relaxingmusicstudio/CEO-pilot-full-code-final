@@ -92,8 +92,7 @@ function setStoredFlags(flags: Record<string, boolean>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(flags));
 }
 
-// Export for use in other components
-export function getFeatureFlag(id: string): boolean {
+function getFeatureFlag(id: string): boolean {
   const flags = getStoredFlags();
   const definition = FEATURE_FLAGS.find(f => f.id === id);
   return flags[id] ?? definition?.defaultValue ?? false;

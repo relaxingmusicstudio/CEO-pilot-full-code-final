@@ -82,9 +82,9 @@ serve(async (req) => {
     const brief: {
       greeting: string;
       timestamp: string;
-      snapshot: any;
-      pendingApprovals: any;
-      aiActivity: any;
+      snapshot: unknown;
+      pendingApprovals: unknown;
+      aiActivity: unknown;
       systemHealth: string;
       recommendedActions: string[];
       summary?: string;

@@ -19,7 +19,8 @@ import {
   Bell,
   Shield,
   Workflow,
-  Brain
+  Brain,
+  type LucideIcon
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CEOChatPanel from "@/components/CEOChatPanel";
@@ -79,6 +80,57 @@ interface ABTest {
   }[];
 }
 
+interface VisitorRow {
+  created_at?: string | null;
+  utm_source?: string | null;
+  visitor_id?: string | null;
+}
+
+interface LeadRow {
+  created_at?: string | null;
+  status?: string | null;
+  lead_temperature?: string | null;
+  lead_score?: number | null;
+  revenue_value?: number | null;
+  visitor_id?: string | null;
+}
+
+interface ClientRow {
+  id: string;
+  name?: string | null;
+  business_name?: string | null;
+  health_score?: number | null;
+  mrr?: number | null;
+  status?: string | null;
+  start_date?: string | null;
+  created_at?: string | null;
+  plan?: string | null;
+  last_contact?: string | null;
+}
+
+interface ConversationRow {
+  id: string;
+  messages?: unknown;
+  outcome?: string | null;
+  conversation_phase?: string | null;
+}
+
+interface ABExperimentRow {
+  id: string;
+  name: string;
+  element_type: string;
+  status: string;
+}
+
+interface ABVariantRow {
+  id: string;
+  experiment_id: string;
+  name: string;
+  value: string;
+  views?: number | null;
+  conversions?: number | null;
+}
+
 const CEOConsole = () => {
   const [metrics, setMetrics] = useState<Metrics>({
     totalRevenue: 0,
@@ -99,10 +151,10 @@ const CEOConsole = () => {
   const [loading, setLoading] = useState(true);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [rawData, setRawData] = useState<{
-    visitors: any[];
-    leads: any[];
-    clients: any[];
-    conversations: any[];
+    visitors: VisitorRow[];
+    leads: LeadRow[];
+    clients: ClientRow[];
+    conversations: ConversationRow[];
   }>({ visitors: [], leads: [], clients: [], conversations: [] });
   const navigate = useNavigate();
 
@@ -121,12 +173,12 @@ const CEOConsole = () => {
         supabase.from("conversations").select("*"),
       ]);
 
-      const visitors = visitorsRes.data || [];
-      const leads = leadsRes.data || [];
-      const experiments = experimentsRes.data || [];
-      const variants = variantsRes.data || [];
-      const clients = clientsRes.data || [];
-      const conversations = conversationsRes.data || [];
+      const visitors = (visitorsRes.data || []) as VisitorRow[];
+      const leads = (leadsRes.data || []) as LeadRow[];
+      const experiments = (experimentsRes.data || []) as ABExperimentRow[];
+      const variants = (variantsRes.data || []) as ABVariantRow[];
+      const clients = (clientsRes.data || []) as ClientRow[];
+      const conversations = (conversationsRes.data || []) as ConversationRow[];
 
       setRawData({ visitors, leads, clients, conversations });
 
@@ -161,7 +213,7 @@ const CEOConsole = () => {
 
       const sourceMap: Record<string, { visitors: number; leads: number; conversions: number; revenue: number }> = {};
       
-      visitors.forEach((v: any) => {
+      visitors.forEach((v) => {
         const source = v.utm_source || "Direct";
         if (!sourceMap[source]) {
           sourceMap[source] = { visitors: 0, leads: 0, conversions: 0, revenue: 0 };
@@ -169,8 +221,8 @@ const CEOConsole = () => {
         sourceMap[source].visitors++;
       });
 
-      leads.forEach((l: any) => {
-        const visitor = visitors.find((v: any) => v.visitor_id === l.visitor_id);
+      leads.forEach((l) => {
+        const visitor = visitors.find((v) => v.visitor_id === l.visitor_id);
         const source = visitor?.utm_source || "Direct";
         if (!sourceMap[source]) {
           sourceMap[source] = { visitors: 0, leads: 0, conversions: 0, revenue: 0 };
@@ -192,10 +244,10 @@ const CEOConsole = () => {
 
       setChannelData(channels);
 
-      const tests: ABTest[] = experiments.map((exp: any) => {
+      const tests: ABTest[] = experiments.map((exp) => {
         const expVariants = variants
-          .filter((v: any) => v.experiment_id === exp.id)
-          .map((v: any) => ({
+          .filter((v) => v.experiment_id === exp.id)
+          .map((v) => ({
             id: v.id,
             name: v.name,
             value: v.value,
@@ -302,7 +354,7 @@ const CEOConsole = () => {
     value: string | number; 
     subValue?: string | number;
     subLabel?: string;
-    icon: any; 
+    icon: LucideIcon; 
     trend?: "up" | "down";
     accent?: boolean;
   }) => (

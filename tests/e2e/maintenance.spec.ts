@@ -34,14 +34,15 @@ test.beforeEach(async ({ page }) => {
       })
     );
 
-    (window as any).__clipboardText = "";
+    const windowWithClipboard = window as Window & { __clipboardText?: string };
+    windowWithClipboard.__clipboardText = "";
     try {
       Object.defineProperty(navigator, "clipboard", {
         value: {
           writeText: async (text: string) => {
-            (window as any).__clipboardText = String(text);
+            windowWithClipboard.__clipboardText = String(text);
           },
-          readText: async () => (window as any).__clipboardText || "",
+          readText: async () => windowWithClipboard.__clipboardText || "",
         },
         configurable: true,
       });
@@ -73,10 +74,12 @@ test("maintenance section loads and Copy FOB writes non-empty text", async ({ pa
   await page.getByTestId("maintenance-copy-fob").click();
   await expect(page.getByTestId("maintenance-copy-fob")).toContainText("Copied");
 
-  const clipboardText = await page.evaluate(() => (window as any).__clipboardText || "");
+  const clipboardText = await page.evaluate(() => {
+    const windowWithClipboard = window as Window & { __clipboardText?: string };
+    return windowWithClipboard.__clipboardText || "";
+  });
   expect(clipboardText.length).toBeGreaterThan(0);
   expect(() => JSON.parse(clipboardText)).not.toThrow();
 
   expect(errors, errors.join("\n")).toEqual([]);
 });
-

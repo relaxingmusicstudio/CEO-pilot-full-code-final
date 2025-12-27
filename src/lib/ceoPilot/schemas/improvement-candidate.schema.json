@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ImprovementCandidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidateId",
+    "identityKey",
+    "type",
+    "status",
+    "reason",
+    "evidenceRefs",
+    "target",
+    "createdAt"
+  ],
+  "properties": {
+    "candidateId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": [
+        "routing_downgrade",
+        "routing_upgrade",
+        "cache_policy",
+        "distill_rule",
+        "schedule_policy",
+        "freeze_behavior",
+        "escalation_adjustment"
+      ]
+    },
+    "status": { "type": "string", "enum": ["proposed", "applied", "rejected", "rolled_back", "skipped"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "taskType": { "type": "string", "minLength": 1 },
+        "goalId": { "type": "string", "minLength": 1 },
+        "inputHash": { "type": "string", "minLength": 1 },
+        "modelTier": { "type": "string", "enum": ["economy", "standard", "advanced", "frontier"] },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "policyId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "appliedAt": { "type": "string", "format": "date-time" },
+    "rollbackAt": { "type": "string", "format": "date-time" },
+    "rollbackReason": { "type": "string", "minLength": 1 },
+    "cooldownUntil": { "type": "string", "format": "date-time" }
+  }
+}

@@ -28,13 +28,14 @@ export type DailyBriefState = {
 
 const isNonEmptyString = (val: unknown): val is string => typeof val === "string" && val.trim().length > 0;
 
-const normalizeDailyBrief = (value: any): DailyBriefPayload | null => {
+const normalizeDailyBrief = (value: unknown): DailyBriefPayload | null => {
   if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
 
-  const primaryFocus = isNonEmptyString(value.primaryFocus) ? value.primaryFocus.trim() : "";
-  const whyItMatters = isNonEmptyString(value.whyItMatters) ? value.whyItMatters.trim() : "";
-  const actions = Array.isArray(value.nextActions)
-    ? value.nextActions.filter(isNonEmptyString).map((item: string) => item.trim()).slice(0, 3)
+  const primaryFocus = isNonEmptyString(record.primaryFocus) ? record.primaryFocus.trim() : "";
+  const whyItMatters = isNonEmptyString(record.whyItMatters) ? record.whyItMatters.trim() : "";
+  const actions = Array.isArray(record.nextActions)
+    ? record.nextActions.filter(isNonEmptyString).map((item) => item.trim()).slice(0, 3)
     : [];
 
   if (!primaryFocus || !whyItMatters || actions.length === 0) return null;

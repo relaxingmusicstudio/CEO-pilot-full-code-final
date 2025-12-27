@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,14 +86,7 @@ export function CustomerTimelinePanel({
     enabled: isOpen && (!!leadId || !!contactId),
   });
 
-  // Analyze timeline for next best action
-  useEffect(() => {
-    if (timelineData?.timeline?.length > 0 && !nextAction && !isAnalyzing) {
-      analyzeForNextAction();
-    }
-  }, [timelineData]);
-
-  const analyzeForNextAction = async () => {
+  const analyzeForNextAction = useCallback(async () => {
     if (!timelineData?.timeline || timelineData.timeline.length === 0) return;
     
     setIsAnalyzing(true);
@@ -118,7 +111,14 @@ export function CustomerTimelinePanel({
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [timelineData]);
+
+  // Analyze timeline for next best action
+  useEffect(() => {
+    if (timelineData?.timeline?.length > 0 && !nextAction && !isAnalyzing) {
+      analyzeForNextAction();
+    }
+  }, [analyzeForNextAction, isAnalyzing, nextAction, timelineData]);
 
   const toggleEvent = (eventId: string) => {
     const newExpanded = new Set(expandedEvents);

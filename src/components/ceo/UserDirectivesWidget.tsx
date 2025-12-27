@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,9 @@ const intentColors: Record<string, string> = {
   feedback: "bg-muted text-muted-foreground",
 };
 
-const priorityColors: Record<string, string> = {
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+
+const priorityColors: Record<string, BadgeVariant> = {
   urgent: "destructive",
   high: "default",
   normal: "secondary",
@@ -65,7 +67,7 @@ const UserDirectivesWidget = ({ compact = false, showAll = false }: UserDirectiv
   const [directives, setDirectives] = useState<UserDirective[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchDirectives = async () => {
+  const fetchDirectives = useCallback(async () => {
     try {
       setLoading(true);
       let query = supabase
@@ -86,7 +88,7 @@ const UserDirectivesWidget = ({ compact = false, showAll = false }: UserDirectiv
     } finally {
       setLoading(false);
     }
-  };
+  }, [showAll]);
 
   useEffect(() => {
     fetchDirectives();
@@ -102,7 +104,7 @@ const UserDirectivesWidget = ({ compact = false, showAll = false }: UserDirectiv
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [showAll]);
+  }, [fetchDirectives]);
 
   const markHandled = async (id: string) => {
     try {
@@ -249,7 +251,7 @@ const UserDirectivesWidget = ({ compact = false, showAll = false }: UserDirectiv
                               {directive.intent}
                             </Badge>
                           )}
-                          <Badge variant={priorityColors[directive.priority] as any} className="text-[10px]">
+                          <Badge variant={priorityColors[directive.priority] || "secondary"} className="text-[10px]">
                             {directive.priority}
                           </Badge>
                           <span className="text-[10px] text-muted-foreground ml-auto">

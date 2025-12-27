@@ -271,8 +271,8 @@ serve(async (req) => {
 
 function calculateHealthMetrics(
   client: ClientWithMetrics,
-  usageData: any[],
-  tickets: any[],
+  usageData: unknown[],
+  tickets: unknown[],
   daysSinceContact: number
 ): { score: number; reasons: string[] } {
   let score = 100;

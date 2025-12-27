@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Recommendation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recommendationId",
+    "agentId",
+    "intent",
+    "summary",
+    "impact",
+    "confidence",
+    "requiresHumanReview",
+    "createdAt"
+  ],
+  "properties": {
+    "recommendationId": { "type": "string", "minLength": 1 },
+    "agentId": { "type": "string", "minLength": 1 },
+    "intent": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "impact": { "type": "string", "enum": ["reversible", "difficult", "irreversible"] },
+    "confidence": { "$ref": "confidence-disclosure.schema.json" },
+    "explainability": { "$ref": "explainability-snapshot.schema.json" },
+    "requiresHumanReview": { "type": "boolean" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

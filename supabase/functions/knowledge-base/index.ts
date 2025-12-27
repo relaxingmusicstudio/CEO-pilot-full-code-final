@@ -23,7 +23,7 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    let result: any;
+    let result: unknown;
     
     switch (action) {
       case "get_all_knowledge":
@@ -85,7 +85,7 @@ serve(async (req) => {
 });
 
 // Get all knowledge entries with optional filtering
-async function getAllKnowledge(supabase: any, params: { category?: string; search?: string }) {
+async function getAllKnowledge(supabase: unknown, params: { category?: string; search?: string }) {
   let query = supabase
     .from("business_knowledge")
     .select("*")
@@ -107,7 +107,7 @@ async function getAllKnowledge(supabase: any, params: { category?: string; searc
 }
 
 // Search knowledge by keywords
-async function searchKnowledge(supabase: any, params: { query: string; limit?: number }) {
+async function searchKnowledge(supabase: unknown, params: { query: string; limit?: number }) {
   const { data, error } = await supabase
     .from("business_knowledge")
     .select("*")
@@ -121,7 +121,7 @@ async function searchKnowledge(supabase: any, params: { query: string; limit?: n
 }
 
 // Get knowledge formatted for AI context injection
-async function getKnowledgeForAI(supabase: any, params: { category?: string; keywords?: string[] }) {
+async function getKnowledgeForAI(supabase: unknown, params: { category?: string; keywords?: string[] }) {
   let query = supabase
     .from("business_knowledge")
     .select("title, content, category, priority")
@@ -165,15 +165,15 @@ async function getKnowledgeForAI(supabase: any, params: { category?: string; key
   
   if (knowledge && knowledge.length > 0) {
     // Group by category
-    const byCategory: Record<string, any[]> = {};
-    knowledge.forEach((item: any) => {
+    const byCategory: Record<string, unknown[]> = {};
+    knowledge.forEach((item: unknown) => {
       if (!byCategory[item.category]) byCategory[item.category] = [];
       byCategory[item.category].push(item);
     });
     
     for (const [category, items] of Object.entries(byCategory)) {
       aiContext += `\n${category.toUpperCase()}:\n`;
-      items.forEach((item: any) => {
+      items.forEach((item: unknown) => {
         aiContext += `• ${item.title}: ${item.content}\n`;
       });
     }
@@ -189,7 +189,7 @@ async function getKnowledgeForAI(supabase: any, params: { category?: string; key
 }
 
 // Create or update knowledge entry
-async function upsertKnowledge(supabase: any, params: {
+async function upsertKnowledge(supabase: unknown, params: {
   id?: string;
   title: string;
   content: string;
@@ -198,7 +198,7 @@ async function upsertKnowledge(supabase: any, params: {
   is_ai_accessible?: boolean;
   priority?: number;
 }) {
-  const data: any = {
+  const data: unknown = {
     title: params.title,
     content: params.content,
     category: params.category,
@@ -223,7 +223,7 @@ async function upsertKnowledge(supabase: any, params: {
 }
 
 // Delete knowledge entry
-async function deleteKnowledge(supabase: any, params: { id: string }) {
+async function deleteKnowledge(supabase: unknown, params: { id: string }) {
   const { error } = await supabase
     .from("business_knowledge")
     .delete()
@@ -234,7 +234,7 @@ async function deleteKnowledge(supabase: any, params: { id: string }) {
 }
 
 // Get business profile
-async function getBusinessProfile(supabase: any) {
+async function getBusinessProfile(supabase: unknown) {
   const { data, error } = await supabase
     .from("business_profile")
     .select("*")
@@ -246,7 +246,7 @@ async function getBusinessProfile(supabase: any) {
 }
 
 // Create or update business profile
-async function upsertBusinessProfile(supabase: any, params: {
+async function upsertBusinessProfile(supabase: unknown, params: {
   id?: string;
   business_name?: string;
   phone?: string;
@@ -257,10 +257,10 @@ async function upsertBusinessProfile(supabase: any, params: {
   services?: string[];
   avg_job_value?: number;
   monthly_call_volume?: number;
-  business_hours?: any;
+  business_hours?: unknown;
   timezone?: string;
-  ai_preferences?: any;
-  notification_settings?: any;
+  ai_preferences?: unknown;
+  notification_settings?: unknown;
 }) {
   // First check if profile exists
   const { data: existing } = await supabase
@@ -269,7 +269,7 @@ async function upsertBusinessProfile(supabase: any, params: {
     .limit(1)
     .maybeSingle();
   
-  const data: any = {
+  const data: unknown = {
     ...params,
     updated_at: new Date().toISOString(),
   };
@@ -289,22 +289,22 @@ async function upsertBusinessProfile(supabase: any, params: {
 }
 
 // Get unique categories
-async function getCategories(supabase: any) {
+async function getCategories(supabase: unknown) {
   const { data, error } = await supabase
     .from("business_knowledge")
     .select("category");
   
   if (error) throw error;
   
-  const categories = [...new Set(data?.map((d: any) => d.category) || [])];
+  const categories = [...new Set(data?.map((d: unknown) => d.category) || [])];
   return { categories };
 }
 
 // Bulk import knowledge entries
-async function bulkImportKnowledge(supabase: any, params: { entries: any[] }) {
+async function bulkImportKnowledge(supabase: unknown, params: { entries: unknown[] }) {
   const { data, error } = await supabase
     .from("business_knowledge")
-    .insert(params.entries.map((entry: any) => ({
+    .insert(params.entries.map((entry: unknown) => ({
       title: entry.title,
       content: entry.content,
       category: entry.category || "general",
@@ -319,7 +319,7 @@ async function bulkImportKnowledge(supabase: any, params: { entries: any[] }) {
 }
 
 // Export all data
-async function exportAll(supabase: any) {
+async function exportAll(supabase: unknown) {
   const [knowledgeResult, profileResult] = await Promise.all([
     supabase.from("business_knowledge").select("*"),
     supabase.from("business_profile").select("*").limit(1).maybeSingle(),

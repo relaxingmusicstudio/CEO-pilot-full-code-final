@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +60,9 @@ interface CostBreakdown {
   by_provider: Record<string, { cost_cents: number; count: number }>;
 }
 
+type DashboardMetrics = Record<string, unknown>;
+type DecisionsAnalytics = Record<string, unknown>;
+
 export default function CeoDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -71,39 +74,18 @@ export default function CeoDashboard() {
   const [briefStale, setBriefStale] = useState(false);
   
   // Metrics state
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   
   // Decisions state
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [decisionsAnalytics, setDecisionsAnalytics] = useState<any>(null);
+  const [decisionsAnalytics, setDecisionsAnalytics] = useState<DecisionsAnalytics | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   
   // Cost state
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
   const [costPeriod, setCostPeriod] = useState<string>("30d");
 
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        loadBrief(),
-        loadMetrics(),
-        loadDecisions(),
-        loadCostBreakdown(),
-      ]);
-    } catch (error) {
-      console.error('Failed to load CEO dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadBrief = async () => {
+  const loadBrief = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ceo-dashboard', {
         body: { endpoint: 'brief' },
@@ -119,9 +101,9 @@ export default function CeoDashboard() {
     } catch (error) {
       console.error('Failed to load brief:', error);
     }
-  };
+  }, []);
 
-  const loadMetrics = async () => {
+  const loadMetrics = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ceo-dashboard', {
         body: { endpoint: 'metrics' },
@@ -132,9 +114,9 @@ export default function CeoDashboard() {
     } catch (error) {
       console.error('Failed to load metrics:', error);
     }
-  };
+  }, []);
 
-  const loadDecisions = async () => {
+  const loadDecisions = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ceo-dashboard', {
         body: { endpoint: 'decisions', limit: 50 },
@@ -146,9 +128,9 @@ export default function CeoDashboard() {
     } catch (error) {
       console.error('Failed to load decisions:', error);
     }
-  };
+  }, []);
 
-  const loadCostBreakdown = async () => {
+  const loadCostBreakdown = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ceo-dashboard', {
         body: { endpoint: 'cost-breakdown' },
@@ -163,7 +145,28 @@ export default function CeoDashboard() {
     } catch (error) {
       console.error('Failed to load cost breakdown:', error);
     }
-  };
+  }, []);
+
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadBrief(),
+        loadMetrics(),
+        loadDecisions(),
+        loadCostBreakdown(),
+      ]);
+    } catch (error) {
+      console.error('Failed to load CEO dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadBrief, loadMetrics, loadDecisions, loadCostBreakdown]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   const refreshBrief = async () => {
     setRefreshing(true);
@@ -180,9 +183,10 @@ export default function CeoDashboard() {
         setBriefStale(false);
         toast.success('Daily brief refreshed');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to refresh brief:', error);
-      if (error.message?.includes('rate limit')) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes('rate limit')) {
         toast.error('Rate limit exceeded. Max 5 refreshes per hour.');
       } else {
         toast.error('Failed to refresh brief');

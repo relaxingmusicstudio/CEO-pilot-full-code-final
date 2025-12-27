@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolCall",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "tool",
+    "intent",
+    "permissionTier",
+    "input",
+    "estimatedCostCents",
+    "estimatedTokens",
+    "sideEffectCount",
+    "impact",
+    "createdAt"
+  ],
+  "properties": {
+    "requestId": { "type": "string", "minLength": 1 },
+    "tool": { "type": "string", "minLength": 1 },
+    "intent": { "type": "string", "minLength": 1 },
+    "permissionTier": { "type": "string", "enum": ["draft", "suggest", "execute"] },
+    "input": { "type": "object" },
+    "estimatedCostCents": { "type": "integer", "minimum": 0 },
+    "estimatedTokens": { "type": "integer", "minimum": 0 },
+    "sideEffectCount": { "type": "integer", "minimum": 0 },
+    "impact": { "type": "string", "enum": ["reversible", "difficult", "irreversible"] },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

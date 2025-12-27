@@ -8,9 +8,9 @@ const corsHeaders = {
 interface StylePattern {
   category: string;
   key: string;
-  value: any;
+  value: unknown;
   confidence: number;
-  examples: any[];
+  examples: unknown[];
 }
 
 Deno.serve(async (req) => {
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       learningStats.leads_analyzed = leads.length;
 
       // Extract source preferences
-      const sourceScores: Record<string, { total: number; count: number; examples: any[] }> = {};
+      const sourceScores: Record<string, { total: number; count: number; examples: unknown[] }> = {};
       const timelineScores: Record<string, { total: number; count: number }> = {};
       const temperatureThresholds = { hot: 0, warm: 0, cold: 0 };
 
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     if (decisions && decisions.length > 0) {
       learningStats.decisions_analyzed = decisions.length;
 
-      const agentApprovals: Record<string, { approved: number; rejected: number; examples: any[] }> = {};
+      const agentApprovals: Record<string, { approved: number; rejected: number; examples: unknown[] }> = {};
       const priorityPatterns: Record<string, { approved: number; rejected: number }> = {};
 
       for (const decision of decisions) {

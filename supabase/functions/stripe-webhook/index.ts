@@ -53,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, stripeWebhookSecret);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Webhook signature verification failed:", err.message);
       await audit.logError('Signature verification failed', err);
       return new Response(
@@ -188,7 +188,7 @@ const handler = async (req: Request): Promise<Response> => {
             }),
             { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
-        } catch (provisionError: any) {
+        } catch (provisionError: unknown) {
           console.error("Provisioning error:", provisionError);
           await audit.logError('Provisioning failed', provisionError, { session_id: session.id });
           // Still return 200 to acknowledge Stripe, but log the error
@@ -255,7 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ received: true }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in stripe-webhook function:", error);
     await audit.logError('Webhook processing failed', error);
     return new Response(

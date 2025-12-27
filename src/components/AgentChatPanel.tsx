@@ -21,7 +21,7 @@ interface AgentChatPanelProps {
   systemPrompt: string;
   quickActions?: string[];
   className?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 const DEFAULT_QUICK_ACTIONS: Record<string, string[]> = {

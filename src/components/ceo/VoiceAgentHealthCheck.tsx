@@ -135,9 +135,10 @@ export function VoiceAgentHealthCheck() {
         .eq("activity_type", "follow_up_sent")
         .gte("created_at", yesterday);
       
+      const hasCrmLogs = (crmLogs?.length || 0) > 0;
       checks.push({
         name: "CRM Logging",
-        status: (crmLogs?.length || 0) > 0 || true ? "pass" : "warning",
+        status: hasCrmLogs ? "pass" : "warning",
         message: `${crmLogs?.length || 0} voice activities logged to CRM`,
       });
 

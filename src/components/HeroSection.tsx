@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Video, Phone, BarChart3 } from "lucide-react";
 import LiveVideoCall from "./LiveVideoCall";
 import { ElevenLabsVoiceDemo } from "./ElevenLabsVoiceDemo";
-import { useVisitor } from "@/contexts/VisitorContext";
+import { useVisitor } from "@/contexts/useVisitor";
 
 const HeroSection = () => {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);

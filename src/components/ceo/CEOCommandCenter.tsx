@@ -52,7 +52,9 @@ const CEOCommandCenter = () => {
     try {
       const { data } = await supabase.functions.invoke('predictive-churn');
       if (data?.predictions) setPredictions(data.predictions.slice(0, 5));
-    } catch (e) { console.log('Could not load churn predictions'); }
+    } catch (e) {
+      console.log('Could not load churn predictions');
+    }
     setLoading(false);
   };
 
@@ -60,7 +62,9 @@ const CEOCommandCenter = () => {
     try {
       const { data } = await supabase.from('ceo_autopilot_config').select('is_active').limit(1).single();
       setAutopilotActive(data?.is_active || false);
-    } catch (e) {}
+    } catch (e) {
+      // Best-effort: leave autopilotActive as-is if fetch fails.
+    }
   };
 
   const getPriorityColor = (p: string) => p === 'urgent' ? 'bg-red-500' : p === 'high' ? 'bg-orange-500' : 'bg-blue-500';

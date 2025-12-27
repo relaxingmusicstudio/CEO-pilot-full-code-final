@@ -21,7 +21,7 @@ function isValidEmail(email: string): boolean {
 function isValidPhone(phone: string): boolean {
   // Allow empty or valid phone format
   if (!phone) return true;
-  const phoneRegex = /^[\d\s\-\+\(\)]{7,20}$/;
+  const phoneRegex = /^[\d\s+()-]{7,20}$/;
   return phoneRegex.test(phone);
 }
 
@@ -273,7 +273,7 @@ const handler = async (req: Request): Promise<Response> => {
     const isNewsletter = rawFormName?.toLowerCase().includes('newsletter');
     
     // Set source for GHL - using standard GHL-compatible source values
-    let source = isChatbot ? "chat_widget" : isPDF ? "pdf_download" : isNewsletter ? "newsletter" : "contact_form";
+    const source = isChatbot ? "chat_widget" : isPDF ? "pdf_download" : isNewsletter ? "newsletter" : "contact_form";
     let sourceType = "CONTACT FORM";
     if (isChatbot) {
       sourceType = "CHATBOT";
@@ -353,7 +353,7 @@ ${notes || "None"}
     // Get interests/services - handle both array (interests) and string (otherServicesNeeded)
     // IMPORTANT: This must be defined BEFORE analyzeLeadWithAI function uses it
     const interests = requestData.interests || [];
-    const rawOtherServices = sanitizeString((requestData as any).otherServicesNeeded, 200);
+    const rawOtherServices = sanitizeString((requestData as unknown).otherServicesNeeded, 200);
     const otherServicesNeeded = rawOtherServices || interests.join(", ");
     
     // Calculate lead score
@@ -393,8 +393,8 @@ ${notes || "None"}
         else if (engagementNum >= 40) baseScore += 5;
         const finalScore = Math.min(baseScore, 100);
         
-        let temperature = finalScore >= 75 || aiTimeline === "ASAP - Losing calls now" ? "hot" : finalScore >= 55 ? "warm" : "cold";
-        let urgency = aiTimeline === "ASAP - Losing calls now" ? "immediate" : aiTimeline === "Within 30 days" ? "high" : aiTimeline === "1-3 months" ? "medium" : "low";
+        const temperature = finalScore >= 75 || aiTimeline === "ASAP - Losing calls now" ? "hot" : finalScore >= 55 ? "warm" : "cold";
+        const urgency = aiTimeline === "ASAP - Losing calls now" ? "immediate" : aiTimeline === "Within 30 days" ? "high" : aiTimeline === "1-3 months" ? "medium" : "low";
         
         const budgetScore = teamSize === "10+ trucks" ? 90 : teamSize === "6-10" ? 75 : teamSize === "2-5" ? 55 : 40;
         const needScore = currentSolution === "Miss most calls" ? 90 : currentSolution === "Voicemail" ? 75 : 50;
@@ -907,7 +907,7 @@ ALWAYS respond with valid JSON only. No markdown, no explanations.`
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in contact-form function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),

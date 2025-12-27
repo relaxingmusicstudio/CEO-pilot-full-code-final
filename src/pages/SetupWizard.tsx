@@ -76,8 +76,9 @@ export default function SetupWizard() {
       } else {
         setSupabaseStatus({ label: `Unexpected status ${resp.status}`, tone: "warn" });
       }
-    } catch (err: any) {
-      setSupabaseStatus({ label: "Network error", tone: "error", detail: err?.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Network error";
+      setSupabaseStatus({ label: "Network error", tone: "error", detail: message });
     }
   };
 
@@ -96,8 +97,9 @@ export default function SetupWizard() {
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error(data?.message || "Gateway error");
       setLlmStatus({ label: data.text || data.output || "OK", tone: "ok" });
-    } catch (err: any) {
-      setLlmStatus({ label: "LLM test failed", tone: "error", detail: err?.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "LLM test failed";
+      setLlmStatus({ label: "LLM test failed", tone: "error", detail: message });
     }
   };
 
@@ -118,8 +120,9 @@ export default function SetupWizard() {
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error(data?.error?.message || "Notify error");
       setNotifyStatus({ label: data.status || data.provider || "queued (mock)", tone: "ok", detail: JSON.stringify(data) });
-    } catch (err: any) {
-      setNotifyStatus({ label: "Notify test failed", tone: "error", detail: err?.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Notify test failed";
+      setNotifyStatus({ label: "Notify test failed", tone: "error", detail: message });
     }
   };
 

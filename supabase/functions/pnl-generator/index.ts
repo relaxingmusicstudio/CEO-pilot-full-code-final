@@ -32,12 +32,13 @@ serve(async (req) => {
         previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
         previousEndDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         break;
-      case 'qtd':
+      case 'qtd': {
         const quarter = Math.floor(now.getMonth() / 3);
         startDate = new Date(now.getFullYear(), quarter * 3, 1);
         previousStartDate = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
         previousEndDate = new Date(now.getFullYear(), quarter * 3, 0);
         break;
+      }
       case 'mtd':
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -187,7 +188,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('P&L Generator error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
@@ -196,7 +197,7 @@ serve(async (req) => {
   }
 });
 
-async function generateTrendData(supabase: any, period: string, startDate: Date) {
+async function generateTrendData(supabase: unknown, period: string, startDate: Date) {
   const data: Array<{ date: string; revenue: number; costs: number; profit: number }> = [];
   const now = new Date();
 
@@ -221,12 +222,12 @@ async function generateTrendData(supabase: any, period: string, startDate: Date)
   const revenueByDate: Record<string, number> = {};
   const costsByDate: Record<string, number> = {};
 
-  payments?.forEach((p: any) => {
+  payments?.forEach((p: unknown) => {
     const date = new Date(p.created_at).toISOString().split('T')[0];
     revenueByDate[date] = (revenueByDate[date] || 0) + Number(p.amount || 0);
   });
 
-  aiCosts?.forEach((c: any) => {
+  aiCosts?.forEach((c: unknown) => {
     costsByDate[c.date] = (costsByDate[c.date] || 0) + (c.cost_cents || 0) / 100;
   });
 

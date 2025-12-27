@@ -146,7 +146,7 @@ serve(async (req) => {
 
     } else if (action === 'import_contacts') {
       // Import contacts to campaign
-      const contacts = contact_data.map((c: any) => ({
+      const contacts = contact_data.map((c: unknown) => ({
         ...c,
         campaign_id,
       }));
@@ -284,7 +284,7 @@ serve(async (req) => {
           .replace(/{{company}}/g, contact.company || '')
           .replace(/{{title}}/g, contact.title || '');
 
-        let subject = (sequence.subject || '')
+        const subject = (sequence.subject || '')
           .replace(/{{first_name}}/g, contact.first_name || '')
           .replace(/{{company}}/g, contact.company || '');
 
@@ -353,7 +353,7 @@ serve(async (req) => {
               } else {
                 throw new Error(data.message);
               }
-            } catch (err: any) {
+            } catch (err: unknown) {
               await supabase
                 .from('cold_outreach_sends')
                 .update({
@@ -467,7 +467,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Cold outreach error:', error);
     await audit.logError('Cold outreach failed', error);
     return new Response(JSON.stringify({ error: error.message }), {

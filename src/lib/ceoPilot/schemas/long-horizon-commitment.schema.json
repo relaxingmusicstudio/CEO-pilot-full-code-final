@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LongHorizonCommitment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["commitmentSummary", "durationDays"],
+  "properties": {
+    "commitmentSummary": { "type": "string", "minLength": 1 },
+    "durationDays": { "type": "integer", "minimum": 0 },
+    "justification": { "type": "string", "minLength": 1 },
+    "reversibleAlternative": { "type": "string", "minLength": 1 },
+    "technicalDebtDelta": { "type": "integer" }
+  }
+}

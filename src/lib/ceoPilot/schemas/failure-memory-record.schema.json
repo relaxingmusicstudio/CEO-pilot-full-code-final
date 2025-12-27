@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FailureMemoryRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "memoryId",
+    "identityKey",
+    "candidateType",
+    "key",
+    "failureCount",
+    "reason",
+    "lastFailedAt"
+  ],
+  "properties": {
+    "memoryId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "candidateType": {
+      "type": "string",
+      "enum": [
+        "routing_downgrade",
+        "routing_upgrade",
+        "cache_policy",
+        "distill_rule",
+        "schedule_policy",
+        "freeze_behavior",
+        "escalation_adjustment"
+      ]
+    },
+    "key": { "type": "string", "minLength": 1 },
+    "failureCount": { "type": "integer", "minimum": 0 },
+    "reason": { "type": "string", "minLength": 1 },
+    "lastFailedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}

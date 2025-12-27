@@ -102,7 +102,7 @@ Return ONLY the enhanced message, nothing else.`
       `❌ AVOID: ${p.pattern_description}`
     ).join("\n") || "No loser patterns yet.";
 
-    const inspirationContext = inspirations?.map((i: any) => 
+    const inspirationContext = inspirations?.map((i: unknown) => 
       `📌 Viral example: ${i.title} - ${i.description?.substring(0, 100)}`
     ).join("\n") || "";
 

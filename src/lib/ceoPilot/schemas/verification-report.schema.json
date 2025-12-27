@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reportId", "planId", "taskId", "status", "checks", "verifiedAt"],
+  "properties": {
+    "reportId": { "type": "string", "minLength": 1 },
+    "planId": { "type": "string", "minLength": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["pass", "fail", "warn"] },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checkId", "description", "passed", "evidenceRefs"],
+        "properties": {
+          "checkId": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "passed": { "type": "boolean" },
+          "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "verifiedAt": { "type": "string", "format": "date-time" }
+  }
+}

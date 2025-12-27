@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CostEventRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "type",
+    "identityKey",
+    "reason",
+    "createdAt"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": [
+        "budget_seeded",
+        "soft_limit_exceeded",
+        "hard_limit_exceeded",
+        "routing_cap_applied",
+        "scheduled_due_to_cost"
+      ]
+    },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "budgetId": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "agentId": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "taskClass": { "type": "string", "enum": ["routine", "novel", "high_risk"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "justification": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  }
+}

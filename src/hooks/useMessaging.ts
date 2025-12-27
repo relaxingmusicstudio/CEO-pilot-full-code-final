@@ -324,9 +324,13 @@ export function useMessaging() {
   }, [toast]);
 
   const createSequence = useCallback(async (sequence: Partial<Sequence>) => {
+    const payload: Partial<Sequence> & { name: string } = {
+      name: sequence.name || 'New Sequence',
+      ...sequence,
+    };
     const { data, error } = await supabase
       .from("sequences")
-      .insert({ name: sequence.name || 'New Sequence', ...sequence } as any)
+      .insert(payload)
       .select()
       .single();
 
