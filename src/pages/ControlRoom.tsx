@@ -94,7 +94,10 @@ export default function ControlRoom() {
   const safeModeReasons = snapshot?.safeModeReasons ?? [];
   const rolePolicies = snapshot?.data.rolePolicies ?? [];
   const economicBudget = snapshot?.data.economicBudget ?? null;
-  const economicAudits = snapshot?.data.economicAudits ?? [];
+  const economicAudits = useMemo(
+    () => snapshot?.data.economicAudits ?? [],
+    [snapshot?.data.economicAudits]
+  );
 
   const candidateTaskTypes = useMemo(() => {
     const types = new Set<string>();
