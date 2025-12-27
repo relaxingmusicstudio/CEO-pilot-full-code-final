@@ -91,6 +91,18 @@ const logChatError = (message: string, error?: unknown) => {
   console.warn(message);
 };
 
+const isSupabaseFunctionsConfigured = (): boolean => {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!isSupabaseRestConfigured() || !url) return false;
+  if (url.includes("<") || url.includes(">")) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 const Chatbot = () => {
   const { toast } = useToast();
   const { trackChatbotOpen, trackChatbotEngage, getGHLData } = useVisitor();
@@ -228,7 +240,7 @@ const Chatbot = () => {
   }, [networkError]);
 
   useEffect(() => {
-    if (!isSupabaseRestConfigured()) {
+    if (!isSupabaseFunctionsConfigured()) {
       setChatAuthUnavailable(true);
     }
   }, []);
@@ -411,6 +423,10 @@ Phase: ${leadData.conversationPhase}`;
 
   const logUserInput = async (content: string) => {
     if (chatAuthUnavailable) return;
+    if (!isSupabaseFunctionsConfigured()) {
+      setChatAuthUnavailable(true);
+      return;
+    }
     try {
       const { error } = await supabase.functions.invoke('user-input-logger', {
         body: {
@@ -441,6 +457,10 @@ Phase: ${leadData.conversationPhase}`;
   const sendToAlex = async (newMessages: Array<{ role: string; content: string }>): Promise<AIResponse | null> => {
     // Don't send if rate limited
     if (rateLimitState.isRateLimited || chatAuthUnavailable) {
+      return null;
+    }
+    if (!isSupabaseFunctionsConfigured()) {
+      setChatAuthUnavailable(true);
       return null;
     }
 
