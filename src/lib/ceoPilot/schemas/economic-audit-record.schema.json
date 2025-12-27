@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EconomicAuditRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "auditId",
+    "identityKey",
+    "costUnits",
+    "costCategory",
+    "costSource",
+    "decision",
+    "reason",
+    "remainingBudget",
+    "sessionRemaining",
+    "createdAt"
+  ],
+  "properties": {
+    "auditId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "roleId": { "type": "string", "minLength": 1 },
+    "actionId": { "type": "string", "minLength": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "taskType": { "type": "string", "minLength": 1 },
+    "tool": { "type": "string", "minLength": 1 },
+    "costUnits": { "type": "integer", "minimum": 0 },
+    "costCategory": { "type": "string", "enum": ["compute", "reasoning", "io", "human_attention", "risk"] },
+    "costSource": { "type": "string", "enum": ["action", "tool", "pipeline"] },
+    "chargeId": { "type": "string", "minLength": 1 },
+    "decision": { "type": "string", "enum": ["allowed", "blocked"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "remainingBudget": { "type": "integer", "minimum": 0 },
+    "sessionRemaining": { "type": "integer", "minimum": 0 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

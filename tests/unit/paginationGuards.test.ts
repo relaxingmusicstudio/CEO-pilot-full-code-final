@@ -34,6 +34,8 @@ describe("pagination guards", () => {
         risk_level: "low",
         irreversible: false,
         payload: {},
+        costUnits: 2,
+        costCategory: "compute",
       };
       appendRevenueLedger(
         identity,

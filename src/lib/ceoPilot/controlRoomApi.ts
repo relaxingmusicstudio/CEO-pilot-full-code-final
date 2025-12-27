@@ -27,6 +27,8 @@ import {
   loadCostEvents,
   loadCostRoutingCap,
   loadCostShockEvents,
+  loadEconomicBudgetState,
+  loadEconomicAudits,
   loadDriftReports,
   loadDistilledRules,
   loadEmergencyMode,
@@ -58,6 +60,8 @@ import {
   saveCostEvents,
   saveCostRoutingCap,
   saveCostShockEvents,
+  saveEconomicBudgetState,
+  saveEconomicAudits,
   saveDriftReports,
   saveDistilledRules,
   saveEscalationOverrides,
@@ -80,6 +84,7 @@ import {
   saveValueReaffirmations,
 } from "./runtimeState";
 import { createId, nowIso } from "./utils";
+import { ensureEconomicBudgetState } from "./economics/budgetState";
 
 export type ImprovementDecisionInput = {
   identityKey: string;
@@ -152,6 +157,8 @@ export type RuntimeSnapshot = {
     costEvents: ReturnType<typeof loadCostEvents>;
     costShocks: ReturnType<typeof loadCostShockEvents>;
     costRoutingCap: CostRoutingCap | null;
+    economicBudget: ReturnType<typeof loadEconomicBudgetState>;
+    economicAudits: ReturnType<typeof loadEconomicAudits>;
     scheduledTasks: ReturnType<typeof loadScheduledTasks>;
     cacheEntries: ReturnType<typeof loadCacheEntries>;
     emergencyMode: EmergencyModeState | null;
@@ -195,6 +202,7 @@ export const getRuntimeSnapshot = (identityKey: string, now: string = nowIso()):
   const humanControls = ensureDefaultHumanControls(identityKey);
   const valueAnchors = ensureDefaultValueAnchors(identityKey);
   const rolePolicies = ensureDefaultRolePolicies(identityKey);
+  const economicBudget = ensureEconomicBudgetState(identityKey, now);
   const emergencyMode = loadEmergencyMode(identityKey);
   const outcomes = loadTaskOutcomes(identityKey);
   const improvementCandidates = loadImprovementCandidates(identityKey);
@@ -214,6 +222,7 @@ export const getRuntimeSnapshot = (identityKey: string, now: string = nowIso()):
   if (valueAnchors.length === 0) safeModeReasons.push("missing_value_anchors");
   if (driftReports.length === 0) safeModeReasons.push("missing_drift_reports");
   if (rolePolicies.length === 0) safeModeReasons.push("missing_role_policies");
+  if (!economicBudget) safeModeReasons.push("missing_economic_budget");
   if (improvementCandidates.length === 0) safeModeReasons.push("missing_improvement_candidates");
   if (causalChains.length === 0) safeModeReasons.push("missing_causal_chains");
 
@@ -251,6 +260,8 @@ export const getRuntimeSnapshot = (identityKey: string, now: string = nowIso()):
       costEvents: loadCostEvents(identityKey),
       costShocks: loadCostShockEvents(identityKey),
       costRoutingCap: loadCostRoutingCap(identityKey),
+      economicBudget,
+      economicAudits: loadEconomicAudits(identityKey),
       scheduledTasks: loadScheduledTasks(identityKey),
       cacheEntries: loadCacheEntries(identityKey),
       emergencyMode,
@@ -538,6 +549,10 @@ export const importState = (payload: RuntimeStateExport, identityKey?: string) =
   if (data.costRoutingCap) {
     saveCostRoutingCap(targetKey, data.costRoutingCap);
   }
+  if (data.economicBudget) {
+    saveEconomicBudgetState(targetKey, data.economicBudget);
+  }
+  saveEconomicAudits(targetKey, data.economicAudits ?? []);
   saveScheduledTasks(targetKey, data.scheduledTasks ?? []);
   saveCacheEntries(targetKey, data.cacheEntries ?? []);
   if (data.emergencyMode) {

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EconomicBudgetState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "budgetId",
+    "identityKey",
+    "totalBudget",
+    "remainingBudget",
+    "sessionId",
+    "sessionTotal",
+    "sessionRemaining",
+    "windowStart",
+    "windowDurationMs",
+    "updatedAt"
+  ],
+  "properties": {
+    "budgetId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "totalBudget": { "type": "integer", "minimum": 0 },
+    "remainingBudget": { "type": "integer", "minimum": 0 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "sessionTotal": { "type": "integer", "minimum": 0 },
+    "sessionRemaining": { "type": "integer", "minimum": 0 },
+    "windowStart": { "type": "string", "format": "date-time" },
+    "windowDurationMs": { "type": "integer", "minimum": 0 },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

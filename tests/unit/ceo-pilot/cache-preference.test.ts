@@ -46,6 +46,8 @@ describe("ceoPilot cache preferences", () => {
       intent: "test",
       permissionTier: "execute",
       input: { text: "hello" },
+      costUnits: 1,
+      costCategory: "compute",
       estimatedCostCents: 1,
       estimatedTokens: 10,
       sideEffectCount: 0,

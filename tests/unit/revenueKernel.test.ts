@@ -34,6 +34,8 @@ const makeAction = (overrides: Partial<Omit<ActionSpec, "action_id">>): ActionSp
     risk_level: "low",
     irreversible: false,
     payload: {},
+    costUnits: 2,
+    costCategory: "compute",
     ...overrides,
   };
   return { ...base, action_id: computeActionId(base) };

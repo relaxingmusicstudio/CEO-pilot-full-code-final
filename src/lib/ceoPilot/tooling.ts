@@ -29,6 +29,7 @@ import {
   recordCacheHit,
 } from "./cache";
 import { loadCachePreferences, loadGoals } from "./runtimeState";
+import { ensureToolCallEconomics, ensureContextEconomics } from "./economics/costModel";
 
 const INVOKE_TOOL_GUARD: unique symbol = Symbol("invokeToolGuard");
 const GOVERNED_TOOL: unique symbol = Symbol("governedTool");
@@ -217,9 +218,19 @@ export const invokeTool = async <Input, Output>(
   if (context.__unsafeSkipGovernanceForTests) {
     assertUnsafeTestBypass(true, "invoke_tool");
   }
-  const parsedCall = ToolCallSchema.safeParse(call);
+  const callWithCost = ensureToolCallEconomics(call);
+  const parsedCall = ToolCallSchema.safeParse(callWithCost);
   if (!parsedCall.success) {
-    const result = buildFailure(call.requestId || "unknown", tool.name, "schema_validation_error", "invalid_tool_call", 0, 0, 0, 0);
+    const result = buildFailure(
+      callWithCost.requestId || "unknown",
+      tool.name,
+      "schema_validation_error",
+      "invalid_tool_call",
+      0,
+      0,
+      0,
+      0
+    );
     recordUsage?.({
       eventId: createId("tool"),
       tool: tool.name,
@@ -232,8 +243,17 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  if (call.tool !== tool.name) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "tool_name_mismatch", Date.now() - start, 0, 0, 0);
+  if (callWithCost.tool !== tool.name) {
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "tool_name_mismatch",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
     recordUsage?.({
       eventId: createId("tool"),
       tool: tool.name,
@@ -246,8 +266,17 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  if (!tool.permissionTiers.includes(call.permissionTier)) {
-    const result = buildFailure(call.requestId, tool.name, "permission_denied", "tier_not_allowed", Date.now() - start, 0, 0, 0);
+  if (!tool.permissionTiers.includes(callWithCost.permissionTier)) {
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "permission_denied",
+      "tier_not_allowed",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
     recordUsage?.({
       eventId: createId("tool"),
       tool: tool.name,
@@ -261,7 +290,16 @@ export const invokeTool = async <Input, Output>(
   }
 
   if (!context.identityKey || !context.agentContext) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "governance_context_required", Date.now() - start, 0, 0, 0);
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "governance_context_required",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
     recordUsage?.({
       eventId: createId("tool"),
       tool: tool.name,
@@ -278,59 +316,91 @@ export const invokeTool = async <Input, Output>(
     ...context.agentContext,
     tool: context.agentContext.tool || tool.name,
     decisionType: context.agentContext.decisionType || tool.name,
-    impact: context.agentContext.impact ?? call.impact,
+    impact: context.agentContext.impact ?? callWithCost.impact,
     proposals: context.agentContext.proposals ?? context.conflictProposals,
     activeProposalId: context.agentContext.activeProposalId ?? context.activeProposalId,
     disagreementTopic: context.agentContext.disagreementTopic ?? context.disagreementTopic,
-    permissionTier: context.agentContext.permissionTier || call.permissionTier,
+    permissionTier: context.agentContext.permissionTier || callWithCost.permissionTier,
+    costUnits: context.agentContext.costUnits ?? callWithCost.costUnits,
+    costCategory: context.agentContext.costCategory ?? callWithCost.costCategory,
+    costChargeId: context.agentContext.costChargeId ?? `tool:${callWithCost.requestId}`,
+    costSource: context.agentContext.costSource ?? "tool",
   };
-  assertCostContext(governanceContext);
+  const enforcedContext = ensureContextEconomics(governanceContext);
+  assertCostContext(enforcedContext);
 
-  if (!governanceContext.actionDomain) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "domain_required", Date.now() - start, 0, 0, 0);
-    recordUsage?.({
-      eventId: createId("tool"),
-      tool: tool.name,
-      status: "failure",
-      failureType: "policy_blocked",
-      latencyMs: Date.now() - start,
-      costCents: 0,
-      timestamp: nowIso(),
-    });
-    return result;
-  }
-  if (!governanceContext.decisionType) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "decision_type_required", Date.now() - start, 0, 0, 0);
-    recordUsage?.({
-      eventId: createId("tool"),
-      tool: tool.name,
-      status: "failure",
-      failureType: "policy_blocked",
-      latencyMs: Date.now() - start,
-      costCents: 0,
-      timestamp: nowIso(),
-    });
-    return result;
-  }
-
-  const agentProfile = getAgentProfile(governanceContext.agentId);
-  if (!agentProfile) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "agent_unregistered", Date.now() - start, 0, 0, 0);
-    recordUsage?.({
-      eventId: createId("tool"),
-      tool: tool.name,
-      status: "failure",
-      failureType: "policy_blocked",
-      latencyMs: Date.now() - start,
-      costCents: 0,
-      timestamp: nowIso(),
-    });
-    return result;
-  }
-
-  if (tool.domains && !tool.domains.includes(governanceContext.actionDomain)) {
+  if (!enforcedContext.actionDomain) {
     const result = buildFailure(
-      call.requestId,
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "domain_required",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
+    recordUsage?.({
+      eventId: createId("tool"),
+      tool: tool.name,
+      status: "failure",
+      failureType: "policy_blocked",
+      latencyMs: Date.now() - start,
+      costCents: 0,
+      timestamp: nowIso(),
+    });
+    return result;
+  }
+  if (!enforcedContext.decisionType) {
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "decision_type_required",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
+    recordUsage?.({
+      eventId: createId("tool"),
+      tool: tool.name,
+      status: "failure",
+      failureType: "policy_blocked",
+      latencyMs: Date.now() - start,
+      costCents: 0,
+      timestamp: nowIso(),
+    });
+    return result;
+  }
+
+  const agentProfile = getAgentProfile(enforcedContext.agentId);
+  if (!agentProfile) {
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "agent_unregistered",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
+    recordUsage?.({
+      eventId: createId("tool"),
+      tool: tool.name,
+      status: "failure",
+      failureType: "policy_blocked",
+      latencyMs: Date.now() - start,
+      costCents: 0,
+      timestamp: nowIso(),
+    });
+    return result;
+  }
+
+  if (tool.domains && !tool.domains.includes(enforcedContext.actionDomain)) {
+    const result = buildFailure(
+      callWithCost.requestId,
       tool.name,
       "policy_blocked",
       "tool_domain_mismatch",
@@ -351,9 +421,9 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  if (governanceContext.permissionTier !== call.permissionTier) {
+  if (enforcedContext.permissionTier !== callWithCost.permissionTier) {
     const result = buildFailure(
-      call.requestId,
+      callWithCost.requestId,
       tool.name,
       "policy_blocked",
       "permission_tier_mismatch",
@@ -374,8 +444,17 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  if (call.impact !== tool.impact) {
-    const result = buildFailure(call.requestId, tool.name, "policy_blocked", "impact_mismatch", Date.now() - start, 0, 0, 0);
+  if (callWithCost.impact !== tool.impact) {
+    const result = buildFailure(
+      callWithCost.requestId,
+      tool.name,
+      "policy_blocked",
+      "impact_mismatch",
+      Date.now() - start,
+      0,
+      0,
+      0
+    );
     recordUsage?.({
       eventId: createId("tool"),
       tool: tool.name,
@@ -388,10 +467,10 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  const inputParsed = tool.inputSchema.safeParse(call.input);
+  const inputParsed = tool.inputSchema.safeParse(callWithCost.input);
   if (!inputParsed.success) {
     const result = buildFailure(
-      call.requestId,
+      callWithCost.requestId,
       tool.name,
       "schema_validation_error",
       "input_schema_invalid",
@@ -412,8 +491,8 @@ export const invokeTool = async <Input, Output>(
     return result;
   }
 
-  const goalId = context.agentContext.goalId;
-  const taskType = context.agentContext.taskType ?? call.tool;
+  const goalId = enforcedContext.goalId;
+  const taskType = enforcedContext.taskType ?? callWithCost.tool;
   const cachePreference =
     !context.cache && context.identityKey ? resolveCachePreference(context.identityKey, taskType, goalId) : null;
   const goalVersion = (() => {
@@ -431,9 +510,9 @@ export const invokeTool = async <Input, Output>(
           goalId: cachePreference.goalId ?? goalId ?? "goal:unknown",
           goalVersion,
           taskType,
-          taskClass: context.agentContext.taskClass,
-          noveltyScore: context.agentContext.noveltyScore,
-          explorationMode: context.agentContext.explorationMode,
+          taskClass: enforcedContext.taskClass,
+          noveltyScore: enforcedContext.noveltyScore,
+          explorationMode: enforcedContext.explorationMode,
         }
       : undefined);
   const inputHash = cacheContext ? hashCacheInput(inputParsed.data) : null;
@@ -449,9 +528,9 @@ export const invokeTool = async <Input, Output>(
   const cacheEligibility = cacheContext
     ? evaluateCachePolicy(cacheContext.policy, {
         taskClass: cacheContext.taskClass,
-        noveltyScore: cacheContext.noveltyScore ?? context.agentContext.noveltyScore,
-        explorationMode: cacheContext.explorationMode ?? context.agentContext.explorationMode,
-        impact: call.impact,
+        noveltyScore: cacheContext.noveltyScore ?? enforcedContext.noveltyScore,
+        explorationMode: cacheContext.explorationMode ?? enforcedContext.explorationMode,
+        impact: callWithCost.impact,
       })
     : null;
 
@@ -460,12 +539,12 @@ export const invokeTool = async <Input, Output>(
     const { enforceRuntimeGovernance } = await import("./runtimeGovernance");
     governanceDecision = await enforceRuntimeGovernance(
       context.identityKey,
-      governanceContext,
+      enforcedContext,
       context.initiator ?? "agent"
     );
     if (!governanceDecision.allowed) {
       const result = buildFailure(
-        call.requestId,
+        callWithCost.requestId,
         tool.name,
         "policy_blocked",
         `governance_blocked:${governanceDecision.reason}`,
@@ -488,11 +567,11 @@ export const invokeTool = async <Input, Output>(
   }
 
   const safetyDecision = evaluateSafetyGate({
-    permissionTier: call.permissionTier,
-    impact: call.impact,
-    estimatedCostCents: call.estimatedCostCents,
-    estimatedTokens: call.estimatedTokens,
-    sideEffectCount: call.sideEffectCount,
+    permissionTier: callWithCost.permissionTier,
+    impact: callWithCost.impact,
+    estimatedCostCents: callWithCost.estimatedCostCents,
+    estimatedTokens: callWithCost.estimatedTokens,
+    sideEffectCount: callWithCost.sideEffectCount,
     approval: context.approval,
     budget: context.budget,
   });
@@ -500,7 +579,7 @@ export const invokeTool = async <Input, Output>(
   if (!safetyDecision.allowed) {
     const failureType = mapSafetyFailure(safetyDecision.reason);
     const result = buildFailure(
-      call.requestId,
+      callWithCost.requestId,
       tool.name,
       failureType,
       safetyDecision.reason,
@@ -528,7 +607,7 @@ export const invokeTool = async <Input, Output>(
       if (cachedOutput.success) {
         recordCacheHit(cacheContext.store, cached.entry);
         const success: ToolResult = {
-          requestId: call.requestId,
+          requestId: callWithCost.requestId,
           tool: tool.name,
           status: "success",
           output: cachedOutput.data as Record<string, unknown>,
@@ -558,7 +637,7 @@ export const invokeTool = async <Input, Output>(
     const execContext: ToolExecuteContext = {
       governance: {
         identityKey: context.identityKey,
-        agentContext: governanceContext,
+        agentContext: enforcedContext,
         initiator: context.initiator,
         __unsafeSkipGovernanceForTests: context.__unsafeSkipGovernanceForTests,
       },
@@ -571,14 +650,14 @@ export const invokeTool = async <Input, Output>(
     const outputParsed = tool.outputSchema.safeParse(output);
     if (!outputParsed.success) {
       const result = buildFailure(
-        call.requestId,
+        callWithCost.requestId,
         tool.name,
         "schema_validation_error",
         "output_schema_invalid",
         Date.now() - start,
-        call.estimatedCostCents,
-        call.estimatedTokens,
-        call.sideEffectCount
+        callWithCost.estimatedCostCents,
+        callWithCost.estimatedTokens,
+        callWithCost.sideEffectCount
       );
       recordUsage?.({
         eventId: createId("tool"),
@@ -586,7 +665,7 @@ export const invokeTool = async <Input, Output>(
         status: "failure",
         failureType: "schema_validation_error",
         latencyMs: Date.now() - start,
-        costCents: call.estimatedCostCents,
+        costCents: callWithCost.estimatedCostCents,
         timestamp: nowIso(),
       });
       return result;
@@ -607,21 +686,21 @@ export const invokeTool = async <Input, Output>(
     }
 
     context.budget.recordUsage({
-      costCents: call.estimatedCostCents,
-      tokens: call.estimatedTokens,
-      sideEffects: call.sideEffectCount,
+      costCents: callWithCost.estimatedCostCents,
+      tokens: callWithCost.estimatedTokens,
+      sideEffects: callWithCost.sideEffectCount,
     });
 
     const success: ToolResult = {
-      requestId: call.requestId,
+      requestId: callWithCost.requestId,
       tool: tool.name,
       status: "success",
       output: outputParsed.data as Record<string, unknown>,
       metrics: {
         latencyMs: Date.now() - start,
-        costCents: call.estimatedCostCents,
-        tokens: call.estimatedTokens,
-        sideEffects: call.sideEffectCount,
+        costCents: callWithCost.estimatedCostCents,
+        tokens: callWithCost.estimatedTokens,
+        sideEffects: callWithCost.sideEffectCount,
       },
       completedAt: nowIso(),
     };
@@ -642,14 +721,14 @@ export const invokeTool = async <Input, Output>(
   } catch (error) {
     const type = error instanceof Error && error.message === "timeout" ? "timeout" : "tool_runtime_error";
     const result = buildFailure(
-      call.requestId,
+      callWithCost.requestId,
       tool.name,
       type,
       error instanceof Error ? error.message : "execution_failed",
       Date.now() - start,
-      call.estimatedCostCents,
-      call.estimatedTokens,
-      call.sideEffectCount
+      callWithCost.estimatedCostCents,
+      callWithCost.estimatedTokens,
+      callWithCost.sideEffectCount
     );
     recordUsage?.({
       eventId: createId("tool"),
@@ -657,7 +736,7 @@ export const invokeTool = async <Input, Output>(
       status: "failure",
       failureType: type,
       latencyMs: Date.now() - start,
-      costCents: call.estimatedCostCents,
+      costCents: callWithCost.estimatedCostCents,
       timestamp: nowIso(),
     });
     return result;

@@ -50,6 +50,7 @@ import { assertCostContext } from "../ceoPilot/costUtils";
 import { scheduleDueToCost } from "../ceoPilot/scheduling";
 import { recordCostEvent } from "../ceoPilot/runtimeState";
 import { createId, nowIso } from "../ceoPilot/utils";
+import { ensureActionEconomics } from "../ceoPilot/economics/costModel";
 
 export type ProofBundle = {
   evidence_ref: EvidenceRef;
@@ -209,13 +210,19 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       ? input.action
       : { ...input.action, intent_id: mode === "MOCK" ? "intent:default" : "intent:missing" };
 
-  const payload = actionWithIntent.payload as Record<string, unknown>;
+  const actionWithCost = ensureActionEconomics(actionWithIntent);
+
+  const payload = actionWithCost.payload as Record<string, unknown>;
   const governanceContext = input.agentContext
     ? {
         ...input.agentContext,
-        tool: input.agentContext.tool || actionWithIntent.action_type,
-        decisionType: input.agentContext.decisionType || actionWithIntent.action_type,
-        impact: input.agentContext.impact ?? (actionWithIntent.irreversible ? "irreversible" : "reversible"),
+        tool: input.agentContext.tool || actionWithCost.action_type,
+        decisionType: input.agentContext.decisionType || actionWithCost.action_type,
+        impact: input.agentContext.impact ?? (actionWithCost.irreversible ? "irreversible" : "reversible"),
+        costUnits: input.agentContext.costUnits ?? actionWithCost.costUnits,
+        costCategory: input.agentContext.costCategory ?? actionWithCost.costCategory,
+        costChargeId: input.agentContext.costChargeId ?? `action:${actionWithCost.action_id}`,
+        costSource: input.agentContext.costSource ?? "pipeline",
       }
     : undefined;
   if (governanceContext) {
@@ -229,7 +236,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       thread_id: threadId,
       timestamp: nextActionChainTimestamp(threadId),
       type: "reset",
-      action_id: actionWithIntent.action_id,
+      action_id: actionWithCost.action_id,
       reason: "chain_reset",
     });
   }
@@ -246,24 +253,24 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
   const lockState = resourceId ? getSoftLockState(resourceId) : undefined;
   const lockOk = !resourceId || !lockState?.holder || lockState.holder === podId;
   const sensitiveCheck = evaluateSensitiveContext(input.sensitive);
-  const retryKey = input.retryKey || actionWithIntent.action_id;
+  const retryKey = input.retryKey || actionWithCost.action_id;
   const retryBaseSteps = 1;
   const retryState = getRetryState(retryKey, retryBaseSteps);
   const retryOk = retryState.required_cooldown_steps === 0 || input.retryCooldownSatisfied === true;
 
-  const policy = evaluateAction(actionWithIntent, policyContext);
-  const channel = channelForAction(actionWithIntent);
+  const policy = evaluateAction(actionWithCost, policyContext);
+  const channel = channelForAction(actionWithCost);
   const provider = input.provider || (mode === "MOCK" ? "mock" : "unknown");
   const evidence_ref = buildEvidenceRef({
-    action: actionWithIntent,
+    action: actionWithCost,
     provider,
     mode,
     timestamp,
     response_id: input.response_id,
   });
-  const energyChannel = resolveEnergyChannel(actionWithIntent, channel);
+  const energyChannel = resolveEnergyChannel(actionWithCost, channel);
   const humanId = input.humanId || input.identity?.userId || identityKey || "human:unknown";
-  const energyRequiredUnits = actionWithIntent.irreversible ? energyConfig.minUnits : 0;
+  const energyRequiredUnits = actionWithCost.irreversible ? energyConfig.minUnits : 0;
   const energyState = getCapacityEnergyState(podId, humanId, energyChannel, energyDayId, energyConfig);
   const energyCheck = checkCapacityEnergy(energyState, energyRequiredUnits);
   const capacityEvidence = buildEvidenceRef({
@@ -422,7 +429,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       thread_id: threadId,
       timestamp: nextActionChainTimestamp(threadId),
       type: "blocked",
-      action_id: actionWithIntent.action_id,
+      action_id: actionWithCost.action_id,
       reason: "chain_depth_exceeded",
     });
   }
@@ -432,7 +439,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       thread_id: threadId,
       timestamp: nextActionChainTimestamp(threadId),
       type: "attempt",
-      action_id: actionWithIntent.action_id,
+      action_id: actionWithCost.action_id,
       reason: "chain_attempt",
     });
   }
@@ -491,11 +498,11 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
     ) {
       const schedulingDecision = scheduleDueToCost({
         identityKey,
-        taskId: actionWithIntent.action_id,
+        taskId: actionWithCost.action_id,
         goalId: governanceContext.goalId,
         agentId: governanceContext.agentId,
         taskType: governanceContext.taskType,
-        action: actionWithIntent,
+        action: actionWithCost,
         agentContext: governanceContext,
         initiator: input.initiator ?? "agent",
         reason: "cost_budget_exceeded",
@@ -667,7 +674,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       defer: true,
       details: { cooldown_remaining: throttleCheck.cooldownRemaining ?? 0 },
     });
-  } else if (actionWithIntent.irreversible && input.cooldownSatisfied === false) {
+  } else if (actionWithCost.irreversible && input.cooldownSatisfied === false) {
     outcome = buildGuardOutcome({
       code: "FAIL_COOLDOWN_ACTIVE",
       cause: "Irreversible cooldown required before execution.",
@@ -682,7 +689,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
       defer: true,
       details: { cooldownSeconds: policy.cooldownSeconds, confirmation_required: true },
     });
-  } else if (mode === "LIVE" && isOutbound(actionWithIntent) && !evidence_ref.response_id) {
+  } else if (mode === "LIVE" && isOutbound(actionWithCost) && !evidence_ref.response_id) {
     outcome = buildGuardOutcome({
       code: "FAIL_POLICY_CONFLICT",
       cause: "Live execution missing provider response id.",
@@ -700,7 +707,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
     if (!governanceContext) {
       throw new Error("governance_context_missing_for_execution");
     }
-    const exec = await runAction(actionWithIntent, policyContext, {
+    const exec = await runAction(actionWithCost, policyContext, {
       identityKey,
       agentContext: governanceContext,
       initiator: input.initiator ?? "agent",
@@ -736,7 +743,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
     });
   }
 
-  if (actionWithIntent.irreversible && outcome.type === "executed" && energyRequiredUnits > 0) {
+  if (actionWithCost.irreversible && outcome.type === "executed" && energyRequiredUnits > 0) {
     appendCapacityEnergyEvent({
       pod_id: podId,
       human_id: humanId,
@@ -799,7 +806,7 @@ export const runPipelineStep = async (input: PipelineInput): Promise<PipelineRes
   const ledgerEntry = appendRevenueLedger(identityKey, {
     timestamp,
     identity: identityKey,
-    action: actionWithIntent,
+    action: actionWithCost,
     outcome,
     evidence_ref,
     stage_transition: input.stage_transition,

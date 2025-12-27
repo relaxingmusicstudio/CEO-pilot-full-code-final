@@ -18,6 +18,10 @@ import {
   CostShockEventSchema,
   CostRoutingCap,
   CostRoutingCapSchema,
+  EconomicBudgetState,
+  EconomicBudgetStateSchema,
+  EconomicAuditRecord,
+  EconomicAuditRecordSchema,
   CooperationMetric,
   CooperationMetricSchema,
   Goal,
@@ -122,6 +126,8 @@ const COST_BUDGET_PREFIX = "ppp:ceoPilot:costBudgets:v1::";
 const COST_EVENT_PREFIX = "ppp:ceoPilot:costEvents:v1::";
 const COST_SHOCK_PREFIX = "ppp:ceoPilot:costShocks:v1::";
 const COST_ROUTING_CAP_PREFIX = "ppp:ceoPilot:costRoutingCap:v1::";
+const ECONOMIC_BUDGET_PREFIX = "ppp:ceoPilot:economicBudget:v1::";
+const ECONOMIC_AUDIT_PREFIX = "ppp:ceoPilot:economicAudits:v1::";
 const CACHE_ENTRY_PREFIX = "ppp:ceoPilot:cacheEntries:v1::";
 const CACHE_PREFERENCE_PREFIX = "ppp:ceoPilot:cachePreferences:v1::";
 const SCHEDULED_TASK_PREFIX = "ppp:ceoPilot:scheduledTasks:v1::";
@@ -1105,6 +1111,69 @@ export const clearCostRoutingCap = (
   storage: StorageLike = getStorage()
 ): void => {
   storage.removeItem?.(`${COST_ROUTING_CAP_PREFIX}${identityKey}`);
+};
+
+export const loadEconomicBudgetState = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): EconomicBudgetState | null => {
+  const raw = storage.getItem(`${ECONOMIC_BUDGET_PREFIX}${identityKey}`);
+  const parsed = readJson<EconomicBudgetState | null>(raw, null);
+  if (!parsed) return null;
+  const validated = EconomicBudgetStateSchema.safeParse(parsed);
+  return validated.success ? validated.data : null;
+};
+
+export const saveEconomicBudgetState = (
+  identityKey: string,
+  state: EconomicBudgetState,
+  storage: StorageLike = getStorage()
+): EconomicBudgetState | null => {
+  const parsed = EconomicBudgetStateSchema.safeParse(state);
+  if (!parsed.success) return null;
+  try {
+    storage.setItem(`${ECONOMIC_BUDGET_PREFIX}${identityKey}`, JSON.stringify(parsed.data));
+  } catch {
+    // ignore persistence errors
+  }
+  return parsed.data;
+};
+
+export const loadEconomicAudits = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): EconomicAuditRecord[] => {
+  const raw = storage.getItem(`${ECONOMIC_AUDIT_PREFIX}${identityKey}`);
+  const parsed = readJson<EconomicAuditRecord[]>(raw, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((record) => EconomicAuditRecordSchema.safeParse(record).success);
+};
+
+export const saveEconomicAudits = (
+  identityKey: string,
+  records: EconomicAuditRecord[],
+  storage: StorageLike = getStorage()
+): EconomicAuditRecord[] => {
+  const filtered = records.filter((record) => EconomicAuditRecordSchema.safeParse(record).success);
+  try {
+    storage.setItem(`${ECONOMIC_AUDIT_PREFIX}${identityKey}`, JSON.stringify(filtered));
+  } catch {
+    // ignore persistence errors
+  }
+  return filtered;
+};
+
+export const recordEconomicAudit = (
+  identityKey: string,
+  record: EconomicAuditRecord,
+  storage: StorageLike = getStorage(),
+  maxEntries: number = 300
+): EconomicAuditRecord[] => {
+  const parsed = EconomicAuditRecordSchema.safeParse(record);
+  if (!parsed.success) return loadEconomicAudits(identityKey, storage);
+  const history = loadEconomicAudits(identityKey, storage);
+  const next = [...history, parsed.data].slice(-maxEntries);
+  return saveEconomicAudits(identityKey, next, storage);
 };
 
 export const loadCostShockEvents = (

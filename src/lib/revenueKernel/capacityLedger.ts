@@ -1,5 +1,6 @@
 import type { EvidenceRef } from "./evidence";
 import { computeActionId, type ActionSpec } from "../../types/actions";
+import { deriveActionCost } from "../ceoPilot/economics/costModel";
 
 export type CoolingState = "normal" | "cooling" | "repair";
 
@@ -183,8 +184,12 @@ export const buildCapacityEvidenceAction = (podId: string, reason: string): Acti
     risk_level: "low",
     irreversible: false,
     payload: { pod_id: podId, reason },
+    costUnits: 0,
+    costCategory: "compute",
   };
-  return { ...base, action_id: computeActionId(base) };
+  const cost = deriveActionCost({ ...base, action_id: "action-temp" });
+  const withCost = { ...base, costUnits: cost.costUnits, costCategory: cost.costCategory };
+  return { ...withCost, action_id: computeActionId(withCost) };
 };
 
 export const checkCapacity = (

@@ -242,6 +242,8 @@ const runToolValidation = async (task: EvaluationTask): Promise<EvaluationResult
     intent: "test",
     permissionTier: "suggest",
     input: input.invalidInput,
+    costUnits: 1,
+    costCategory: "compute",
     estimatedCostCents: 0,
     estimatedTokens: 0,
     sideEffectCount: 0,

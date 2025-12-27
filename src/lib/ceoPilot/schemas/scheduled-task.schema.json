@@ -38,7 +38,9 @@
         "intent_id",
         "risk_level",
         "irreversible",
-        "payload"
+        "payload",
+        "costUnits",
+        "costCategory"
       ],
       "properties": {
         "action_id": { "type": "string", "minLength": 1 },
@@ -51,7 +53,9 @@
         "expected_metric": { "type": "string", "minLength": 1 },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
         "irreversible": { "type": "boolean" },
-        "payload": { "type": "object" }
+        "payload": { "type": "object" },
+        "costUnits": { "type": "integer", "minimum": 0 },
+        "costCategory": { "type": "string", "enum": ["compute", "reasoning", "io", "human_attention", "risk"] }
       }
     },
     "agentContext": { "type": "object" },

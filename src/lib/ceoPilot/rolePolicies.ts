@@ -42,6 +42,9 @@ export const DEFAULT_ROLE_POLICIES: RolePolicy[] = [
       allowedTools: ["task", "note", "message", "email", "sms", "voice", "webhook"],
       allowedContracts: [],
     },
+    economics: {
+      allowedCostCategories: ["compute", "reasoning", "io", "human_attention", "risk"],
+    },
     auditRequirements: baseAuditRequirements,
     createdAt: DEFAULT_CREATED_AT,
     updatedAt: DEFAULT_CREATED_AT,
@@ -80,6 +83,9 @@ export const DEFAULT_ROLE_POLICIES: RolePolicy[] = [
       allowedTools: ["task", "note", "message", "email", "sms", "voice", "webhook"],
       allowedContracts: [],
     },
+    economics: {
+      allowedCostCategories: ["compute", "reasoning", "io", "human_attention", "risk"],
+    },
     auditRequirements: baseAuditRequirements,
     createdAt: DEFAULT_CREATED_AT,
     updatedAt: DEFAULT_CREATED_AT,
@@ -117,6 +123,9 @@ export const DEFAULT_ROLE_POLICIES: RolePolicy[] = [
     toolAccess: {
       allowedTools: ["echo"],
       allowedContracts: [],
+    },
+    economics: {
+      allowedCostCategories: ["compute", "reasoning", "risk"],
     },
     auditRequirements: baseAuditRequirements,
     createdAt: DEFAULT_CREATED_AT,

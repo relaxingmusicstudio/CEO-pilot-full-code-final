@@ -66,6 +66,7 @@ import { clearPreflightTeam, loadPreflightTeam, savePreflightTeam, type TeamSele
 import { BRAND } from "@/config/brand";
 import { DEFAULT_AGENT_IDS } from "@/lib/ceoPilot/agents";
 import { deriveTaskClass, estimateActionCostCents } from "@/lib/ceoPilot/costUtils";
+import { deriveActionCost } from "@/lib/ceoPilot/economics/costModel";
 
 export default function CEOHome() {
   const { email, role, signOut, userId } = useAuth();
@@ -144,6 +145,10 @@ export default function CEOHome() {
       taskType: "ceo:dashboard",
       taskClass: "routine" as const,
       estimatedCostCents: 3,
+      costUnits: 3,
+      costCategory: "reasoning" as const,
+      costChargeId: "ceo-action",
+      costSource: "action" as const,
       explorationMode: true,
       actionTags: [],
       permissionTier: "suggest" as const,
@@ -476,9 +481,14 @@ export default function CEOHome() {
         source: "ceo_do_next",
         checklistItemId: nextTask.id,
       },
+      costUnits: 0,
+      costCategory: "compute",
     };
+    const actionCost = deriveActionCost({ ...baseAction, action_id: "action-temp" });
     const actionSpec: ActionSpec = {
       ...baseAction,
+      costUnits: actionCost.costUnits,
+      costCategory: actionCost.costCategory,
       action_id: computeActionId(baseAction),
     };
 
@@ -585,6 +595,10 @@ export default function CEOHome() {
                 riskLevel: actionSpec.risk_level,
               }),
               estimatedCostCents: estimateActionCostCents(actionSpec),
+              costUnits: actionSpec.costUnits,
+              costCategory: actionSpec.costCategory,
+              costChargeId: `action:${actionSpec.action_id}`,
+              costSource: "pipeline",
             },
           });
           setLastPipelineResult(result);

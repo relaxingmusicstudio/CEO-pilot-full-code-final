@@ -6,6 +6,7 @@ import { enforceRuntimeGovernance } from "./ceoPilot/runtimeGovernance";
 import { assertUnsafeTestBypass } from "./ceoPilot/runtimeGuards";
 import { recordRuntimeOutcome } from "./ceoPilot/outcomes";
 import { runSelfImprovementCycle } from "./ceoPilot/improvement";
+import { ensureActionEconomics, ensureContextEconomics } from "./ceoPilot/economics/costModel";
 
 type RunResult = {
   status: "executed" | "failed";
@@ -35,6 +36,7 @@ export const runAction = async (
   governance?: GovernanceEnforcementContext
 ): Promise<RunResult> => {
   const start = Date.now();
+  const actionWithCost = ensureActionEconomics(action);
   const unsafeSkip = governance?.__unsafeSkipGovernanceForTests === true;
   assertUnsafeTestBypass(unsafeSkip, "run_action");
   if (!governance?.agentContext || !governance?.identityKey) {
@@ -42,15 +44,24 @@ export const runAction = async (
       throw new Error("governance_context_required");
     }
   }
-  if (!unsafeSkip && governance?.agentContext && governance.identityKey) {
+  const governedContext =
+    governance?.agentContext && governance.identityKey
+      ? ensureContextEconomics({
+          ...governance.agentContext,
+          tool: governance.agentContext.tool || actionWithCost.action_type,
+          decisionType: governance.agentContext.decisionType || actionWithCost.action_type,
+          impact: governance.agentContext.impact ?? (actionWithCost.irreversible ? "irreversible" : "reversible"),
+          costUnits: governance.agentContext.costUnits ?? actionWithCost.costUnits,
+          costCategory: governance.agentContext.costCategory ?? actionWithCost.costCategory,
+          costChargeId: governance.agentContext.costChargeId ?? `action:${actionWithCost.action_id}`,
+          costSource: governance.agentContext.costSource ?? "action",
+        })
+      : governance?.agentContext;
+
+  if (!unsafeSkip && governedContext && governance?.identityKey) {
     const decision = await enforceRuntimeGovernance(
       governance.identityKey,
-      {
-        ...governance.agentContext,
-        tool: governance.agentContext.tool || action.action_type,
-        decisionType: governance.agentContext.decisionType || action.action_type,
-        impact: governance.agentContext.impact ?? (action.irreversible ? "irreversible" : "reversible"),
-      },
+      governedContext,
       governance.initiator ?? "agent"
     );
     if (!decision.allowed) {
@@ -64,18 +75,18 @@ export const runAction = async (
   if (ctx.mode === "MOCK" || ctx.mode === "OFFLINE") {
     const result: RunResult = {
       status: "executed",
-      evidence: { kind: "mock", value: buildMockEvidence(action) },
+      evidence: { kind: "mock", value: buildMockEvidence(actionWithCost) },
     };
-    if (governance?.agentContext && governance.identityKey) {
+    if (governedContext && governance.identityKey) {
       const durationMs = Date.now() - start;
       const enrichedContext = {
-        ...governance.agentContext,
+        ...governedContext,
         humanOverride: governance.initiator === "human" || governance.agentContext.humanOverride,
         durationMs,
       };
       recordRuntimeOutcome({
         identityKey: governance.identityKey,
-        action,
+        action: actionWithCost,
         context: enrichedContext,
         outcomeType: "executed",
         durationMs,
@@ -91,19 +102,19 @@ export const runAction = async (
 
   const result: RunResult = {
     status: "failed",
-    evidence: { kind: "log", value: `LIVE_EXEC_NOT_IMPLEMENTED:${action.action_type}` },
+    evidence: { kind: "log", value: `LIVE_EXEC_NOT_IMPLEMENTED:${actionWithCost.action_type}` },
     error: "LIVE_EXEC_NOT_IMPLEMENTED",
   };
-  if (governance?.agentContext && governance.identityKey) {
+  if (governedContext && governance.identityKey) {
     const durationMs = Date.now() - start;
     const enrichedContext = {
-      ...governance.agentContext,
+      ...governedContext,
       humanOverride: governance.initiator === "human" || governance.agentContext.humanOverride,
       durationMs,
     };
     recordRuntimeOutcome({
       identityKey: governance.identityKey,
-      action,
+      action: actionWithCost,
       context: enrichedContext,
       outcomeType: "failed",
       durationMs,

@@ -7,6 +7,7 @@ import { assertCostContext } from "./ceoPilot/costUtils";
 import { scheduleDueToCost } from "./ceoPilot/scheduling";
 import { recordCostEvent } from "./ceoPilot/runtimeState";
 import { createId, nowIso } from "./ceoPilot/utils";
+import { ensureActionEconomics } from "./ceoPilot/economics/costModel";
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -121,12 +122,17 @@ export const executeActionPipeline = async (
   const trustLevel = opts.policyContext?.trustLevel ?? resolveTrustLevel(mode);
   const ctx: PolicyContext = { mode, trustLevel };
   const identityKey = opts.identityKey || computeIdentityKey(undefined, undefined);
+  const actionWithCost = ensureActionEconomics(action);
   const governanceContext = opts.agentContext
     ? {
         ...opts.agentContext,
-        tool: opts.agentContext.tool || action.action_type,
-        decisionType: opts.agentContext.decisionType || action.action_type,
-        impact: opts.agentContext.impact ?? (action.irreversible ? "irreversible" : "reversible"),
+        tool: opts.agentContext.tool || actionWithCost.action_type,
+        decisionType: opts.agentContext.decisionType || actionWithCost.action_type,
+        impact: opts.agentContext.impact ?? (actionWithCost.irreversible ? "irreversible" : "reversible"),
+        costUnits: opts.agentContext.costUnits ?? actionWithCost.costUnits,
+        costCategory: opts.agentContext.costCategory ?? actionWithCost.costCategory,
+        costChargeId: opts.agentContext.costChargeId ?? `action:${actionWithCost.action_id}`,
+        costSource: opts.agentContext.costSource ?? "action",
       }
     : undefined;
   if (governanceContext) {
@@ -134,8 +140,8 @@ export const executeActionPipeline = async (
   }
   const governance = await enforceRuntimeGovernance(identityKey, governanceContext, opts.initiator ?? "agent");
   const safeIntentId =
-    action.intent_id && action.intent_id.trim().length > 0
-      ? action.intent_id
+    actionWithCost.intent_id && actionWithCost.intent_id.trim().length > 0
+      ? actionWithCost.intent_id
       : mode === "MOCK"
         ? "intent:default"
         : "intent:missing";
@@ -149,11 +155,11 @@ export const executeActionPipeline = async (
     ) {
       const schedulingDecision = scheduleDueToCost({
         identityKey,
-        taskId: action.action_id,
+        taskId: actionWithCost.action_id,
         goalId: governanceContext.goalId,
         agentId: governanceContext.agentId,
         taskType: governanceContext.taskType,
-        action,
+        action: actionWithCost,
         agentContext: governanceContext,
         initiator: opts.initiator ?? "agent",
         reason: "cost_budget_exceeded",
@@ -173,7 +179,7 @@ export const executeActionPipeline = async (
           metadata: { scheduleId: schedulingDecision.scheduledTask.scheduleId },
         });
         const deferred = buildRecord(
-          { action_id: action.action_id, intent_id: safeIntentId },
+          { action_id: actionWithCost.action_id, intent_id: safeIntentId },
           "cooldown",
           { kind: "log", value: `SCHEDULED_DUE_TO_COST:${schedulingDecision.scheduledTask.scheduleId}` },
           timestamp
@@ -184,7 +190,7 @@ export const executeActionPipeline = async (
       }
     }
     const blocked = buildRecord(
-      { action_id: action.action_id, intent_id: safeIntentId },
+      { action_id: actionWithCost.action_id, intent_id: safeIntentId },
       "blocked",
       { kind: "log", value: `GOVERNANCE_BLOCKED:${governance.reason}` },
       timestamp
@@ -194,11 +200,11 @@ export const executeActionPipeline = async (
     return blocked;
   }
 
-  const policy = evaluateAction({ ...action, intent_id: safeIntentId }, ctx);
+  const policy = evaluateAction({ ...actionWithCost, intent_id: safeIntentId }, ctx);
 
   if (!policy.allowed) {
     const blocked = buildRecord(
-      { action_id: action.action_id, intent_id: safeIntentId },
+      { action_id: actionWithCost.action_id, intent_id: safeIntentId },
       "blocked",
       { kind: "log", value: policy.reason ?? "POLICY_BLOCKED" },
       timestamp
@@ -210,7 +216,7 @@ export const executeActionPipeline = async (
 
   if (policy.requiresConfirm && !opts.requireUserConfirm) {
     const cooldown = buildRecord(
-      { action_id: action.action_id, intent_id: safeIntentId },
+      { action_id: actionWithCost.action_id, intent_id: safeIntentId },
       "cooldown",
       { kind: "log", value: `CONFIRM_REQUIRED:${policy.cooldownSeconds}s` },
       timestamp
@@ -223,9 +229,9 @@ export const executeActionPipeline = async (
   if (!opts.agentContext) {
     throw new Error("governance_context_missing_for_execution");
   }
-  const result = await runAction({ ...action, intent_id: safeIntentId }, ctx, {
+  const result = await runAction({ ...actionWithCost, intent_id: safeIntentId }, ctx, {
     identityKey,
-    agentContext: opts.agentContext,
+    agentContext: governanceContext,
     initiator: opts.initiator,
   });
   const status: ExecutionRecord["status"] = result.status === "executed" ? "executed" : "failed";

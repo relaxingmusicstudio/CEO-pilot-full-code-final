@@ -9,6 +9,8 @@ export type ActionType =
   | "wait"
   | "update_state";
 
+export type CostCategory = "compute" | "reasoning" | "io" | "human_attention" | "risk";
+
 export type ActionSpec = {
   action_id: string;
   action_type: ActionType;
@@ -18,6 +20,8 @@ export type ActionSpec = {
   risk_level: "low" | "medium" | "high";
   irreversible: boolean;
   payload: Record<string, unknown>;
+  costUnits: number;
+  costCategory: CostCategory;
 };
 
 export type ExecutionRecord = {

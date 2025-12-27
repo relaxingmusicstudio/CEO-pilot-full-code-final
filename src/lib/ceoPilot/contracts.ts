@@ -8,6 +8,12 @@ export type PermissionTier = z.infer<typeof PermissionTierSchema>;
 export const ActionImpactSchema = z.enum(["reversible", "difficult", "irreversible"]);
 export type ActionImpact = z.infer<typeof ActionImpactSchema>;
 
+export const CostCategorySchema = z.enum(["compute", "reasoning", "io", "human_attention", "risk"]);
+export type CostCategory = z.infer<typeof CostCategorySchema>;
+
+export const EconomicCostSourceSchema = z.enum(["action", "tool", "pipeline"]);
+export type EconomicCostSource = z.infer<typeof EconomicCostSourceSchema>;
+
 export const FailureTypeSchema = z.enum([
   "schema_validation_error",
   "tool_runtime_error",
@@ -49,6 +55,8 @@ export const ToolCallSchema = z
     intent: z.string().min(1),
     permissionTier: PermissionTierSchema,
     input: z.record(z.unknown()),
+    costUnits: z.number().int().nonnegative(),
+    costCategory: CostCategorySchema,
     estimatedCostCents: z.number().int().nonnegative().default(0),
     estimatedTokens: z.number().int().nonnegative().default(0),
     sideEffectCount: z.number().int().nonnegative().default(0),
@@ -269,6 +277,13 @@ export const RoleToolAccessSchema = z
   .strict();
 export type RoleToolAccess = z.infer<typeof RoleToolAccessSchema>;
 
+export const RoleEconomicsSchema = z
+  .object({
+    allowedCostCategories: z.array(CostCategorySchema).min(1),
+  })
+  .strict();
+export type RoleEconomics = z.infer<typeof RoleEconomicsSchema>;
+
 export const RoleAuditRequirementsSchema = z
   .object({
     requiredFields: z.array(z.string().min(1)).min(1),
@@ -289,6 +304,7 @@ export const RolePolicySchema = z
     chainOfCommand: RoleChainOfCommandSchema,
     dataAccess: RoleDataAccessSchema,
     toolAccess: RoleToolAccessSchema,
+    economics: RoleEconomicsSchema,
     auditRequirements: RoleAuditRequirementsSchema,
     createdAt: ISODateSchema,
     updatedAt: ISODateSchema,
@@ -865,6 +881,44 @@ export const CostRoutingCapSchema = z
   .strict();
 export type CostRoutingCap = z.infer<typeof CostRoutingCapSchema>;
 
+export const EconomicBudgetStateSchema = z
+  .object({
+    budgetId: z.string().min(1),
+    identityKey: z.string().min(1),
+    totalBudget: z.number().int().nonnegative(),
+    remainingBudget: z.number().int().nonnegative(),
+    sessionId: z.string().min(1),
+    sessionTotal: z.number().int().nonnegative(),
+    sessionRemaining: z.number().int().nonnegative(),
+    windowStart: ISODateSchema,
+    windowDurationMs: z.number().int().nonnegative(),
+    updatedAt: ISODateSchema,
+  })
+  .strict();
+export type EconomicBudgetState = z.infer<typeof EconomicBudgetStateSchema>;
+
+export const EconomicAuditRecordSchema = z
+  .object({
+    auditId: z.string().min(1),
+    identityKey: z.string().min(1),
+    roleId: z.string().min(1).optional(),
+    actionId: z.string().min(1).optional(),
+    taskId: z.string().min(1).optional(),
+    taskType: z.string().min(1).optional(),
+    tool: z.string().min(1).optional(),
+    costUnits: z.number().int().nonnegative(),
+    costCategory: CostCategorySchema,
+    costSource: EconomicCostSourceSchema,
+    chargeId: z.string().min(1).optional(),
+    decision: z.enum(["allowed", "blocked"]),
+    reason: z.string().min(1),
+    remainingBudget: z.number().int().nonnegative(),
+    sessionRemaining: z.number().int().nonnegative(),
+    createdAt: ISODateSchema,
+  })
+  .strict();
+export type EconomicAuditRecord = z.infer<typeof EconomicAuditRecordSchema>;
+
 export const CachePolicySchema = z
   .object({
     ttlMs: z.number().int().positive(),
@@ -914,6 +968,8 @@ const ScheduledTaskActionSchema = z
     risk_level: z.enum(["low", "medium", "high"]),
     irreversible: z.boolean(),
     payload: z.record(z.unknown()),
+    costUnits: z.number().int().nonnegative(),
+    costCategory: CostCategorySchema,
   })
   .strict();
 
@@ -1550,6 +1606,8 @@ export const CONTRACTS = {
   costBudget: CostBudgetSchema,
   costEventRecord: CostEventRecordSchema,
   costRoutingCap: CostRoutingCapSchema,
+  economicBudgetState: EconomicBudgetStateSchema,
+  economicAuditRecord: EconomicAuditRecordSchema,
   cachePolicy: CachePolicySchema,
   cacheEntry: CacheEntrySchema,
   schedulingPolicy: SchedulingPolicySchema,

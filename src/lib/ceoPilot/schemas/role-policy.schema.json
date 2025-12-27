@@ -15,6 +15,7 @@
     "chainOfCommand",
     "dataAccess",
     "toolAccess",
+    "economics",
     "auditRequirements",
     "createdAt",
     "updatedAt"
@@ -81,6 +82,18 @@
       "properties": {
         "allowedTools": { "type": "array", "items": { "type": "string" } },
         "allowedContracts": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "economics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowedCostCategories"],
+      "properties": {
+        "allowedCostCategories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["compute", "reasoning", "io", "human_attention", "risk"] }
+        }
       }
     },
     "auditRequirements": {

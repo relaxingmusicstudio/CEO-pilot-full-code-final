@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
 import { computeIdentityKey } from "@/lib/spine";
@@ -93,6 +93,8 @@ export default function ControlRoom() {
   const safeMode = snapshot?.safeMode ?? true;
   const safeModeReasons = snapshot?.safeModeReasons ?? [];
   const rolePolicies = snapshot?.data.rolePolicies ?? [];
+  const economicBudget = snapshot?.data.economicBudget ?? null;
+  const economicAudits = snapshot?.data.economicAudits ?? [];
 
   const candidateTaskTypes = useMemo(() => {
     const types = new Set<string>();
@@ -135,6 +137,20 @@ export default function ControlRoom() {
       return true;
     });
   }, [snapshot, actionFilter, taskTypeFilter]);
+
+  const recentEconomicAudits = useMemo(() => {
+    return economicAudits
+      .slice()
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 8);
+  }, [economicAudits]);
+
+  const lastEconomicBlock = useMemo(() => {
+    return economicAudits
+      .slice()
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .find((entry) => entry.decision === "blocked") ?? null;
+  }, [economicAudits]);
 
   const roleEscalations = useMemo(() => {
     const audits = snapshot?.data.roleConstitutionAudits ?? [];
@@ -526,8 +542,8 @@ export default function ControlRoom() {
                       <Badge variant={pref.status === "active" ? "secondary" : "outline"}>{pref.status}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {pref.minTier ? `Min: ${pref.minTier}` : "Min: —"} •{" "}
-                      {pref.maxTier ? `Max: ${pref.maxTier}` : "Max: —"}
+                      {pref.minTier ? `Min: ${pref.minTier}` : "Min: -"}{" | "}
+                      {pref.maxTier ? `Max: ${pref.maxTier}` : "Max: �"}
                     </div>
                     <div className="text-xs text-muted-foreground">Reason: {pref.reason}</div>
                   </div>
@@ -537,6 +553,33 @@ export default function ControlRoom() {
           </TabsContent>
 
           <TabsContent value="costs" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Economic Budget</CardTitle>
+                <CardDescription>Runtime budget state and recent usage.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>Total Budget</span>
+                  <span className="font-medium">{economicBudget?.totalBudget ?? "n/a"} units</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Remaining Budget</span>
+                  <span className="font-medium">{economicBudget?.remainingBudget ?? "n/a"} units</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Session Remaining</span>
+                  <span className="font-medium">{economicBudget?.sessionRemaining ?? "n/a"} units</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Window start: {formatDateTime(economicBudget?.windowStart)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Last block: {lastEconomicBlock ? `${lastEconomicBlock.reason} (${formatDateTime(lastEconomicBlock.createdAt)})` : "none"}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Budgets</CardTitle>
@@ -575,6 +618,45 @@ export default function ControlRoom() {
                     <div className="text-muted-foreground">{formatDateTime(event.createdAt)}</div>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Recent Economic Usage</CardTitle>
+                <CardDescription>Latest cost-consuming actions and blocks.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                {recentEconomicAudits.length === 0 ? (
+                  <div className="text-muted-foreground">No economic activity recorded.</div>
+                ) : (
+                  <div className="rounded-lg border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">When</TableHead>
+                          <TableHead className="text-xs">Source</TableHead>
+                          <TableHead className="text-xs">Category</TableHead>
+                          <TableHead className="text-xs">Units</TableHead>
+                          <TableHead className="text-xs">Decision</TableHead>
+                          <TableHead className="text-xs">Reason</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recentEconomicAudits.map((entry) => (
+                          <TableRow key={entry.auditId}>
+                            <TableCell className="text-xs">{formatDateTime(entry.createdAt)}</TableCell>
+                            <TableCell className="text-xs">{entry.costSource}</TableCell>
+                            <TableCell className="text-xs">{entry.costCategory}</TableCell>
+                            <TableCell className="text-xs">{entry.costUnits}</TableCell>
+                            <TableCell className="text-xs">{entry.decision}</TableCell>
+                            <TableCell className="text-xs">{entry.reason}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -904,8 +986,8 @@ export default function ControlRoom() {
                       Actions: {policy.jurisdiction.actions.join(", ")}
                     </div>
                     <div className="text-muted-foreground">
-                      Authority: tier ≤ {policy.authorityCeiling.maxPermissionTier} | class ≤{" "}
-                      {policy.authorityCeiling.maxTaskClass} | impact ≤ {policy.authorityCeiling.maxImpact} | cost ≤{" "}
+                      Authority: tier = {policy.authorityCeiling.maxPermissionTier} | class ={" "}
+                      {policy.authorityCeiling.maxTaskClass} | impact = {policy.authorityCeiling.maxImpact} | cost ={" "}
                       {formatCurrency(policy.authorityCeiling.maxEstimatedCostCents)}
                     </div>
                     <div className="text-muted-foreground">
@@ -1134,5 +1216,6 @@ export default function ControlRoom() {
     </div>
   );
 }
+
 
 

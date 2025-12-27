@@ -13,6 +13,10 @@ import {
   PermissionTier,
   RoleConstitutionAuditRecord,
   RoleConstitutionDecision,
+  EconomicAuditRecord,
+  EconomicBudgetState,
+  CostCategory,
+  EconomicCostSource,
   SecondOrderEffects,
   SchedulingPolicy,
   TaskClass,
@@ -65,6 +69,7 @@ import {
 import { assertCostContext } from "./costUtils";
 import { nowIso } from "./utils";
 import { enforceRoleConstitution } from "./roleConstitution";
+import { enforceEconomicGate } from "./economics/economicGate";
 
 export type AgentRuntimeMetrics = {
   uncertaintyVariance: number;
@@ -97,6 +102,10 @@ export type AgentRuntimeContext = {
   explorationMode?: boolean;
   actionTags?: string[];
   dataCategories?: string[];
+  costUnits?: number;
+  costCategory?: CostCategory;
+  costChargeId?: string;
+  costSource?: EconomicCostSource;
   secondOrderEffects?: SecondOrderEffects;
   longHorizonCommitment?: LongHorizonCommitment;
   normJustification?: string;
@@ -168,6 +177,15 @@ export type RuntimeGovernanceDecision = {
     roleConstitution?: {
       decision: RoleConstitutionDecision;
       audit: RoleConstitutionAuditRecord;
+    };
+    economic?: {
+      allowed: boolean;
+      reason: string;
+      costUnits: number;
+      costCategory: CostCategory;
+      budget: EconomicBudgetState;
+      audit: EconomicAuditRecord;
+      requiresHumanReview: boolean;
     };
     disagreement?: {
       disagreementId: string;
@@ -909,6 +927,25 @@ export const enforceRuntimeGovernance = async (
         details,
       };
     }
+  }
+
+  const economicDecision = enforceEconomicGate(identityKey, context, initiator, now);
+  details.economic = {
+    allowed: economicDecision.allowed,
+    reason: economicDecision.reason,
+    costUnits: context.costUnits ?? economicDecision.audit.costUnits,
+    costCategory: context.costCategory ?? economicDecision.audit.costCategory,
+    budget: economicDecision.budget,
+    audit: economicDecision.audit,
+    requiresHumanReview: economicDecision.requiresHumanReview,
+  };
+  if (!economicDecision.allowed) {
+    return {
+      allowed: false,
+      reason: economicDecision.reason,
+      requiresHumanReview: true,
+      details,
+    };
   }
 
   const effectiveSchedulingPolicy =
