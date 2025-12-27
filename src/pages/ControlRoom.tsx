@@ -9,6 +9,7 @@ import {
   getRuntimeSnapshot,
   importState,
   listImprovementQueue,
+  reaffirmValueAnchors,
   setControlProfile,
   type RuntimeSnapshot,
 } from "@/lib/ceoPilot/controlRoomApi";
@@ -51,6 +52,8 @@ export default function ControlRoom() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [reaffirmStatus, setReaffirmStatus] = useState<string | null>(null);
+  const [reaffirmNotes, setReaffirmNotes] = useState("");
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [emergencyMode, setEmergencyMode] = useState<"normal" | "constrained" | "emergency">("normal");
@@ -97,6 +100,28 @@ export default function ControlRoom() {
     });
     return Array.from(types).sort();
   }, [snapshot?.data.improvementCandidates]);
+
+  const primaryAnchor = useMemo(() => {
+    const anchors = snapshot?.data.valueAnchors ?? [];
+    if (anchors.length === 0) return null;
+    return anchors.slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  }, [snapshot?.data.valueAnchors]);
+
+  const latestDrift = useMemo(() => {
+    const reports = snapshot?.data.driftReports ?? [];
+    if (reports.length === 0) return null;
+    return reports.slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  }, [snapshot?.data.driftReports]);
+
+  const latestReaffirmation = useMemo(() => {
+    if (!primaryAnchor) return null;
+    const records = snapshot?.data.valueReaffirmations ?? [];
+    const relevant = records.filter(
+      (record) => record.anchorId === primaryAnchor.anchorId && record.anchorVersion === primaryAnchor.version
+    );
+    if (relevant.length === 0) return null;
+    return relevant.slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  }, [primaryAnchor, snapshot?.data.valueReaffirmations]);
 
   const filteredChains = useMemo(() => {
     if (!snapshot) return [];
@@ -177,6 +202,24 @@ export default function ControlRoom() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "control_update_failed";
       setActionStatus(message);
+    }
+  };
+
+  const handleReaffirmAnchors = () => {
+    if (!identityKey) return;
+    setReaffirmStatus(null);
+    try {
+      reaffirmValueAnchors({
+        identityKey,
+        notes: reaffirmNotes || undefined,
+        decidedBy: email ?? userId ?? "human",
+      });
+      setReaffirmStatus("Anchors reaffirmed.");
+      setReaffirmNotes("");
+      refresh();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "reaffirm_failed";
+      setReaffirmStatus(message);
     }
   };
 
@@ -318,6 +361,104 @@ export default function ControlRoom() {
                   <div className="flex items-center justify-between">
                     <span>Avg Cost</span>
                     <span className="font-medium">{formatCurrency(snapshot?.summary.last24h.avgCostCents ?? 0)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Value Anchors</CardTitle>
+                  <CardDescription>Canonical objectives and constraints.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>Anchor</span>
+                    <span className="font-medium">{primaryAnchor?.anchorId ?? "n/a"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Version</span>
+                    <span className="font-medium">{primaryAnchor?.version ?? "n/a"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Review cadence</span>
+                    <span className="font-medium">{primaryAnchor?.reviewCadence ?? "n/a"}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Created: {formatDateTime(primaryAnchor?.createdAt)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Last reaffirmed: {formatDateTime(latestReaffirmation?.createdAt)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Core objectives:{" "}
+                    {(primaryAnchor?.coreObjectives ?? [])
+                      .slice()
+                      .sort((left, right) => left.rank - right.rank)
+                      .map((objective) => `${objective.rank}. ${objective.description}`)
+                      .join(" | ") || "n/a"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Do not optimize:{" "}
+                    {(primaryAnchor?.doNotOptimize ?? [])
+                      .map((constraint) => constraint.description)
+                      .join(" | ") || "n/a"}
+                  </div>
+                  <Textarea
+                    value={reaffirmNotes}
+                    onChange={(event) => setReaffirmNotes(event.target.value)}
+                    placeholder="Notes for reaffirming anchors."
+                    className="min-h-16"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={handleReaffirmAnchors} disabled={safeMode || !primaryAnchor}>
+                      Reaffirm Anchors
+                    </Button>
+                    {reaffirmStatus && <span className="text-xs text-muted-foreground">{reaffirmStatus}</span>}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Value Drift Status</CardTitle>
+                  <CardDescription>Latest drift report and tripwire status.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>Severity</span>
+                    <Badge variant={latestDrift?.severity === "high" ? "destructive" : "secondary"}>
+                      {latestDrift?.severity ?? "n/a"}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Reasons: {(latestDrift?.reasons ?? []).length
+                      ? (latestDrift?.reasons ?? []).join(" | ")
+                      : "none"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Window: {formatDateTime(latestDrift?.window?.recentStart)} - {formatDateTime(latestDrift?.window?.recentEnd)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Decision drift: {typeof latestDrift?.metrics?.decisionDistribution?.jsDivergence === "number"
+                      ? latestDrift.metrics.decisionDistribution.jsDivergence.toFixed(3)
+                      : "n/a"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Routing drift: {typeof latestDrift?.metrics?.routingDistribution?.jsDivergence === "number"
+                      ? latestDrift.metrics.routingDistribution.jsDivergence.toFixed(3)
+                      : "n/a"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Failure delta: {typeof latestDrift?.metrics?.outcomeRates?.deltaFailureRate === "number"
+                      ? latestDrift.metrics.outcomeRates.deltaFailureRate.toFixed(3)
+                      : "n/a"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Near-miss delta: {typeof latestDrift?.metrics?.constraintTrend?.nearMissRateDelta === "number"
+                      ? latestDrift.metrics.constraintTrend.nearMissRateDelta.toFixed(3)
+                      : "n/a"}
                   </div>
                 </CardContent>
               </Card>

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ValueReaffirmationRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reaffirmationId",
+    "identityKey",
+    "anchorId",
+    "anchorVersion",
+    "decidedBy",
+    "createdAt"
+  ],
+  "properties": {
+    "reaffirmationId": { "type": "string", "minLength": 1 },
+    "identityKey": { "type": "string", "minLength": 1 },
+    "anchorId": { "type": "string", "minLength": 1 },
+    "anchorVersion": { "type": "string", "minLength": 1 },
+    "decisionId": { "type": "string", "minLength": 1 },
+    "decidedBy": { "type": "string", "minLength": 1 },
+    "notes": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -7,12 +7,16 @@ import type {
   ModelTier,
   PermissionTier,
   TaskOutcomeRecord,
+  ValueReaffirmationRecord,
 } from "./contracts";
 import { applyImprovementCandidate, rollbackImprovementCandidate } from "./improvement";
 import { setEmergencyMode, clearEmergencyModeState } from "./emergencyMode";
+import { evaluateDriftState } from "./drift/state";
+import { pickPrimaryValueAnchor } from "./valueAnchors";
 import {
   ensureDefaultCostBudgets,
   ensureDefaultHumanControls,
+  ensureDefaultValueAnchors,
   loadBehaviorFreezes,
   loadCacheEntries,
   loadCachePreferences,
@@ -21,6 +25,7 @@ import {
   loadCostEvents,
   loadCostRoutingCap,
   loadCostShockEvents,
+  loadDriftReports,
   loadDistilledRules,
   loadEmergencyMode,
   loadEscalationOverrides,
@@ -37,7 +42,10 @@ import {
   loadSchedulingPreferences,
   loadScheduledTasks,
   loadTaskOutcomes,
+  loadValueAnchors,
+  loadValueReaffirmations,
   recordHumanDecision,
+  recordValueReaffirmation,
   saveBehaviorFreezes,
   saveCacheEntries,
   saveCachePreferences,
@@ -46,6 +54,7 @@ import {
   saveCostEvents,
   saveCostRoutingCap,
   saveCostShockEvents,
+  saveDriftReports,
   saveDistilledRules,
   saveEscalationOverrides,
   saveGoals,
@@ -61,6 +70,8 @@ import {
   saveSchedulingPreferences,
   saveScheduledTasks,
   saveTaskOutcomes,
+  saveValueAnchors,
+  saveValueReaffirmations,
 } from "./runtimeState";
 import { createId, nowIso } from "./utils";
 
@@ -89,6 +100,14 @@ export type ControlProfileInput = {
   costRoutingCapTier?: ModelTier;
   costRoutingCapReason?: string;
   costRoutingCapExpiresAt?: string;
+};
+
+export type ValueReaffirmationInput = {
+  identityKey: string;
+  anchorId?: string;
+  notes?: string;
+  decidedBy?: string;
+  now?: string;
 };
 
 export type RuntimeSnapshot = {
@@ -133,6 +152,9 @@ export type RuntimeSnapshot = {
     humanControls: ReturnType<typeof loadHumanControls>;
     humanDecisions: ReturnType<typeof loadHumanDecisions>;
     modelRoutingHistory: ReturnType<typeof loadModelRoutingHistory>;
+    valueAnchors: ReturnType<typeof loadValueAnchors>;
+    driftReports: ReturnType<typeof loadDriftReports>;
+    valueReaffirmations: ReturnType<typeof loadValueReaffirmations>;
   };
 };
 
@@ -163,14 +185,25 @@ const computeLast24hSummary = (outcomes: TaskOutcomeRecord[], now: string) => {
 export const getRuntimeSnapshot = (identityKey: string, now: string = nowIso()): RuntimeSnapshot => {
   const costBudgets = ensureDefaultCostBudgets(identityKey);
   const humanControls = ensureDefaultHumanControls(identityKey);
+  const valueAnchors = ensureDefaultValueAnchors(identityKey);
   const emergencyMode = loadEmergencyMode(identityKey);
   const outcomes = loadTaskOutcomes(identityKey);
   const improvementCandidates = loadImprovementCandidates(identityKey);
   const causalChains = loadCausalChains(identityKey);
   const safeModeReasons: string[] = [];
+  let driftReports = loadDriftReports(identityKey);
+  try {
+    evaluateDriftState(identityKey, now);
+    driftReports = loadDriftReports(identityKey);
+  } catch {
+    safeModeReasons.push("drift_report_unavailable");
+  }
+  const valueReaffirmations = loadValueReaffirmations(identityKey);
 
   if (costBudgets.length === 0) safeModeReasons.push("missing_cost_budgets");
   if (humanControls.length === 0) safeModeReasons.push("missing_human_controls");
+  if (valueAnchors.length === 0) safeModeReasons.push("missing_value_anchors");
+  if (driftReports.length === 0) safeModeReasons.push("missing_drift_reports");
   if (improvementCandidates.length === 0) safeModeReasons.push("missing_improvement_candidates");
   if (causalChains.length === 0) safeModeReasons.push("missing_causal_chains");
 
@@ -214,6 +247,9 @@ export const getRuntimeSnapshot = (identityKey: string, now: string = nowIso()):
       humanControls,
       humanDecisions: loadHumanDecisions(identityKey),
       modelRoutingHistory: loadModelRoutingHistory(identityKey),
+      valueAnchors,
+      driftReports,
+      valueReaffirmations,
     },
   };
 };
@@ -331,6 +367,43 @@ export const applyHumanDecision = (input: ImprovementDecisionInput) => {
 
   recordHumanDecision(input.identityKey, decisionRecord);
   return decisionRecord;
+};
+
+export const reaffirmValueAnchors = (input: ValueReaffirmationInput): ValueReaffirmationRecord => {
+  const now = input.now ?? nowIso();
+  const anchors = ensureDefaultValueAnchors(input.identityKey);
+  const selected = input.anchorId
+    ? anchors.find((anchor) => anchor.anchorId === input.anchorId)
+    : pickPrimaryValueAnchor(anchors);
+  if (!selected) {
+    throw new Error("value_anchor_missing");
+  }
+
+  const decisionId = createId("decision");
+  const record: ValueReaffirmationRecord = {
+    reaffirmationId: createId("reaffirm"),
+    identityKey: input.identityKey,
+    anchorId: selected.anchorId,
+    anchorVersion: selected.version,
+    decisionId,
+    decidedBy: input.decidedBy ?? "human",
+    notes: input.notes,
+    createdAt: now,
+  };
+
+  recordValueReaffirmation(input.identityKey, record);
+  recordHumanDecision(input.identityKey, {
+    decisionId,
+    identityKey: input.identityKey,
+    targetType: "value_anchor_reaffirmation",
+    targetId: selected.anchorId,
+    decision: "approve",
+    notes: input.notes,
+    decidedBy: input.decidedBy,
+    createdAt: now,
+  });
+
+  return record;
 };
 
 export const setControlProfile = (input: ControlProfileInput) => {
@@ -461,6 +534,9 @@ export const importState = (payload: RuntimeStateExport, identityKey?: string) =
   saveHumanControls(targetKey, data.humanControls ?? []);
   saveHumanDecisions(targetKey, data.humanDecisions ?? []);
   saveModelRoutingHistory(targetKey, data.modelRoutingHistory ?? []);
+  saveValueAnchors(targetKey, data.valueAnchors ?? []);
+  saveDriftReports(targetKey, data.driftReports ?? []);
+  saveValueReaffirmations(targetKey, data.valueReaffirmations ?? []);
 
   return getRuntimeSnapshot(targetKey);
 };

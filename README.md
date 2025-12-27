@@ -77,12 +77,23 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/c
 The Control Room is the governance UI for the CEO Pilot runtime. Use it to inspect routing, budgets, improvements, and interpretability artifacts, and to apply emergency controls.
 
 - Overview: current mode, autonomy ceiling, and recent outcomes.
+- Overview also shows value anchors and the latest drift report with a reaffirm action.
 - Routing: recent model tier decisions and caps.
 - Costs/Budgets: budget limits and cost events.
 - Improvement Queue: approve/reject improvement candidates and distilled rules.
 - Interpretability: browse causal chains, alternatives, and counterfactuals.
 - Emergency & Controls: emergency mode, autonomy cap, kill switch, and behavior freezes.
 - Export/Import: download or restore runtime state snapshots.
+
+## Value Drift Detection
+
+Value anchors define ranked objectives and do-not-optimize constraints. The drift detector compares rolling baseline vs recent windows across:
+
+- Decision distribution (task types) and routing distribution (model tiers).
+- Outcome success/failure deltas and improvement rollback rates.
+- Constraint violations and near-miss trends (budget events).
+
+Medium drift throttles autonomy and blocks promotions until anchors are reaffirmed. High drift freezes autonomy until reaffirmed. Reaffirm anchors from the Control Room Overview to clear the drift gate after review.
 
 Run the scheduler worker:
 

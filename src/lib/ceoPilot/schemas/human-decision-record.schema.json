@@ -9,7 +9,13 @@
     "identityKey": { "type": "string", "minLength": 1 },
     "targetType": {
       "type": "string",
-      "enum": ["improvement_candidate", "distilled_rule", "control_profile", "emergency_mode"]
+      "enum": [
+        "improvement_candidate",
+        "distilled_rule",
+        "control_profile",
+        "emergency_mode",
+        "value_anchor_reaffirmation"
+      ]
     },
     "targetId": { "type": "string", "minLength": 1 },
     "decision": {

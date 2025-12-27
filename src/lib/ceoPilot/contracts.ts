@@ -394,6 +394,136 @@ export const GoalConflictSchema = z
   .strict();
 export type GoalConflict = z.infer<typeof GoalConflictSchema>;
 
+export const ValueObjectiveSchema = z
+  .object({
+    objectiveId: z.string().min(1),
+    rank: z.number().int().nonnegative(),
+    description: z.string().min(1),
+  })
+  .strict();
+export type ValueObjective = z.infer<typeof ValueObjectiveSchema>;
+
+export const DoNotOptimizeConstraintSchema = z
+  .object({
+    constraintId: z.string().min(1),
+    description: z.string().min(1),
+    rationale: z.string().min(1),
+  })
+  .strict();
+export type DoNotOptimizeConstraint = z.infer<typeof DoNotOptimizeConstraintSchema>;
+
+export const ValueAnchorThresholdsSchema = z
+  .object({
+    decisionDistribution: z.number().min(0).max(1),
+    routingDistribution: z.number().min(0).max(1),
+    outcomeFailureDelta: z.number().min(0).max(1),
+    rollbackRateDelta: z.number().min(0).max(1),
+    constraintViolationRate: z.number().min(0).max(1),
+    nearMissRate: z.number().min(0).max(1),
+  })
+  .strict();
+export type ValueAnchorThresholds = z.infer<typeof ValueAnchorThresholdsSchema>;
+
+export const ValueAnchorSchema = z
+  .object({
+    anchorId: z.string().min(1),
+    version: z.string().min(1),
+    createdAt: ISODateSchema,
+    coreObjectives: z.array(ValueObjectiveSchema).min(1),
+    doNotOptimize: z.array(DoNotOptimizeConstraintSchema).min(1),
+    escalationThresholds: ValueAnchorThresholdsSchema,
+    reviewCadence: z.string().min(1),
+  })
+  .strict();
+export type ValueAnchor = z.infer<typeof ValueAnchorSchema>;
+
+export const DriftSeveritySchema = z.enum(["none", "low", "medium", "high"]);
+export type DriftSeverity = z.infer<typeof DriftSeveritySchema>;
+
+export const DriftDistributionSchema = z.record(z.string(), z.number().min(0).max(1));
+export type DriftDistribution = z.infer<typeof DriftDistributionSchema>;
+
+export const DriftDistributionMetricSchema = z
+  .object({
+    baseline: DriftDistributionSchema,
+    recent: DriftDistributionSchema,
+    jsDivergence: z.number().min(0).max(1),
+    sampleCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type DriftDistributionMetric = z.infer<typeof DriftDistributionMetricSchema>;
+
+export const DriftOutcomeMetricSchema = z
+  .object({
+    baselineFailureRate: z.number().min(0).max(1),
+    recentFailureRate: z.number().min(0).max(1),
+    deltaFailureRate: z.number(),
+    baselineRollbackRate: z.number().min(0).max(1),
+    recentRollbackRate: z.number().min(0).max(1),
+    deltaRollbackRate: z.number(),
+    sampleCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type DriftOutcomeMetric = z.infer<typeof DriftOutcomeMetricSchema>;
+
+export const DriftConstraintMetricSchema = z
+  .object({
+    baselineViolations: z.number().int().nonnegative(),
+    recentViolations: z.number().int().nonnegative(),
+    violationRateDelta: z.number(),
+    baselineNearMisses: z.number().int().nonnegative(),
+    recentNearMisses: z.number().int().nonnegative(),
+    nearMissRateDelta: z.number(),
+    sampleCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type DriftConstraintMetric = z.infer<typeof DriftConstraintMetricSchema>;
+
+export const DriftWeightMetricSchema = z
+  .object({
+    available: z.boolean(),
+    delta: z.number().optional(),
+    reason: z.string().min(1).optional(),
+  })
+  .strict();
+export type DriftWeightMetric = z.infer<typeof DriftWeightMetricSchema>;
+
+export const DriftMetricsSchema = z
+  .object({
+    decisionDistribution: DriftDistributionMetricSchema,
+    routingDistribution: DriftDistributionMetricSchema,
+    outcomeRates: DriftOutcomeMetricSchema,
+    constraintTrend: DriftConstraintMetricSchema,
+    weightDrift: DriftWeightMetricSchema,
+  })
+  .strict();
+export type DriftMetrics = z.infer<typeof DriftMetricsSchema>;
+
+export const DriftWindowSchema = z
+  .object({
+    baselineStart: ISODateSchema,
+    baselineEnd: ISODateSchema,
+    recentStart: ISODateSchema,
+    recentEnd: ISODateSchema,
+  })
+  .strict();
+export type DriftWindow = z.infer<typeof DriftWindowSchema>;
+
+export const DriftReportSchema = z
+  .object({
+    reportId: z.string().min(1),
+    identityKey: z.string().min(1),
+    anchorId: z.string().min(1),
+    anchorVersion: z.string().min(1),
+    severity: DriftSeveritySchema,
+    reasons: z.array(z.string()).default([]),
+    metrics: DriftMetricsSchema,
+    window: DriftWindowSchema,
+    createdAt: ISODateSchema,
+  })
+  .strict();
+export type DriftReport = z.infer<typeof DriftReportSchema>;
+
 export const ConfidenceLevelSchema = z.enum(["low", "medium", "high"]);
 export type ConfidenceLevel = z.infer<typeof ConfidenceLevelSchema>;
 
@@ -996,6 +1126,7 @@ export const HumanDecisionTargetSchema = z.enum([
   "distilled_rule",
   "control_profile",
   "emergency_mode",
+  "value_anchor_reaffirmation",
 ]);
 export type HumanDecisionTarget = z.infer<typeof HumanDecisionTargetSchema>;
 
@@ -1020,6 +1151,20 @@ export const HumanDecisionRecordSchema = z
   })
   .strict();
 export type HumanDecisionRecord = z.infer<typeof HumanDecisionRecordSchema>;
+
+export const ValueReaffirmationRecordSchema = z
+  .object({
+    reaffirmationId: z.string().min(1),
+    identityKey: z.string().min(1),
+    anchorId: z.string().min(1),
+    anchorVersion: z.string().min(1),
+    decisionId: z.string().min(1).optional(),
+    decidedBy: z.string().min(1),
+    notes: z.string().min(1).optional(),
+    createdAt: ISODateSchema,
+  })
+  .strict();
+export type ValueReaffirmationRecord = z.infer<typeof ValueReaffirmationRecordSchema>;
 
 export const FailureMemoryRecordSchema = z
   .object({
@@ -1273,6 +1418,8 @@ export const CONTRACTS = {
   trustAssessment: TrustAssessmentSchema,
   goal: GoalSchema,
   goalConflict: GoalConflictSchema,
+  valueAnchor: ValueAnchorSchema,
+  driftReport: DriftReportSchema,
   epistemicAssessment: EpistemicAssessmentSchema,
   secondOrderEffects: SecondOrderEffectsSchema,
   normViolation: NormViolationSchema,
@@ -1296,6 +1443,7 @@ export const CONTRACTS = {
   improvementCandidate: ImprovementCandidateSchema,
   improvementRunRecord: ImprovementRunRecordSchema,
   humanDecisionRecord: HumanDecisionRecordSchema,
+  valueReaffirmationRecord: ValueReaffirmationRecordSchema,
   failureMemoryRecord: FailureMemoryRecordSchema,
   routingPreference: RoutingPreferenceSchema,
   cachePreference: CachePreferenceSchema,

@@ -34,6 +34,7 @@ import {
 import { computeQualityMetrics, detectQualityRegressions, pickFallbackTier, defaultQualityPolicy } from "./quality";
 import { createDistilledRuleStore, considerDistillation, findActiveRule } from "./distillation";
 import { buildCausalChainForCandidate, buildLineageMetadata } from "./interpretability";
+import { evaluateDriftState } from "./drift/state";
 import { createId, nowIso, stableStringify, hashString } from "./utils";
 
 export type ImprovementPolicy = {
@@ -403,6 +404,8 @@ export const runSelfImprovementCycle = (
   const costEvents = loadCostEvents(identityKey);
   const cooperationMetrics = loadCooperationMetrics(identityKey);
   const sources = { outcomes, metrics, regressions, costEvents, cooperationMetrics };
+  const driftState = evaluateDriftState(identityKey, now);
+  const driftBlocksAutoApply = driftState.gate.freeze || driftState.gate.throttle;
 
   const candidates: ImprovementCandidate[] = [];
 
@@ -629,11 +632,26 @@ export const runSelfImprovementCycle = (
       sources,
       now,
     });
+    const gatedChain = driftBlocksAutoApply
+      ? {
+          ...chain,
+          requiresHumanReview: true,
+          failureReason: chain.failureReason ? `${chain.failureReason}; value_drift_gate` : "value_drift_gate",
+        }
+      : chain;
     if (chain.explanationQuality !== "clear") {
-      recordCausalChain(identityKey, chain);
+      recordCausalChain(identityKey, gatedChain);
       const rejected = { ...candidate, status: "rejected" as const };
       upsertImprovementCandidate(identityKey, rejected);
       skipped.push(rejected);
+      return;
+    }
+
+    if (driftBlocksAutoApply) {
+      recordCausalChain(identityKey, gatedChain);
+      const proposed = { ...candidate, status: "proposed" as const };
+      upsertImprovementCandidate(identityKey, proposed);
+      skipped.push({ ...candidate, status: "skipped" });
       return;
     }
 

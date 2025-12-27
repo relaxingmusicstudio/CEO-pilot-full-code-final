@@ -45,6 +45,8 @@ import { evaluateNorms } from "./norms";
 import { evaluateLongHorizon, recordLongHorizonDebt, type LongHorizonAssessment } from "./longHorizon";
 import { evaluateCostGovernance } from "./costGovernance";
 import { applySchedulingPolicy } from "./scheduling";
+import { evaluateDriftState } from "./drift/state";
+import type { DriftGateDecision } from "./drift/gates";
 import {
   loadAgentTier,
   loadEvaluationRuns,
@@ -167,6 +169,17 @@ export type RuntimeGovernanceDecision = {
       requiresHumanReview: boolean;
     };
     evaluation?: RuntimeGovernanceEvaluation;
+    drift?: {
+      report: {
+        reportId: string;
+        severity: "none" | "low" | "medium" | "high";
+        reasons: string[];
+        window: { baselineStart: string; baselineEnd: string; recentStart: string; recentEnd: string };
+        anchorId: string;
+        anchorVersion: string;
+      };
+      gate: DriftGateDecision;
+    };
     cost?: {
       allowed: boolean;
       reason: string;
@@ -375,6 +388,35 @@ export const enforceRuntimeGovernance = async (
     return {
       allowed: false,
       reason: "human_autonomy_ceiling",
+      requiresHumanReview: true,
+      details,
+    };
+  }
+
+  const driftState = evaluateDriftState(identityKey, now);
+  details.drift = {
+    report: {
+      reportId: driftState.report.reportId,
+      severity: driftState.report.severity,
+      reasons: driftState.report.reasons,
+      window: driftState.report.window,
+      anchorId: driftState.report.anchorId,
+      anchorVersion: driftState.report.anchorVersion,
+    },
+    gate: driftState.gate,
+  };
+  if (driftState.gate.freeze && initiator !== "human") {
+    return {
+      allowed: false,
+      reason: "value_drift_freeze",
+      requiresHumanReview: true,
+      details,
+    };
+  }
+  if (driftState.gate.throttle && initiator !== "human" && context.permissionTier === "execute") {
+    return {
+      allowed: false,
+      reason: "value_drift_throttle",
       requiresHumanReview: true,
       details,
     };
@@ -741,6 +783,23 @@ export const enforceRuntimeGovernance = async (
   }
 
   if (tierOrder[context.permissionTier] > tierOrder[tierState.tier]) {
+    if (driftState.gate.requiresReaffirmation) {
+      details.autonomy = {
+        currentTier: tierState.tier,
+        requestedTier: context.permissionTier,
+        promotion: {
+          eligible: false,
+          nextTier: tierState.tier,
+          reasons: ["value_drift_requires_reaffirmation"],
+        },
+      };
+      return {
+        allowed: false,
+        reason: "value_drift_promotion_blocked",
+        requiresHumanReview: true,
+        details,
+      };
+    }
     const metrics = context.metrics || {
       uncertaintyVariance: 1,
       rollbackRate: 1,

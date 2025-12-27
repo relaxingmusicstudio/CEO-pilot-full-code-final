@@ -28,6 +28,12 @@ import {
   HumanControlProfileSchema,
   HumanDecisionRecord,
   HumanDecisionRecordSchema,
+  ValueAnchor,
+  ValueAnchorSchema,
+  DriftReport,
+  DriftReportSchema,
+  ValueReaffirmationRecord,
+  ValueReaffirmationRecordSchema,
   ImprovementCandidate,
   ImprovementCandidateSchema,
   ImprovementRunRecord,
@@ -63,6 +69,7 @@ import {
   TaskHistoryRecordSchema,
 } from "./contracts";
 import { createId, nowIso } from "./utils";
+import { DEFAULT_VALUE_ANCHORS } from "./valueAnchors";
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -123,6 +130,9 @@ const RULE_USAGE_PREFIX = "ppp:ceoPilot:ruleUsage:v1::";
 const COOPERATION_METRIC_PREFIX = "ppp:ceoPilot:cooperationMetrics:v1::";
 const HUMAN_CONTROL_PREFIX = "ppp:ceoPilot:humanControls:v1::";
 const HUMAN_DECISION_PREFIX = "ppp:ceoPilot:humanDecisions:v1::";
+const VALUE_ANCHOR_PREFIX = "ppp:ceoPilot:valueAnchors:v1::";
+const DRIFT_REPORT_PREFIX = "ppp:ceoPilot:driftReports:v1::";
+const VALUE_REAFFIRM_PREFIX = "ppp:ceoPilot:valueReaffirmations:v1::";
 
 const DEFAULT_GOAL_IDS = {
   systemIntegrity: "goal-system-integrity",
@@ -361,6 +371,60 @@ export const upsertGoal = (
   const existing = loadGoals(identityKey, storage);
   const next = [...existing.filter((item) => item.goalId !== goal.goalId), parsed.data];
   return saveGoals(identityKey, next, storage);
+};
+
+export const loadValueAnchors = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): ValueAnchor[] => {
+  const raw = storage.getItem(`${VALUE_ANCHOR_PREFIX}${identityKey}`);
+  const parsed = readJson<ValueAnchor[]>(raw, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((anchor) => ValueAnchorSchema.safeParse(anchor).success);
+};
+
+export const saveValueAnchors = (
+  identityKey: string,
+  anchors: ValueAnchor[],
+  storage: StorageLike = getStorage()
+): ValueAnchor[] => {
+  const filtered = anchors.filter((anchor) => ValueAnchorSchema.safeParse(anchor).success);
+  try {
+    storage.setItem(`${VALUE_ANCHOR_PREFIX}${identityKey}`, JSON.stringify(filtered));
+  } catch {
+    // ignore persistence errors
+  }
+  return filtered;
+};
+
+export const ensureDefaultValueAnchors = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): ValueAnchor[] => {
+  const existing = loadValueAnchors(identityKey, storage);
+  if (existing.length > 0) return existing;
+  const seeded = DEFAULT_VALUE_ANCHORS.map((anchor) => ({
+    ...anchor,
+    createdAt: anchor.createdAt || nowIso(),
+  }));
+  try {
+    storage.setItem(`${VALUE_ANCHOR_PREFIX}${identityKey}`, JSON.stringify(seeded));
+  } catch {
+    // ignore persistence errors
+  }
+  return seeded;
+};
+
+export const upsertValueAnchor = (
+  identityKey: string,
+  anchor: ValueAnchor,
+  storage: StorageLike = getStorage()
+): ValueAnchor[] => {
+  const parsed = ValueAnchorSchema.safeParse(anchor);
+  if (!parsed.success) return loadValueAnchors(identityKey, storage);
+  const existing = loadValueAnchors(identityKey, storage);
+  const next = [...existing.filter((item) => item.anchorId !== anchor.anchorId), parsed.data];
+  return saveValueAnchors(identityKey, next, storage);
 };
 
 export const loadGoalConflicts = (
@@ -894,6 +958,48 @@ export const recordCostEvent = (
   const next = [...history, parsed.data].slice(-maxEntries);
   try {
     storage.setItem(`${COST_EVENT_PREFIX}${identityKey}`, JSON.stringify(next));
+  } catch {
+    // ignore persistence errors
+  }
+  return next;
+};
+
+export const loadDriftReports = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): DriftReport[] => {
+  const raw = storage.getItem(`${DRIFT_REPORT_PREFIX}${identityKey}`);
+  const parsed = readJson<DriftReport[]>(raw, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((record) => DriftReportSchema.safeParse(record).success);
+};
+
+export const saveDriftReports = (
+  identityKey: string,
+  reports: DriftReport[],
+  storage: StorageLike = getStorage()
+): DriftReport[] => {
+  const filtered = reports.filter((record) => DriftReportSchema.safeParse(record).success);
+  try {
+    storage.setItem(`${DRIFT_REPORT_PREFIX}${identityKey}`, JSON.stringify(filtered));
+  } catch {
+    // ignore persistence errors
+  }
+  return filtered;
+};
+
+export const recordDriftReport = (
+  identityKey: string,
+  report: DriftReport,
+  storage: StorageLike = getStorage(),
+  maxEntries: number = 200
+): DriftReport[] => {
+  const parsed = DriftReportSchema.safeParse(report);
+  if (!parsed.success) return loadDriftReports(identityKey, storage);
+  const history = loadDriftReports(identityKey, storage);
+  const next = [...history, parsed.data].slice(-maxEntries);
+  try {
+    storage.setItem(`${DRIFT_REPORT_PREFIX}${identityKey}`, JSON.stringify(next));
   } catch {
     // ignore persistence errors
   }
@@ -1511,4 +1617,41 @@ export const recordHumanDecision = (
   const history = loadHumanDecisions(identityKey, storage);
   const next = [...history, parsed.data].slice(-maxEntries);
   return saveHumanDecisions(identityKey, next, storage);
+};
+
+export const loadValueReaffirmations = (
+  identityKey: string,
+  storage: StorageLike = getStorage()
+): ValueReaffirmationRecord[] => {
+  const raw = storage.getItem(`${VALUE_REAFFIRM_PREFIX}${identityKey}`);
+  const parsed = readJson<ValueReaffirmationRecord[]>(raw, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((record) => ValueReaffirmationRecordSchema.safeParse(record).success);
+};
+
+export const saveValueReaffirmations = (
+  identityKey: string,
+  records: ValueReaffirmationRecord[],
+  storage: StorageLike = getStorage()
+): ValueReaffirmationRecord[] => {
+  const filtered = records.filter((record) => ValueReaffirmationRecordSchema.safeParse(record).success);
+  try {
+    storage.setItem(`${VALUE_REAFFIRM_PREFIX}${identityKey}`, JSON.stringify(filtered));
+  } catch {
+    // ignore persistence errors
+  }
+  return filtered;
+};
+
+export const recordValueReaffirmation = (
+  identityKey: string,
+  record: ValueReaffirmationRecord,
+  storage: StorageLike = getStorage(),
+  maxEntries: number = 200
+): ValueReaffirmationRecord[] => {
+  const parsed = ValueReaffirmationRecordSchema.safeParse(record);
+  if (!parsed.success) return loadValueReaffirmations(identityKey, storage);
+  const history = loadValueReaffirmations(identityKey, storage);
+  const next = [...history, parsed.data].slice(-maxEntries);
+  return saveValueReaffirmations(identityKey, next, storage);
 };
