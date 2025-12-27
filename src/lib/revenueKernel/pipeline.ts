@@ -45,7 +45,8 @@ import { evaluateSensitiveContext, type SensitiveContext } from "./sensitiveData
 import { appendSoftLockEvent, getSoftLockState } from "./softLocks";
 import { appendRevenueLedger, nextRevenueTimestamp, type RevenueLedgerEntry } from "./ledger";
 import type { StageTransition } from "./stages";
-import { enforceRuntimeGovernance, type AgentRuntimeContext, type RuntimeGovernanceDecision } from "../ceoPilot/runtimeGovernance";
+import { enforceRuntimeGovernance } from "../ceoPilot/runtimeGovernance";
+import type { AgentRuntimeContext, RuntimeGovernanceDecision } from "../ceoPilot/runtimeTypes";
 import { assertCostContext } from "../ceoPilot/costUtils";
 import { scheduleDueToCost } from "../ceoPilot/scheduling";
 import { recordCostEvent } from "../ceoPilot/runtimeState";

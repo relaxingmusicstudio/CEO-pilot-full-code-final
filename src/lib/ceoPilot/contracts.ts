@@ -8,6 +8,9 @@ export type PermissionTier = z.infer<typeof PermissionTierSchema>;
 export const ActionImpactSchema = z.enum(["reversible", "difficult", "irreversible"]);
 export type ActionImpact = z.infer<typeof ActionImpactSchema>;
 
+export const TaskClassSchema = z.enum(["routine", "novel", "high_risk"]);
+export type TaskClass = z.infer<typeof TaskClassSchema>;
+
 export const CostCategorySchema = z.enum(["compute", "reasoning", "io", "human_attention", "risk"]);
 export type CostCategory = z.infer<typeof CostCategorySchema>;
 
@@ -742,9 +745,6 @@ export type TaskHistoryRecord = z.infer<typeof TaskHistoryRecordSchema>;
 
 export const ModelTierSchema = z.enum(["economy", "standard", "advanced", "frontier"]);
 export type ModelTier = z.infer<typeof ModelTierSchema>;
-
-export const TaskClassSchema = z.enum(["routine", "novel", "high_risk"]);
-export type TaskClass = z.infer<typeof TaskClassSchema>;
 
 export const TaskOutcomeRecordSchema = z
   .object({
