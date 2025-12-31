@@ -9,6 +9,9 @@ type ApiResponse = {
   end: (body?: string) => void;
 };
 
+const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
+type RequiredEnvKey = (typeof REQUIRED_ENV)[number];
+
 const ALLOWED_FUNCTIONS = new Set([
   "alex-chat",
   "contact-form",
@@ -38,14 +41,24 @@ const readJsonBody = async (req: ApiRequest) => {
   }
 };
 
+const setCorsHeaders = (res: ApiResponse) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
+};
+
 const sendJson = (res: ApiResponse, status: number, payload: Record<string, unknown>) => {
   res.statusCode = status;
+  setCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
   res.end(JSON.stringify(payload));
+};
+
+const sendNoContent = (res: ApiResponse) => {
+  res.statusCode = 204;
+  setCorsHeaders(res);
+  res.end();
 };
 
 const parseJson = (raw: string) => {
@@ -57,9 +70,35 @@ const parseJson = (raw: string) => {
   }
 };
 
+const getEnvStatus = () => {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const present = REQUIRED_ENV.reduce<Record<RequiredEnvKey, boolean>>((acc, key) => {
+    acc[key] = Boolean(env?.[key]);
+    return acc;
+  }, {} as Record<RequiredEnvKey, boolean>);
+  const missing = REQUIRED_ENV.filter((key) => !env?.[key]);
+  return { env, present, missing };
+};
+
+const buildHealthResponse = (method: string, envPresent: Record<RequiredEnvKey, boolean>) => ({
+  status: "ok",
+  method,
+  expected_methods: ["POST"],
+  required_env: [...REQUIRED_ENV],
+  env_present: envPresent,
+  message: "Use POST via Network tab or curl/Invoke-RestMethod for verification.",
+});
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method === "OPTIONS") {
-    sendJson(res, 200, { ok: true });
+    sendNoContent(res);
+    return;
+  }
+
+  const { env, present, missing } = getEnvStatus();
+
+  if (req.method === "GET") {
+    sendJson(res, 200, buildHealthResponse("GET", present));
     return;
   }
 
@@ -94,16 +133,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   const supabaseUrl = env?.SUPABASE_URL;
   const serviceRoleKey = env?.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (missing.length > 0 || !supabaseUrl || !serviceRoleKey) {
     console.error("[api/alex-chat] Missing Supabase env.", {
-      hasUrl: !!supabaseUrl,
-      hasServiceRoleKey: !!serviceRoleKey,
+      missing,
     });
-    sendJson(res, 500, { ok: false, error: "server_env_missing", code: "server_env_missing" });
+    sendJson(res, 500, {
+      ok: false,
+      error: "server_env_missing",
+      code: "server_env_missing",
+      missing,
+    });
     return;
   }
 
