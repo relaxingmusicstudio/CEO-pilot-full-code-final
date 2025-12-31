@@ -1,3 +1,9 @@
+import {
+  recallDecisions,
+  writeDecisionRecord,
+  type DecisionOutcome,
+} from "@/kernel/memory/collectiveMemory";
+
 export type KernelIntent =
   | "kernel.health"
   | "analytics.upsert_visitor"
@@ -312,6 +318,42 @@ export const Kernel = {
   ): Promise<KernelRunResult<T>> => {
     const auditId = createAuditId();
     const proofs: KernelProof[] = [];
+    const recall = recallDecisions(intent);
+    proofs.push({
+      check: "memory.recall",
+      ok: true,
+      detail: `matches=${recall.matches.length};failures=${recall.counts.failures}`,
+    });
+
+    const recordDecision = (outcome: DecisionOutcome, decision: string, rationale: string) => {
+      try {
+        writeDecisionRecord(
+          {
+            intent,
+            decision,
+            rationale,
+            timestamp: new Date().toISOString(),
+            initiatingRole: constraints.role ?? "unknown",
+            outcome,
+          },
+          {
+            actor: "kernel",
+            rationale: "Kernel recorded decision outcome.",
+          }
+        );
+        proofs.push({
+          check: "memory.write",
+          ok: true,
+          detail: `${outcome}:${decision}`,
+        });
+      } catch (err) {
+        proofs.push({
+          check: "memory.write",
+          ok: false,
+          detail: err instanceof Error ? err.message : "memory_write_failed",
+        });
+      }
+    };
 
     const envCheck = validateSupabaseEnv();
     proofs.push({
@@ -330,6 +372,7 @@ export const Kernel = {
       });
       if (!allowed) {
         const error = buildKernelError("consent_denied", "Consent denied");
+        recordDecision("failure", "blocked:consent_denied", "Consent denied.");
         recordAudit(
           createAuditRecord(intent, false, constraints, proofs, error)
         );
@@ -346,6 +389,7 @@ export const Kernel = {
       });
       if (!allowed) {
         const error = buildKernelError("role_blocked", "Role not authorized");
+        recordDecision("failure", "blocked:role_blocked", "Role not authorized.");
         recordAudit(
           createAuditRecord(intent, false, constraints, proofs, error)
         );
@@ -362,6 +406,7 @@ export const Kernel = {
       });
       if (!authed) {
         const error = buildKernelError("auth_required", "Authentication required");
+        recordDecision("failure", "blocked:auth_required", "Authentication required.");
         recordAudit(
           createAuditRecord(intent, false, constraints, proofs, error)
         );
@@ -378,6 +423,7 @@ export const Kernel = {
       });
       if (!allowed) {
         const error = buildKernelError("budget_exceeded", "Budget exceeded");
+        recordDecision("failure", "blocked:budget_exceeded", "Budget exceeded.");
         recordAudit(
           createAuditRecord(intent, false, constraints, proofs, error)
         );
@@ -387,6 +433,7 @@ export const Kernel = {
 
     if (!envCheck.ok && intent !== "kernel.health") {
       const error = buildKernelError("env_invalid", "Supabase env invalid");
+      recordDecision("failure", "blocked:env_invalid", "Supabase environment invalid.");
       recordAudit(
         createAuditRecord(intent, false, constraints, proofs, error)
       );
@@ -395,6 +442,7 @@ export const Kernel = {
 
     if (constraints.forceFail) {
       const error = buildKernelError("forced_failure", constraints.forceFail);
+      recordDecision("failure", "blocked:forced_failure", constraints.forceFail);
       recordAudit(
         createAuditRecord(intent, false, constraints, proofs, error)
       );
@@ -403,6 +451,7 @@ export const Kernel = {
 
     if (constraints.dryRun) {
       const result = { dryRun: true, intent };
+      recordDecision("unknown", "dry_run", "Dry run requested; no action executed.");
       recordAudit(
         createAuditRecord(intent, true, constraints, proofs)
       );
@@ -419,6 +468,7 @@ export const Kernel = {
           (error as { message?: string })?.message ?? "Kernel invoke failed",
           status
         );
+        recordDecision("failure", `blocked:${code}`, kernelError.message);
         recordAudit(
           createAuditRecord(intent, false, constraints, proofs, kernelError)
         );
@@ -429,9 +479,11 @@ export const Kernel = {
           "analytics_failed",
           (data as { error?: string })?.error ?? "Analytics failed"
         );
+        recordDecision("failure", "blocked:analytics_failed", error.message);
         recordAudit(createAuditRecord(intent, false, constraints, proofs, error));
         return { ok: false, result: null, error, auditId, proofs };
       }
+      recordDecision("success", "executed", "Kernel executed intent.");
       recordAudit(createAuditRecord(intent, true, constraints, proofs));
       return { ok: true, result: (data ?? null) as T, auditId, proofs };
     } catch (err) {
@@ -439,6 +491,7 @@ export const Kernel = {
         "exception",
         err instanceof Error ? err.message : "Kernel exception"
       );
+      recordDecision("failure", "blocked:exception", kernelError.message);
       recordAudit(
         createAuditRecord(intent, false, constraints, proofs, kernelError)
       );

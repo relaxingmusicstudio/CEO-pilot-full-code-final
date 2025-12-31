@@ -1,3 +1,5 @@
+export const config = { runtime: "nodejs" };
+
 type ApiRequest = AsyncIterable<Uint8Array | string> & {
   method?: string;
   body?: unknown;
