@@ -1,7 +1,7 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useCallback, useRef } from "react";
+import { initAnalyticsQueue, trackEvent, queueEvent } from "@/lib/analytics/trackEvent";
 
-const CONSENT_STORAGE_KEY = 'enhanced_tracking_consent';
+const CONSENT_STORAGE_KEY = "enhanced_tracking_consent";
 const BATCH_INTERVAL_MS = 5000; // Batch events every 5 seconds
 
 interface EnhancedClickEvent {
@@ -21,6 +21,9 @@ interface EnhancedClickEvent {
 export const useEnhancedTracking = () => {
   const eventQueueRef = useRef<EnhancedClickEvent[]>([]);
   const isEnabledRef = useRef(false);
+  const sessionIdRef = useRef<string>(
+    `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  );
 
   // Check if enhanced tracking is enabled
   const checkConsent = useCallback(() => {
@@ -37,10 +40,10 @@ export const useEnhancedTracking = () => {
 
   // Get visitor ID
   const getVisitorId = useCallback((): string => {
-    let visitorId = localStorage.getItem('visitor_id');
+    let visitorId = localStorage.getItem("visitor_id");
     if (!visitorId) {
       visitorId = `v_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('visitor_id', visitorId);
+      localStorage.setItem("visitor_id", visitorId);
     }
     return visitorId;
   }, []);
@@ -54,17 +57,17 @@ export const useEnhancedTracking = () => {
 
     const visitorId = getVisitorId();
 
-    try {
-      // Batch insert events
-      const inserts = events.map(event => ({
-        visitor_id: visitorId,
-        event_type: 'click_enhanced',
-        page_url: event.page_url,
-        event_data: {
+    for (const event of events) {
+      await trackEvent({
+        visitorId,
+        sessionId: sessionIdRef.current,
+        eventType: "click_enhanced",
+        pageUrl: event.page_url,
+        eventData: {
           x: event.x,
           y: event.y,
           element_tag: event.element_tag,
-          element_text: event.element_text?.slice(0, 100), // Truncate long text
+          element_text: event.element_text?.slice(0, 100),
           element_classes: event.element_classes,
           element_id: event.element_id,
           viewport_width: event.viewport_width,
@@ -72,19 +75,7 @@ export const useEnhancedTracking = () => {
           scroll_position: event.scroll_position,
           timestamp: event.timestamp,
         },
-      }));
-
-      const { error } = await supabase.from('analytics_events').insert(inserts);
-      
-      if (error) {
-        console.error('Failed to save enhanced events:', error);
-        // Re-queue events on failure (up to a limit)
-        if (eventQueueRef.current.length < 50) {
-          eventQueueRef.current = [...events, ...eventQueueRef.current];
-        }
-      }
-    } catch (err) {
-      console.error('Enhanced tracking error:', err);
+      });
     }
   }, [getVisitorId]);
 
@@ -113,6 +104,7 @@ export const useEnhancedTracking = () => {
   }, []);
 
   useEffect(() => {
+    initAnalyticsQueue();
     checkConsent();
 
     // Listen for consent changes
@@ -132,21 +124,18 @@ export const useEnhancedTracking = () => {
     // Flush on page unload
     const handleUnload = () => {
       if (eventQueueRef.current.length > 0) {
-        // Use sendBeacon for reliability
-        const visitorId = getVisitorId();
-        const events = eventQueueRef.current.map(event => ({
-          visitor_id: visitorId,
-          event_type: 'click_enhanced',
-          page_url: event.page_url,
-          event_data: event,
-        }));
-        
-        navigator.sendBeacon?.(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-analytics`,
-          JSON.stringify({ events })
-        );
-      }
-    };
+      const visitorId = getVisitorId();
+      eventQueueRef.current.forEach((event) => {
+        queueEvent({
+          visitorId,
+          sessionId: sessionIdRef.current,
+          eventType: "click_enhanced",
+          pageUrl: event.page_url,
+          eventData: event,
+        });
+      });
+    }
+  };
 
     window.addEventListener('beforeunload', handleUnload);
 

@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 import { canAgentWriteMemory, canAgentWriteSummary, getAgentTier } from '@/lib/agentHierarchy';
+import { Kernel } from "@/kernel/run";
 
 interface AgentMemory {
   id: string;
@@ -28,9 +29,6 @@ interface MemoryAuthResult {
 export const useLearningSystem = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   /**
    * Check if agent is authorized to write memory
@@ -63,31 +61,24 @@ export const useLearningSystem = () => {
     threshold = 0.75,
     limit = 3
   ): Promise<AgentMemory[]> => {
-    try {
-      const response = await fetch(`${baseUrl}/functions/v1/agent-memory`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          action: 'search',
-          query,
-          agent_type: agentType,
-          threshold,
-          limit,
-        }),
-      });
+    const result = await Kernel.run("memory.search", {
+      query,
+      agentType,
+      threshold,
+      limit,
+    }, {
+      consent: { memory: true },
+      budgetCents: 1,
+      maxBudgetCents: 5,
+    });
 
-      if (!response.ok) return [];
-
-      const data = await response.json();
-      return data.memories || [];
-    } catch (err) {
-      console.error('Error searching memories:', err);
+    if (!result.ok) {
       return [];
     }
-  }, [baseUrl, apiKey]);
+
+    const data = result.result as { memories?: AgentMemory[] } | null;
+    return data?.memories || [];
+  }, []);
 
   // Save a successful interaction - ENFORCES MEMORY AUTHORITY
   const saveSuccessfulInteraction = useCallback(async (
@@ -109,40 +100,30 @@ export const useLearningSystem = () => {
     setError(null);
 
     try {
-      const res = await fetch(`${baseUrl}/functions/v1/agent-memory`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          action: 'save',
-          agent_type: agentType,
-          query,
-          response,
-          metadata,
-          is_summary: isSummary,
-        }),
+      const result = await Kernel.run("memory.save", {
+        agentType,
+        query,
+        response,
+        metadata,
+        isSummary,
+      }, {
+        consent: { memory: true },
+        budgetCents: 2,
+        maxBudgetCents: 10,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        if (errorData.error === 'GOVERNANCE_VIOLATION') {
-          console.warn(`[GOVERNANCE] Server rejected memory write: ${errorData.message}`);
-          throw new Error(errorData.message);
-        }
-        throw new Error('Failed to save memory');
+      if (!result.ok) {
+        const message = result.error?.message || "Failed to save memory";
+        setError(message);
+        return null;
       }
 
-      const data = await res.json();
-      return data.memory;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
+      const data = result.result as { memory?: AgentMemory } | null;
+      return data?.memory ?? null;
     } finally {
       setIsLoading(false);
     }
-  }, [baseUrl, apiKey, checkMemoryAuthority]);
+  }, [checkMemoryAuthority]);
 
   // Submit feedback for a memory
   const submitFeedback = useCallback(async (
@@ -153,99 +134,54 @@ export const useLearningSystem = () => {
     feedbackType: 'positive' | 'negative',
     feedbackValue: number = feedbackType === 'positive' ? 5 : 1
   ): Promise<boolean> => {
-    try {
-      const res = await fetch(`${baseUrl}/functions/v1/learn-from-success`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          memory_id: memoryId,
-          agent_type: agentType,
-          query,
-          response,
-          feedback_type: feedbackType,
-          feedback_value: feedbackValue,
-          feedback_source: 'user',
-        }),
-      });
+    const result = await Kernel.run("memory.feedback", {
+      memoryId,
+      agentType,
+      query,
+      response,
+      feedbackType,
+      feedbackValue,
+      feedbackSource: "user",
+    }, {
+      consent: { memory: true },
+      budgetCents: 1,
+      maxBudgetCents: 5,
+    });
 
-      return res.ok;
-    } catch (err) {
-      console.error('Error submitting feedback:', err);
-      return false;
-    }
-  }, [baseUrl, apiKey]);
+    return result.ok;
+  }, []);
 
   // Increment usage count when a cached response is used
   const incrementUsage = useCallback(async (memoryId: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`${baseUrl}/functions/v1/agent-memory`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          action: 'increment_usage',
-          memory_id: memoryId,
-        }),
-      });
-
-      return res.ok;
-    } catch (err) {
-      console.error('Error incrementing usage:', err);
-      return false;
-    }
-  }, [baseUrl, apiKey]);
+    const result = await Kernel.run("memory.increment_usage", { memoryId }, {
+      consent: { memory: true },
+      budgetCents: 1,
+      maxBudgetCents: 5,
+    });
+    return result.ok;
+  }, []);
 
   // Get learning stats for an agent or all agents
   const getStats = useCallback(async (agentType?: string): Promise<LearningStats | null> => {
-    try {
-      const res = await fetch(`${baseUrl}/functions/v1/agent-memory`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          action: 'stats',
-          agent_type: agentType,
-        }),
-      });
-
-      if (!res.ok) return null;
-
-      const data = await res.json();
-      return data.stats;
-    } catch (err) {
-      console.error('Error getting stats:', err);
-      return null;
-    }
-  }, [baseUrl, apiKey]);
+    const result = await Kernel.run("memory.stats", { agentType }, {
+      consent: { memory: true },
+      budgetCents: 1,
+      maxBudgetCents: 5,
+    });
+    if (!result.ok) return null;
+    const data = result.result as { stats?: LearningStats } | null;
+    return data?.stats ?? null;
+  }, []);
 
   // Delete a memory
   const deleteMemory = useCallback(async (memoryId: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`${baseUrl}/functions/v1/agent-memory`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          action: 'delete',
-          memory_id: memoryId,
-        }),
-      });
-
-      return res.ok;
-    } catch (err) {
-      console.error('Error deleting memory:', err);
-      return false;
-    }
-  }, [baseUrl, apiKey]);
+    const result = await Kernel.run("memory.delete", { memoryId }, {
+      consent: { memory: true },
+      budgetCents: 1,
+      maxBudgetCents: 5,
+    });
+    return result.ok;
+  }, []);
 
   return {
     isLoading,

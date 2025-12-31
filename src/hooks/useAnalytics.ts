@@ -1,5 +1,6 @@
-import { useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useRef } from "react";
+import { Kernel } from "@/kernel/run";
+import { initAnalyticsQueue, trackEvent as trackAnalyticsEvent, upsertVisitor } from "@/lib/analytics/trackEvent";
 
 interface AnalyticsEvent {
   eventType: string;
@@ -52,6 +53,10 @@ export const useAnalytics = () => {
     `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
   );
 
+  useEffect(() => {
+    initAnalyticsQueue();
+  }, []);
+
   // Save or update visitor in database with enhanced UTM tracking
   const saveVisitor = useCallback(async (visitorData: {
     visitorId: string;
@@ -67,27 +72,18 @@ export const useAnalytics = () => {
     gclid?: string;
     fbclid?: string;
   }) => {
-    try {
-      // Parse additional tracking params from URL
-      const params = new URLSearchParams(window.location.search);
-      const enhancedData = {
-        ...visitorData,
-        utmSource: visitorData.utmSource || params.get('utm_source') || inferSourceFromReferrer(visitorData.referrer),
-        utmMedium: visitorData.utmMedium || params.get('utm_medium') || inferMediumFromReferrer(visitorData.referrer),
-        utmCampaign: visitorData.utmCampaign || params.get('utm_campaign'),
-        gclid: params.get('gclid') || undefined,
-        fbclid: params.get('fbclid') || undefined,
-      };
-      
-      await supabase.functions.invoke("save-analytics", {
-        body: {
-          action: "upsert_visitor",
-          data: enhancedData,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to save visitor:", error);
-    }
+    // Parse additional tracking params from URL
+    const params = new URLSearchParams(window.location.search);
+    const enhancedData = {
+      ...visitorData,
+      utmSource: visitorData.utmSource || params.get("utm_source") || inferSourceFromReferrer(visitorData.referrer),
+      utmMedium: visitorData.utmMedium || params.get("utm_medium") || inferMediumFromReferrer(visitorData.referrer),
+      utmCampaign: visitorData.utmCampaign || params.get("utm_campaign"),
+      gclid: params.get("gclid") || undefined,
+      fbclid: params.get("fbclid") || undefined,
+    };
+
+    await upsertVisitor(enhancedData);
   }, []);
 
   // Track an analytics event
@@ -96,23 +92,14 @@ export const useAnalytics = () => {
     event: AnalyticsEvent,
     utmData?: { utmSource?: string; utmMedium?: string; utmCampaign?: string }
   ) => {
-    try {
-      await supabase.functions.invoke("save-analytics", {
-        body: {
-          action: "track_event",
-          data: {
-            visitorId,
-            sessionId: sessionIdRef.current,
-            eventType: event.eventType,
-            eventData: event.eventData,
-            pageUrl: event.pageUrl || window.location.pathname,
-            ...utmData,
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Failed to track event:", error);
-    }
+    await trackAnalyticsEvent({
+      visitorId,
+      sessionId: sessionIdRef.current,
+      eventType: event.eventType,
+      eventData: event.eventData,
+      pageUrl: event.pageUrl || window.location.pathname,
+      ...utmData,
+    });
   }, []);
 
   // Save conversation data
@@ -125,22 +112,16 @@ export const useAnalytics = () => {
     outcome?: string;
     durationSeconds?: number;
   }) => {
-    try {
-      const result = await supabase.functions.invoke("save-analytics", {
-        body: {
-          action: "save_conversation",
-          data: {
-            ...data,
-            sessionId: sessionIdRef.current,
-            messageCount: data.messages.length,
-          },
-        },
-      });
-      return result.data?.conversationId;
-    } catch (error) {
-      console.error("Failed to save conversation:", error);
-      return null;
-    }
+    const result = await Kernel.run("analytics.save_conversation", {
+      ...data,
+      sessionId: sessionIdRef.current,
+      messageCount: data.messages.length,
+    }, {
+      consent: { analytics: true },
+      budgetCents: 2,
+      maxBudgetCents: 10,
+    });
+    return result.ok ? (result.result as { conversationId?: string } | null)?.conversationId ?? null : null;
   }, []);
 
   // Save lead data
@@ -163,18 +144,12 @@ export const useAnalytics = () => {
     objections?: string[];
     ghlContactId?: string;
   }) => {
-    try {
-      const result = await supabase.functions.invoke("save-analytics", {
-        body: {
-          action: "save_lead",
-          data,
-        },
-      });
-      return result.data?.leadId;
-    } catch (error) {
-      console.error("Failed to save lead:", error);
-      return null;
-    }
+    const result = await Kernel.run("analytics.save_lead", data, {
+      consent: { analytics: true },
+      budgetCents: 3,
+      maxBudgetCents: 10,
+    });
+    return result.ok ? (result.result as { leadId?: string } | null)?.leadId ?? null : null;
   }, []);
 
   // Update lead status (for feedback loop)
@@ -183,16 +158,11 @@ export const useAnalytics = () => {
     status: string,
     options?: { notes?: string; revenueValue?: number; convertedAt?: string }
   ) => {
-    try {
-      await supabase.functions.invoke("save-analytics", {
-        body: {
-          action: "update_lead_status",
-          data: { leadId, status, ...options },
-        },
-      });
-    } catch (error) {
-      console.error("Failed to update lead status:", error);
-    }
+    await Kernel.run("analytics.update_lead_status", { leadId, status, ...options }, {
+      consent: { analytics: true },
+      budgetCents: 2,
+      maxBudgetCents: 10,
+    });
   }, []);
 
   // Get session ID

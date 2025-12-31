@@ -147,7 +147,20 @@ serve(async (req) => {
             utm_campaign: eventData.utmCampaign,
           });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Track event error:", error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "track_event_failed",
+              details: (error as unknown)?.message ?? String(error),
+              code: (error as unknown)?.code ?? null,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
         console.log("Tracked event:", eventData.eventType);
         
         return new Response(JSON.stringify({ success: true }), {

@@ -4,7 +4,7 @@
  * PASS requires validateEvidencePackStrict().ok = true
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { PlatformStatusBanner } from "@/components/platform/PlatformStatusBanner";
+import { Kernel } from "@/kernel/run";
+import { getAnalyticsStatus } from "@/lib/analytics/trackEvent";
 import { 
   PreflightReport, 
   createEmptyBundle, 
@@ -93,9 +95,23 @@ export default function ProofGate() {
   const [showTextarea, setShowTextarea] = useState(false);
   const [preflightStatus, setPreflightStatus] = useState<PreflightReport | null>(null);
   const [issueCounts, setIssueCounts] = useState<Record<string, number>>(loadIssueCounts());
+  const [kernelStatus, setKernelStatus] = useState(() => Kernel.getStatus());
+  const [kernelHealth, setKernelHealth] = useState<{ ok: boolean; timestamp?: string } | null>(null);
+  const [analyticsStatus, setAnalyticsStatus] = useState(() => getAnalyticsStatus());
   
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
   const edgeBaseUrl = `${supabaseUrl}/functions/v1`;
+
+  const refreshDiagnostics = async () => {
+    setKernelStatus(Kernel.getStatus());
+    setAnalyticsStatus(getAnalyticsStatus());
+    const health = await Kernel.run("kernel.health", {}, { budgetCents: 0, maxBudgetCents: 0 });
+    setKernelHealth(health.ok ? (health.result as { ok: boolean; timestamp?: string }) : { ok: false });
+  };
+
+  useEffect(() => {
+    void refreshDiagnostics();
+  }, []);
 
   const updateStep = (id: string, update: Partial<Step>) => {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, ...update } : s));
@@ -472,6 +488,42 @@ export default function ProofGate() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl space-y-6">
       <PlatformStatusBanner preflightStatus={preflightStatus} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Kernel Diagnostics</CardTitle>
+          <CardDescription>Chokepoint health and analytics safety checks.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={kernelStatus.envOk ? "default" : "destructive"}>
+              Env {kernelStatus.envOk ? "OK" : "Invalid"}
+            </Badge>
+            {!kernelStatus.envOk && kernelStatus.envIssues.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {kernelStatus.envIssues.join(", ")}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={kernelHealth?.ok ? "default" : "secondary"}>
+              Kernel {kernelHealth?.ok ? "Healthy" : "Degraded"}
+            </Badge>
+            {kernelHealth?.timestamp && (
+              <span className="text-xs text-muted-foreground">Last check: {kernelHealth.timestamp}</span>
+            )}
+          </div>
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            <div>Analytics last attempt: {analyticsStatus.lastAttemptAt || "(none)"}</div>
+            <div>Analytics last success: {analyticsStatus.lastSuccessAt || "(none)"}</div>
+            <div>Analytics last error: {analyticsStatus.lastError || "(none)"}</div>
+            <div>Analytics queue size: {analyticsStatus.queuedCount}</div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refreshDiagnostics()}>
+            Refresh diagnostics
+          </Button>
+        </CardContent>
+      </Card>
       
       {/* PROOF TOKEN BANNER */}
       {validationResult && (

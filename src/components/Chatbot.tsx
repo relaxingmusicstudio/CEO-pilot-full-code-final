@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageCircle, X, Send, User, Loader2, Check, AlertTriangle, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { isSupabaseRestConfigured, supabaseRestRequest } from "@/lib/supabase/rest";
+import { isSupabaseRestConfigured } from "@/lib/supabase/rest";
+import { Kernel } from "@/kernel/run";
 import { useToast } from "@/hooks/use-toast";
 import { useVisitor } from "@/contexts/useVisitor";
 
@@ -262,56 +263,34 @@ const Chatbot = () => {
       const visitorGHLData = getGHLData();
       const durationSeconds = Math.floor((Date.now() - conversationStartRef.current) / 1000);
       
-      const conversationData = {
-        visitor_id: visitorGHLData.visitor_id || null,
-        session_id: sessionId,
+      const saveResult = await Kernel.run("analytics.save_conversation", {
+        visitorId: visitorGHLData.visitor_id || null,
+        sessionId,
         messages: updatedMessages,
-        lead_data: leadData,
-        ai_analysis: aiAnalysis || null,
-        conversation_phase: phase,
+        leadData,
+        aiAnalysis: aiAnalysis || null,
+        conversationPhase: phase,
         outcome: outcome || null,
-        duration_seconds: durationSeconds,
-        message_count: updatedMessages.length,
-        updated_at: new Date().toISOString(),
-      };
+        durationSeconds,
+        messageCount: updatedMessages.length,
+      }, {
+        consent: { analytics: true },
+        budgetCents: 2,
+        maxBudgetCents: 10,
+      });
 
-      if (conversationId) {
-        // Update existing conversation
-        const updateResult = await supabaseRestRequest<unknown>("conversations", {
-          method: "PATCH",
-          body: conversationData,
-          query: { id: `eq.${conversationId}` },
-        });
-        if (updateResult.unauthorized) {
+      if (!saveResult.ok) {
+        if (saveResult.error?.code === "unauthorized") {
           setChatAuthUnavailable(true);
           return;
         }
-        if (!updateResult.ok) {
-          logChatError("Error updating conversation:", updateResult.error);
-        }
-      } else {
-        // Create new conversation
-        const insertResult = await supabaseRestRequest<Array<{ id: string }>>("conversations", {
-          method: "POST",
-          body: {
-            ...conversationData,
-            created_at: new Date().toISOString(),
-          },
-          query: { select: "id" },
-          prefer: "return=representation",
-        });
-        if (insertResult.unauthorized) {
-          setChatAuthUnavailable(true);
-          return;
-        }
-        if (!insertResult.ok) {
-          logChatError("Error creating conversation:", insertResult.error);
-          return;
-        }
-        const newId = insertResult.data?.[0]?.id;
-        if (newId) {
-          setConversationId(newId);
-        }
+        logChatError("Error saving conversation:", saveResult.error?.message);
+        return;
+      }
+
+      const newId = (saveResult.result as { conversationId?: string } | null)?.conversationId;
+      if (newId) {
+        setConversationId(newId);
       }
     } catch (error) {
       logChatError("Error saving conversation:", error);
