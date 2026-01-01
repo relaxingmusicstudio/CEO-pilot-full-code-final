@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { PageChatHeader } from "@/components/PageChatHeader";
 import { StatCardWithTooltip } from "@/components/StatCardWithTooltip";
+import { type Decision } from "@/contracts/decision";
 
 interface Prospect {
   id: string;
@@ -61,6 +62,11 @@ export default function AdminProspecting() {
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSmsOnly, setFilterSmsOnly] = useState(false);
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
+  const [isResolvingDecision, setIsResolvingDecision] = useState(false);
+  const [isSendingDecisionFeedback, setIsSendingDecisionFeedback] = useState(false);
 
   useEffect(() => {
     fetchProspects();
@@ -104,6 +110,90 @@ export default function AdminProspecting() {
       toast.error('Failed to scrape Google Maps');
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  const handleResolveDecision = async () => {
+    if (!searchQuery.trim()) {
+      toast.error("Enter a business type before resolving a decision.");
+      return;
+    }
+
+    setDecisionError(null);
+    setDecisionNotice(null);
+    setIsResolvingDecision(true);
+
+    try {
+      const response = await fetch("/api/resolve-decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: searchQuery,
+          context: `Location: ${searchLocation}; Radius: ${searchRadius} miles; Limit: ${searchLimit}`,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        const message = payload?.error ?? "Decision resolution failed.";
+        setDecisionError(message);
+        return;
+      }
+
+      setDecision(payload.decision as Decision);
+
+      if (payload.analytics_ok === false) {
+        setDecisionNotice(
+          `Decision created, analytics unavailable (${payload.analytics_error ?? "unknown"}).`
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Decision resolution failed.";
+      setDecisionError(message);
+    } finally {
+      setIsResolvingDecision(false);
+    }
+  };
+
+  const handleDecisionFeedback = async (outcome: "worked" | "didnt_work" | "unknown") => {
+    if (!decision) return;
+
+    setDecisionNotice(null);
+    setIsSendingDecisionFeedback(true);
+
+    try {
+      const response = await fetch("/api/decision-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision_id: decision.decision_id,
+          outcome,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        const message = payload?.error ?? "Decision feedback failed.";
+        toast.error(message);
+        return;
+      }
+
+      setDecision((prev) => (prev ? { ...prev, status: payload.updated_status } : prev));
+
+        if (payload.analytics_ok === false) {
+          setDecisionNotice(
+            `Feedback saved, analytics unavailable (${payload.analytics_error ?? "unknown"}).`
+          );
+        } else {
+          toast.success(
+            outcome === "worked" ? "Marked as worked." : outcome === "didnt_work" ? "Marked as didn't work." : "Marked as unknown."
+          );
+        }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Decision feedback failed.";
+      toast.error(message);
+    } finally {
+      setIsSendingDecisionFeedback(false);
     }
   };
 
@@ -269,6 +359,86 @@ export default function AdminProspecting() {
                   </>
                 )}
               </Button>
+
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Decision</Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResolveDecision}
+                    disabled={isResolvingDecision || !searchQuery.trim()}
+                  >
+                    {isResolvingDecision ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        Resolving...
+                      </>
+                    ) : (
+                      "Resolve decision"
+                    )}
+                  </Button>
+                </div>
+
+                {decisionError && (
+                  <p className="text-sm text-destructive">{decisionError}</p>
+                )}
+                {decisionNotice && (
+                  <p className="text-sm text-muted-foreground">{decisionNotice}</p>
+                )}
+
+                {decision && (
+                  <div className="rounded-md border p-3 space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Recommendation: </span>
+                      {decision.recommendation}
+                    </div>
+                    <div>
+                      <span className="font-medium">Confidence: </span>
+                      {decision.confidence}%
+                    </div>
+                    <div>
+                      <span className="font-medium">Why: </span>
+                      {decision.reasoning}
+                    </div>
+                    <div>
+                      <span className="font-medium">Assumptions: </span>
+                      {decision.assumptions.join("; ")}
+                    </div>
+                    {decision.uncertainty_notes.length > 0 && (
+                      <div>
+                        <span className="font-medium">Uncertainty: </span>
+                        {decision.uncertainty_notes.join("; ")}
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium">Next action: </span>
+                      {decision.next_action}
+                    </div>
+                    <div>
+                      <span className="font-medium">Status: </span>
+                      {decision.status}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleDecisionFeedback("worked")}
+                        disabled={isSendingDecisionFeedback}
+                      >
+                        Worked
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDecisionFeedback("didnt_work")}
+                        disabled={isSendingDecisionFeedback}
+                      >
+                        Didn't work
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="pt-4 border-t">
                 <Label className="text-sm font-medium mb-2 block">Filters</Label>

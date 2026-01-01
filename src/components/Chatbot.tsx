@@ -582,7 +582,7 @@ Phase: ${leadData.conversationPhase}`;
       const updatedHistory = [...allMessages, { role: 'assistant', content: responseData.text }];
       
       // Save conversation to database
-      await saveConversation(
+      void saveConversation(
         updatedHistory,
         responseData.conversationPhase || 'diagnostic',
         responseData.conversationPhase === 'complete' ? 'completed' : undefined

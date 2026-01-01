@@ -1,4 +1,6 @@
-﻿export type SignalDomainId =
+import type { Decision } from "../../../../src/kernel/decisionContract";
+
+export type SignalDomainId =
   | "local_listings"
   | "websites"
   | "social_signals"
@@ -102,12 +104,26 @@ export type SearchResult = {
   confidenceExplanation: string;
 };
 
+export type SearchAnalyticsMeta = {
+  ok: boolean;
+  error?: string;
+};
+
+export type SearchEvidenceSummary = {
+  resultCount: number;
+  domainCounts: DomainResultSummary[];
+  categoryHighlights: string[];
+  notes: string[];
+};
+
 export type SearchResponse = {
   query: string;
   intent: IntentParse;
   domains: SignalDomainId[];
-  results: SearchResult[];
+  decision: Decision;
   explanation: string;
+  evidence_summary: SearchEvidenceSummary;
+  analytics?: SearchAnalyticsMeta;
 };
 
 export type SearchInteractionType = "click" | "save" | "ignore";
@@ -120,7 +136,8 @@ export type SearchLedgerEvent =
       query: string;
       intent: IntentParse;
       domains: SignalDomainId[];
-      results: SearchResult[];
+      decision: Decision;
+      evidence_summary: SearchEvidenceSummary;
     }
   | {
       eventType: "interaction";
@@ -129,7 +146,7 @@ export type SearchLedgerEvent =
       searchEntryId: string;
       interaction: {
         type: SearchInteractionType;
-        resultId: string;
+        decisionId: string;
       };
     };
 
@@ -143,10 +160,18 @@ export type DomainResultSummary = {
   count: number;
 };
 
+export type SearchAnalyticsEvent = {
+  query: string;
+  decision_id: string;
+  status: Decision["status"];
+  confidence: number;
+};
+
 export type SearchOptions = {
   domains?: SignalDomainId[];
   mode?: "mock" | "live";
   now?: string;
   latencyMs?: number;
   extraSignals?: Partial<Record<SignalDomainId, Signal[]>>;
+  analytics?: (event: SearchAnalyticsEvent) => Promise<void> | void;
 };

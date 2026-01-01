@@ -1,4 +1,4 @@
-﻿import type { LedgerPage, SearchInteractionType, SearchLedgerEvent, SearchResponse } from "./types";
+import type { LedgerPage, SearchInteractionType, SearchLedgerEvent, SearchResponse } from "./types";
 
 export type StorageLike = {
   getItem: (key: string) => string | null;
@@ -61,7 +61,8 @@ export const appendSearchEvent = (
     query: response.query,
     intent: response.intent,
     domains: response.domains,
-    results: response.results,
+    decision: response.decision,
+    evidence_summary: response.evidence_summary,
   };
   const existing = readLedger(ownerId, storage);
   writeLedger(ownerId, [...existing, entry], storage);
@@ -72,7 +73,7 @@ export const appendInteractionEvent = (
   ownerId: string,
   searchEntryId: string,
   interactionType: SearchInteractionType,
-  resultId: string,
+  decisionId: string,
   storage?: StorageLike
 ): SearchLedgerEvent => {
   const entry: SearchLedgerEvent = {
@@ -82,7 +83,7 @@ export const appendInteractionEvent = (
     searchEntryId,
     interaction: {
       type: interactionType,
-      resultId,
+      decisionId,
     },
   };
   const existing = readLedger(ownerId, storage);

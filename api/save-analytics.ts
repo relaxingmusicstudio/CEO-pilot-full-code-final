@@ -23,6 +23,7 @@ const ALLOWED_ACTIONS = new Set([
 ]);
 
 const MAX_ERROR_BODY = 1200;
+const MAX_LOG_BODY = 200;
 
 const readJsonBody = async (req: ApiRequest) => {
   if (req?.body && typeof req.body === "object") {
@@ -78,7 +79,29 @@ const stripUndefined = (obj: Record<string, unknown>) =>
 
 const truncateBody = (raw: string) => (raw.length > MAX_ERROR_BODY ? raw.slice(0, MAX_ERROR_BODY) : raw);
 
+const truncateLogBody = (raw: string) =>
+  raw.length > MAX_LOG_BODY ? `${raw.slice(0, MAX_LOG_BODY)}...` : raw;
+
 const normalizeSupabaseUrl = (url: string) => (url.endsWith("/") ? url.slice(0, -1) : url);
+
+const stripEnvValue = (value: string | undefined) => value?.trim().replace(/^"|"$|^'|'$/g, "");
+
+const parseHost = (value: string) => {
+  try {
+    return new URL(value).host;
+  } catch {
+    return "unknown";
+  }
+};
+
+const isValidSupabaseUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.host);
+  } catch {
+    return false;
+  }
+};
 
 const buildRestHeaders = (serviceRoleKey: string) => ({
   "Content-Type": "application/json",
@@ -102,7 +125,8 @@ const requestSupabase = async (
   }
   const response = await fetch(url, init);
   const raw = await response.text();
-  return { response, raw };
+  const contentType = response.headers.get("content-type") ?? "unknown";
+  return { response, raw, contentType, host: parseHost(url) };
 };
 
 const sendUpstreamError = (res: ApiResponse, status: number, raw: string) => {
@@ -111,14 +135,48 @@ const sendUpstreamError = (res: ApiResponse, status: number, raw: string) => {
     code: "upstream_error",
     status,
     body: raw ? truncateBody(raw) : "",
+    errorCode: "upstream_error",
   });
 };
 
 const sendUpstreamException = (res: ApiResponse, error: unknown) => {
   sendJson(res, 500, {
     ok: false,
-    code: "upstream_exception",
+    code: "upstream_error",
+    errorCode: "upstream_exception",
     error: error instanceof Error ? error.message : "upstream_exception",
+  });
+};
+
+const logUpstreamResponse = (
+  action: string,
+  details: { host: string; status: number; contentType: string; raw: string }
+) => {
+  console.error("[api/save-analytics] Upstream response.", {
+    action,
+    host: details.host,
+    status: details.status,
+    contentType: details.contentType,
+    bodyPreview: truncateLogBody(details.raw ?? ""),
+  });
+};
+
+const logUpstreamException = (action: string, host: string, error: unknown) => {
+  if (error instanceof Error) {
+    console.error("[api/save-analytics] Upstream exception.", {
+      action,
+      host,
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    });
+    return;
+  }
+  console.error("[api/save-analytics] Upstream exception.", {
+    action,
+    host,
+    name: "unknown",
+    message: "unknown_error",
   });
 };
 
@@ -180,8 +238,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const supabaseUrl = env?.SUPABASE_URL;
-  const serviceRoleKey = env?.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = stripEnvValue(env?.SUPABASE_URL);
+  const serviceRoleKey = stripEnvValue(env?.SUPABASE_SERVICE_ROLE_KEY);
 
   if (missing.length > 0 || !supabaseUrl || !serviceRoleKey) {
     console.error("[api/save-analytics] Missing Supabase env.", {
@@ -196,7 +254,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
+  if (!isValidSupabaseUrl(supabaseUrl)) {
+    console.error("[api/save-analytics] Invalid Supabase URL.", {
+      host: parseHost(supabaseUrl),
+    });
+    sendJson(res, 500, {
+      ok: false,
+      error: "server_env_invalid",
+      code: "server_env_invalid",
+    });
+    return;
+  }
+
   const baseUrl = normalizeSupabaseUrl(supabaseUrl);
+  const baseHost = parseHost(baseUrl);
 
   try {
     switch (action) {
@@ -214,13 +285,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           last_seen_at: new Date().toISOString(),
         });
         const url = `${baseUrl}/rest/v1/visitors?on_conflict=visitor_id`;
-        const { response, raw } = await requestSupabase(
+        const { response, raw, contentType, host } = await requestSupabase(
           url,
           { method: "POST", body: payload },
           serviceRoleKey
         );
         if (!response.ok) {
-          console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+          logUpstreamResponse(action, {
+            host,
+            status: response.status,
+            contentType,
+            raw,
+          });
           sendUpstreamError(res, response.status, raw);
           return;
         }
@@ -241,13 +317,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           utm_campaign: eventData.utmCampaign,
         });
         const url = `${baseUrl}/rest/v1/analytics_events`;
-        const { response, raw } = await requestSupabase(
+        const { response, raw, contentType, host } = await requestSupabase(
           url,
           { method: "POST", body: payload },
           serviceRoleKey
         );
         if (!response.ok) {
-          console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+          logUpstreamResponse(action, {
+            host,
+            status: response.status,
+            contentType,
+            raw,
+          });
           sendUpstreamError(res, response.status, raw);
           return;
         }
@@ -276,13 +357,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             sessionId
           )}&limit=1`;
           const selectUrl = `${baseUrl}/rest/v1/conversations?${query}`;
-          const { response, raw } = await requestSupabase(
+          const { response, raw, contentType, host } = await requestSupabase(
             selectUrl,
             { method: "GET" },
             serviceRoleKey
           );
           if (!response.ok) {
-            console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+            logUpstreamResponse(action, {
+              host,
+              status: response.status,
+              contentType,
+              raw,
+            });
             sendUpstreamError(res, response.status, raw);
             return;
           }
@@ -296,9 +382,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
               serviceRoleKey
             );
             if (!updateResult.response.ok) {
-              console.error("[api/save-analytics] Upstream error.", {
-                action,
+              logUpstreamResponse(action, {
+                host: updateResult.host,
                 status: updateResult.response.status,
+                contentType: updateResult.contentType,
+                raw: updateResult.raw,
               });
               sendUpstreamError(res, updateResult.response.status, updateResult.raw);
               return;
@@ -309,13 +397,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         }
 
         const insertUrl = `${baseUrl}/rest/v1/conversations?select=id`;
-        const { response, raw } = await requestSupabase(
+        const { response, raw, contentType, host } = await requestSupabase(
           insertUrl,
           { method: "POST", body: payload },
           serviceRoleKey
         );
         if (!response.ok) {
-          console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+          logUpstreamResponse(action, {
+            host,
+            status: response.status,
+            contentType,
+            raw,
+          });
           sendUpstreamError(res, response.status, raw);
           return;
         }
@@ -351,13 +444,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           utm_campaign: leadData.utmCampaign,
         });
         const url = `${baseUrl}/rest/v1/leads?select=id`;
-        const { response, raw } = await requestSupabase(
+        const { response, raw, contentType, host } = await requestSupabase(
           url,
           { method: "POST", body: payload },
           serviceRoleKey
         );
         if (!response.ok) {
-          console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+          logUpstreamResponse(action, {
+            host,
+            status: response.status,
+            contentType,
+            raw,
+          });
           sendUpstreamError(res, response.status, raw);
           return;
         }
@@ -408,13 +506,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
               });
 
         const url = `${baseUrl}/rest/v1/rpc/${rpcName}`;
-        const { response, raw } = await requestSupabase(
+        const { response, raw, contentType, host } = await requestSupabase(
           url,
           { method: "POST", body: rpcPayload },
           serviceRoleKey
         );
         if (!response.ok) {
-          console.error("[api/save-analytics] Upstream error.", { action, status: response.status });
+          logUpstreamResponse(action, {
+            host,
+            status: response.status,
+            contentType,
+            raw,
+          });
           sendUpstreamError(res, response.status, raw);
           return;
         }
@@ -427,10 +530,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
     }
   } catch (error) {
-    console.error("[api/save-analytics] Upstream exception.", {
-      action,
-      message: error instanceof Error ? error.message : "unknown",
-    });
+    logUpstreamException(action, baseHost, error);
     sendUpstreamException(res, error);
   }
 }

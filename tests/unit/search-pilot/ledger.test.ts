@@ -21,24 +21,27 @@ describe("search ledger", () => {
         ambiguity: { level: "high", reasons: [] },
       },
       domains: ["local_listings"],
-      results: [
-        {
-          id: "northwind-hvac",
-          name: "Northwind HVAC",
-          category: "HVAC",
-          summary: "Test summary",
-          tags: ["hvac"],
-          evidence: [],
-          domains: ["local_listings"],
-          scores: { relevance: 1, confidence: 1, freshness: 1, agreement: 1, finalScore: 1 },
-          confidenceExplanation: "Test",
-        },
-      ],
+      decision: {
+        decision_id: "dec-test",
+        input_hash: "input-test",
+        recommendation: "Run a small outreach test.",
+        reasoning: "Test reasoning.",
+        assumptions: ["Test assumption."],
+        confidence: 0.4,
+        status: "proposed",
+        created_at: "2024-01-10T12:00:00Z",
+      },
       explanation: "Test explanation",
+      evidence_summary: {
+        resultCount: 1,
+        domainCounts: [{ domain: "local_listings", count: 1 }],
+        categoryHighlights: ["HVAC"],
+        notes: ["Test note"],
+      },
     };
 
     const searchEntry = appendSearchEvent(ownerId, response, storage);
-    appendInteractionEvent(ownerId, searchEntry.entryId, "save", "northwind-hvac", storage);
+    appendInteractionEvent(ownerId, searchEntry.entryId, "save", "dec-test", storage);
 
     const page = loadLedgerPage(ownerId, 10, undefined, storage);
 

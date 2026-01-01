@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   DEFAULT_DOMAINS,
   DOMAIN_LABELS,
@@ -48,7 +48,6 @@ const App = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [ledgerPage, setLedgerPage] = useState<LedgerPage>(safeInitialLedger);
   const [ledgerCursor, setLedgerCursor] = useState<string | null>(ledgerPage.nextCursor);
-  const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [contributions, setContributions] = useState(safeInitialContribs);
   const [contribKind, setContribKind] = useState<ContributionKind>("submission");
   const [contribSource, setContribSource] = useState<ContributionSource>("link");
@@ -68,13 +67,6 @@ const App = () => {
   );
 
   const ceoSignals = useMemo(() => (response ? buildCEOSignals(response) : []), [response]);
-
-  const resultMap = useMemo(() => {
-    if (!response) return new Map();
-    return new Map(response.results.map((item) => [item.id, item]));
-  }, [response]);
-
-  const selectedResult = selectedResultId ? resultMap.get(selectedResultId) : null;
 
   const handleToggleDomain = (domain: SignalDomainId) => {
     setSelectedDomains((prev) =>
@@ -106,7 +98,6 @@ const App = () => {
     });
 
     setResponse(nextResponse);
-    setSelectedResultId(nextResponse.results[0]?.id ?? null);
 
     const entry = appendSearchEvent(OWNER_ID, nextResponse);
     setSearchEntryId(entry.entryId);
@@ -114,9 +105,9 @@ const App = () => {
     setIsSearching(false);
   };
 
-  const handleInteraction = (type: SearchInteractionType, resultId: string) => {
-    if (!searchEntryId) return;
-    appendInteractionEvent(OWNER_ID, searchEntryId, type, resultId);
+  const handleInteraction = (type: SearchInteractionType) => {
+    if (!searchEntryId || !response) return;
+    appendInteractionEvent(OWNER_ID, searchEntryId, type, response.decision.decision_id);
     refreshLedgerTail();
   };
 
@@ -162,7 +153,7 @@ const App = () => {
             <p>Search is free. Capability transfer is not. Search never executes actions.</p>
           </div>
           <div className="flow">
-            <div>Query to intent to domains to results to evidence to ledger.</div>
+            <div>Query to intent to domains to decision to evidence summary to ledger.</div>
             <div>Provider agnostic. Deterministic mocks in place.</div>
           </div>
         </div>
@@ -184,7 +175,7 @@ const App = () => {
         <section className="grid">
           <div className="panel">
             <h2>Natural language search</h2>
-            <p>Mock mode is default. All results are read only until a capability transfer is approved.</p>
+            <p>Mock mode is default. All decisions are read only until a capability transfer is approved.</p>
             <div className="input-row">
               <input
                 value={query}
@@ -232,47 +223,56 @@ const App = () => {
           </div>
 
           <div className="panel">
-            <h2>Results</h2>
-            <p>Click a result to inspect evidence. Save or ignore to append the learning ledger.</p>
+            <h2>Decision</h2>
+            <p>Search resolves into a single decision object with confidence and assumptions.</p>
             <div className="grid two">
-              {response?.results.map((result) => (
-                <div key={result.id} className="result-card">
-                  <h3>{result.name}</h3>
+              {response ? (
+                <div className="result-card">
+                  <h3>Recommendation</h3>
+                  <p>{response.decision.recommendation}</p>
+                  <div className="meta">Status: {response.decision.status}</div>
                   <div className="meta">
-                    {result.category} {result.location ? `in ${result.location}` : ""}
+                    Confidence: {Math.round(response.decision.confidence * 100)}%
                   </div>
-                  <p>{result.summary}</p>
-                  <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
-                    <span className="badge">Score {Math.round(result.scores.finalScore * 100)}</span>
-                    <span className="meta">Domains: {result.domains.length}</span>
-                  </div>
+                  <div className="meta">Reasoning: {response.decision.reasoning}</div>
+                  <div className="meta">Assumptions: {response.decision.assumptions.join("; ")}</div>
                   <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
-                    <button
-                      className="button ghost"
-                      type="button"
-                      onClick={() => setSelectedResultId(result.id)}
-                    >
-                      Inspect evidence
-                    </button>
-                    <button
-                      className="button"
-                      type="button"
-                      onClick={() => handleInteraction("save", result.id)}
-                    >
-                      Save signal
+                    <button className="button" type="button" onClick={() => handleInteraction("save")}>
+                      Save decision
                     </button>
                     <button
                       className="button secondary"
                       type="button"
-                      onClick={() => handleInteraction("ignore", result.id)}
+                      onClick={() => handleInteraction("ignore")}
                     >
                       Ignore
                     </button>
                   </div>
-                  <div className="meta">{result.confidenceExplanation}</div>
                 </div>
-              ))}
-              {!response && <div className="result-card">No results yet. Run a search to begin.</div>}
+              ) : (
+                <div className="result-card">No decision yet. Run a search to begin.</div>
+              )}
+              {response && (
+                <div className="result-card">
+                  <h3>Evidence summary</h3>
+                  <div className="meta">Results: {response.evidence_summary.resultCount}</div>
+                  <div className="meta">
+                    Domains:{" "}
+                    {response.evidence_summary.domainCounts
+                      .map((entry) => `${entry.domain.replace(/_/g, " ")}: ${entry.count}`)
+                      .join(", ")}
+                  </div>
+                  <div className="meta">
+                    Categories:{" "}
+                    {response.evidence_summary.categoryHighlights.length > 0
+                      ? response.evidence_summary.categoryHighlights.join(", ")
+                      : "None"}
+                  </div>
+                  {response.evidence_summary.notes.map((note, index) => (
+                    <div key={index} className="meta">{note}</div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -288,13 +288,15 @@ const App = () => {
                     <>
                       <div>Query: {entry.query}</div>
                       <div>Domains: {entry.domains.join(", ")}</div>
-                      <div>Results: {entry.results.length}</div>
+                      <div>Decision: {entry.decision.recommendation}</div>
+                      <div>Status: {entry.decision.status}</div>
+                      <div>Evidence count: {entry.evidence_summary.resultCount}</div>
                     </>
                   ) : (
                     <>
                       <div>Search entry: {entry.searchEntryId}</div>
                       <div>Action: {entry.interaction.type}</div>
-                      <div>Result id: {entry.interaction.resultId}</div>
+                      <div>Decision id: {entry.interaction.decisionId}</div>
                     </>
                   )}
                 </div>
@@ -332,16 +334,24 @@ const App = () => {
 
           <div className="panel">
             <h2>Confidence framing</h2>
-            <p>Scores show relevance, confidence, freshness, and agreement across domains.</p>
+            <p>Confidence reflects intent clarity and domain coverage.</p>
             {response ? (
               <div className="grid">
-                {response.results.map((result) => (
-                  <div key={result.id} className="result-card">
-                    <strong>{result.name}</strong>
-                    <div className="meta">Score {Math.round(result.scores.finalScore * 100)}</div>
-                    <div className="meta">{result.confidenceExplanation}</div>
+                <div className="result-card">
+                  <strong>Decision confidence</strong>
+                  <div className="meta">
+                    {Math.round(response.decision.confidence * 100)}% ({response.decision.status})
                   </div>
-                ))}
+                  <div className="meta">{response.decision.reasoning}</div>
+                </div>
+                <div className="result-card">
+                  <strong>Domain coverage</strong>
+                  {response.evidence_summary.domainCounts.map((entry) => (
+                    <div key={entry.domain} className="meta">
+                      {entry.domain.replace(/_/g, " ")}: {entry.count}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="result-card">Run a search to see confidence framing.</div>
@@ -354,44 +364,51 @@ const App = () => {
         <section className="grid two">
           <div className="panel">
             <h2>Evidence view</h2>
-            <p>Evidence shows why a result exists and which signals support it.</p>
-            {response && response.results.length > 0 ? (
+            <p>Evidence is summarized; raw lists and links stay internal.</p>
+            {response ? (
               <div className="grid">
-                {response.results.map((result) => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    className="tab-button"
-                    onClick={() => setSelectedResultId(result.id)}
-                  >
-                    {result.name}
-                  </button>
-                ))}
+                <div className="result-card">
+                  <strong>Categories</strong>
+                  <div className="meta">
+                    {response.evidence_summary.categoryHighlights.length > 0
+                      ? response.evidence_summary.categoryHighlights.join(", ")
+                      : "None yet"}
+                  </div>
+                </div>
+                <div className="result-card">
+                  <strong>Notes</strong>
+                  {response.evidence_summary.notes.map((note, index) => (
+                    <div key={index} className="meta">{note}</div>
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="result-card">No results loaded.</div>
+              <div className="result-card">No evidence loaded.</div>
             )}
           </div>
 
           <div className="panel">
             <h2>Selected evidence</h2>
-            {selectedResult ? (
+            {response ? (
               <div className="grid">
                 <div className="result-card">
-                  <h3>{selectedResult.name}</h3>
-                  <p>{selectedResult.summary}</p>
-                  <div className="meta">{selectedResult.confidenceExplanation}</div>
-                </div>
-                {selectedResult.evidence.map((item) => (
-                  <div key={item.id} className="evidence">
-                    <strong>{DOMAIN_LABELS[item.domain]}</strong>
-                    <div>{item.excerpt}</div>
-                    <div className="meta">Signal {item.signalId}</div>
+                  <h3>Decision context</h3>
+                  <p>{response.decision.reasoning}</p>
+                  <div className="meta">
+                    Assumptions: {response.decision.assumptions.join("; ")}
                   </div>
-                ))}
+                </div>
+                <div className="result-card">
+                  <h3>Domain coverage</h3>
+                  {response.evidence_summary.domainCounts.map((entry) => (
+                    <div key={entry.domain} className="meta">
+                      {DOMAIN_LABELS[entry.domain]}: {entry.count}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="result-card">Pick a result to see evidence.</div>
+              <div className="result-card">Run a search to see evidence context.</div>
             )}
           </div>
         </section>
