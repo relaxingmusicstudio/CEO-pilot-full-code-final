@@ -214,6 +214,9 @@ if ($searchResult.Error) {
     $decisionId = $searchResult.Json.decision.decision_id
     $ok = $searchResult.Json.ok -eq $true -and $decisionId
   }
+  if (-not $decisionId) {
+    Write-Host "Missing decision_id in /api/search-decision response." -ForegroundColor Yellow
+  }
   Write-Check "POST /api/search-decision mock" $ok
 }
 
@@ -237,23 +240,28 @@ if ($searchFailResult.Error) {
   Write-Check "POST /api/search-decision live failed status" $ok
 }
 
-Write-Host "`n=== GET /api/decision/:id ===`n" -ForegroundColor Cyan
+Write-Host "`n=== POST /api/decision-feedback ===`n" -ForegroundColor Cyan
 if (-not $decisionId) {
-  Write-Check "GET /api/decision/:id" $false
+  Write-Check "POST /api/decision-feedback" $false
 } else {
-  $decisionResult = Invoke-JsonRequest "GET" "$Base/api/decision/$decisionId" $null
-  if ($decisionResult.Error) {
-    $decisionResult.Error | Out-String
-    Write-Check "GET /api/decision/:id" $false
+  $feedbackPayload = @{
+    decision_id = $decisionId
+    outcome = "worked"
+    notes = "proofgate"
+  }
+  $feedbackResult = Invoke-JsonRequest "POST" "$Base/api/decision-feedback" $feedbackPayload
+  if ($feedbackResult.Error) {
+    $feedbackResult.Error | Out-String
+    Write-Check "POST /api/decision-feedback" $false
   } else {
-    if ($decisionResult.Json) {
-      $decisionResult.Json | ConvertTo-Json -Depth 12
+    if ($feedbackResult.Json) {
+      $feedbackResult.Json | ConvertTo-Json -Depth 12
     } else {
-      $decisionResult.Body
+      $feedbackResult.Body
     }
-    Assert-Json "GET /api/decision/:id" $decisionResult
-    $ok = $decisionResult.Json -and $decisionResult.Json.ok -eq $true -and $decisionResult.Json.decision
-    Write-Check "GET /api/decision/:id" $ok
+    Assert-Json "POST /api/decision-feedback" $feedbackResult
+    $ok = $feedbackResult.Json -and $feedbackResult.Json.ok -eq $true
+    Write-Check "POST /api/decision-feedback" $ok
   }
 }
 
