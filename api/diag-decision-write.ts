@@ -80,7 +80,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const rawSupabaseUrl = env?.SUPABASE_URL ?? "";
   const rawLength = rawSupabaseUrl.length;
   const supabaseUrl = rawSupabaseUrl.trim();
+  const trimmedLength = supabaseUrl.length;
   const serviceRoleKey = (env?.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+  const baseHint =
+    "Paste Supabase Settings → Data API → Project URL exactly; no trailing slash/spaces";
   const urlHost = parseHost(supabaseUrl);
 
   if (req.method === "OPTIONS") {
@@ -138,25 +141,89 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  if (!supabaseUrl || hasForbiddenWhitespace(supabaseUrl) || supabaseUrl.endsWith("/")) {
+  if (!supabaseUrl) {
     sendJson(res, 500, {
       ok: false,
       status: 500,
       errorCode: "bad_env",
       message: "Invalid SUPABASE_URL",
       rawLength,
-      urlHost,
-      hint: "Paste Supabase Settings → Data API → Project URL exactly; no trailing slash/spaces",
+      trimmedLength,
+      urlHost: null,
+      hint: baseHint,
       env_present: present,
     });
     return;
   }
 
+  if (rawSupabaseUrl !== supabaseUrl) {
+    sendJson(res, 500, {
+      ok: false,
+      status: 500,
+      errorCode: "bad_env",
+      message: "Invalid SUPABASE_URL",
+      rawLength,
+      trimmedLength,
+      urlHost,
+      hint: baseHint,
+      env_present: present,
+    });
+    return;
+  }
+
+  if (hasForbiddenWhitespace(supabaseUrl)) {
+    sendJson(res, 500, {
+      ok: false,
+      status: 500,
+      errorCode: "bad_env",
+      message: "Invalid SUPABASE_URL",
+      rawLength,
+      trimmedLength,
+      urlHost,
+      hint: baseHint,
+      env_present: present,
+    });
+    return;
+  }
+
+  if (supabaseUrl.endsWith("/")) {
+    sendJson(res, 500, {
+      ok: false,
+      status: 500,
+      errorCode: "bad_env",
+      message: "Invalid SUPABASE_URL",
+      rawLength,
+      trimmedLength,
+      urlHost,
+      hint: `Remove trailing slash. ${baseHint}`,
+      env_present: present,
+    });
+    return;
+  }
+
+  let parsedUrl: URL | null = null;
   let parsedHost: string | null = urlHost;
   try {
-    parsedHost = new URL(supabaseUrl).host;
+    parsedUrl = new URL(supabaseUrl);
+    parsedHost = parsedUrl.host;
   } catch {
+    parsedUrl = null;
     parsedHost = null;
+  }
+
+  if (!parsedUrl || parsedUrl.protocol !== "https:") {
+    sendJson(res, 500, {
+      ok: false,
+      status: 500,
+      errorCode: "bad_env",
+      message: "Invalid SUPABASE_URL",
+      rawLength,
+      trimmedLength,
+      urlHost: parsedHost,
+      hint: baseHint,
+      env_present: present,
+    });
+    return;
   }
 
   if (!parsedHost || !isSupabaseHost(parsedHost)) {
@@ -166,8 +233,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       errorCode: "bad_env",
       message: "Invalid SUPABASE_URL",
       rawLength,
+      trimmedLength,
       urlHost: parsedHost,
-      hint: "Paste Supabase Settings → Data API → Project URL exactly; no trailing slash/spaces",
+      hint: baseHint,
       env_present: present,
     });
     return;
