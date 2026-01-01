@@ -35,14 +35,15 @@ if ($prodUrl -and ($prodUrl -notmatch "^https?://")) {
 if ($prodUrl) {
   Write-Host "`nParsed production deployment URL: $prodUrl`n" -ForegroundColor Green
 } else {
-  Write-Host "`nUsing Base URL for API checks; production logs will use project scope.`n" -ForegroundColor Yellow
+  Write-Host "`nUsing Base URL for API checks; production logs will use the Base URL.`n" -ForegroundColor Yellow
 }
 
+$logTarget = if ($prodUrl) { $prodUrl } else { $Base }
+
 Write-Host "`n=== vercel logs (before) ===`n" -ForegroundColor Cyan
-if ($prodUrl) {
-  npx vercel logs $prodUrl --since 1h 2>&1
-} else {
-  npx vercel logs --since 1h 2>&1
+npx vercel logs $logTarget 2>&1
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "WARN: vercel logs failed for $logTarget (check CLI auth or use deployment URL)." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== POST /api/save-analytics ===`n" -ForegroundColor Cyan
@@ -72,8 +73,7 @@ try {
 }
 
 Write-Host "`n=== vercel logs (after) ===`n" -ForegroundColor Cyan
-if ($prodUrl) {
-  npx vercel logs $prodUrl --since 1h 2>&1
-} else {
-  npx vercel logs --since 1h 2>&1
+npx vercel logs $logTarget 2>&1
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "WARN: vercel logs failed for $logTarget (check CLI auth or use deployment URL)." -ForegroundColor Yellow
 }
