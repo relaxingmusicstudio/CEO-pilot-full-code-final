@@ -1,4 +1,10 @@
 {
+  "version": 2,
+  "functions": {
+    "api/*.ts": {
+      "runtime": "@vercel/node@5.5.16"
+    }
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "handle": "filesystem" },
