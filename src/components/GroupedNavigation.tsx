@@ -126,6 +126,8 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { path: "/admin/settings", label: "Configuration", icon: Cog },
+      { path: "/admin/ops", label: "Ops", icon: Shield },
+      { path: "/admin/mandates", label: "Mandates", icon: ShieldAlert },
       { path: "/admin/user-settings", label: "User Settings", icon: Settings },
       { path: "/admin/help", label: "Help Center", icon: HelpCircle },
     ],

@@ -48,6 +48,8 @@ import AdminAudit from "./pages/AdminAudit";
 import AdminHelp from "./pages/AdminHelp";
 import AdminBusinessSetup from "./pages/AdminBusinessSetup";
 import AdminAutomation from "./pages/AdminAutomation";
+import AdminOps from "./pages/AdminOps";
+import AdminMandates from "./pages/AdminMandates";
 import CeoDashboard from "./pages/CeoDashboard";
 import Integrations from "./pages/Integrations";
 import LLMSmoke from "./pages/LLMSmoke";
@@ -212,6 +214,8 @@ const App = () => {
                   <Route path="/platform/docs/scheduler" element={<ProtectedRoute requireAdmin><SchedulerDocs /></ProtectedRoute>} />
                   
                   {/* Legacy /admin/* redirects to /app/* */}
+                  <Route path="/admin/ops" element={<ProtectedRoute requireOwner><AdminOps /></ProtectedRoute>} />
+                  <Route path="/admin/mandates" element={<ProtectedRoute requireOwner><AdminMandates /></ProtectedRoute>} />
                   <Route path="/admin" element={<Navigate to="/app" replace />} />
                   <Route path="/admin/clients" element={<Navigate to="/app/clients" replace />} />
                   <Route path="/admin/analytics" element={<Navigate to="/app/analytics" replace />} />
