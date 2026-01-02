@@ -1,4 +1,4 @@
-import { clampConfidence, type Decision, type DecisionStatus } from "../kernel/decisionContract";
+import { clampConfidence, type Decision, type DecisionStatus } from "../kernel/decisionContract.js";
 
 export type DecisionOutcome = "worked" | "didnt_work" | "unknown";
 

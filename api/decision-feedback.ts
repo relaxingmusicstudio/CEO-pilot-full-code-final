@@ -1,10 +1,10 @@
-import { clampConfidence, type DecisionStatus } from "../src/kernel/decisionContract";
+import { clampConfidence, type DecisionStatus } from "../src/kernel/decisionContract.js";
 import {
   isValidDecisionId,
   isValidFeedbackOutcome,
   type FeedbackOutcome,
   VALID_FEEDBACK_OUTCOMES,
-} from "../src/lib/decisionValidation";
+} from "../src/lib/decisionValidation.js";
 
 export const config = { runtime: "nodejs" };
 

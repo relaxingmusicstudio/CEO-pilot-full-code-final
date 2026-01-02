@@ -1,4 +1,4 @@
-import { getDecision, getOutcome } from "../../src/lib/decisionStore";
+import { getDecision, getOutcome } from "../../src/lib/decisionStore.js";
 
 export const config = { runtime: "nodejs" };
 
