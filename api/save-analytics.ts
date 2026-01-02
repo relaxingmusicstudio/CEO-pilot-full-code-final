@@ -24,7 +24,6 @@ const ALLOWED_ACTIONS = new Set([
 ]);
 
 const MAX_ERROR_BODY = 1200;
-const MAX_LOG_BODY = 200;
 const MAX_STACK = 2000;
 
 const readJsonBody = async (req: ApiRequest) => {
@@ -49,7 +48,7 @@ const readJsonBody = async (req: ApiRequest) => {
 
 const setCorsHeaders = (res: ApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
 };
 
@@ -74,9 +73,6 @@ const stripUndefined = (obj: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
 
 const truncateBody = (raw: string) => (raw.length > MAX_ERROR_BODY ? raw.slice(0, MAX_ERROR_BODY) : raw);
-
-const truncateLogBody = (raw: string) =>
-  raw.length > MAX_LOG_BODY ? `${raw.slice(0, MAX_LOG_BODY)}...` : raw;
 
 const normalizeSupabaseUrl = (url: string) => (url.endsWith("/") ? url.slice(0, -1) : url);
 
@@ -176,29 +172,25 @@ const logUpstreamResponse = (
 ) => {
   console.error("[api/save-analytics] Upstream response.", {
     action,
-    host: details.host,
     status: details.status,
-    contentType: details.contentType,
-    bodyPreview: truncateLogBody(details.raw ?? ""),
+    errorCode: "supabase_error",
+    message: "upstream_error",
   });
 };
 
-const logUpstreamException = (action: string, host: string, error: unknown) => {
+const logUpstreamException = (action: string, error: unknown) => {
   if (error instanceof Error) {
     console.error("[api/save-analytics] Upstream exception.", {
       action,
-      host,
-      name: error.name,
       message: error.message,
-      stack: error.stack,
+      errorCode: "supabase_error",
     });
     return;
   }
   console.error("[api/save-analytics] Upstream exception.", {
     action,
-    host,
-    name: "unknown",
     message: "unknown_error",
+    errorCode: "supabase_error",
   });
 };
 
@@ -212,14 +204,16 @@ const getEnvStatus = () => {
   return { env, present, missing };
 };
 
-const buildHealthResponse = (method: string, envPresent: Record<RequiredEnvKey, boolean>) => ({
-  status: "ok",
-  method,
-  expected_methods: ["POST"],
-  required_env: [...REQUIRED_ENV],
-  env_present: envPresent,
-  message: "Use POST via Network tab or curl/Invoke-RestMethod for verification.",
-});
+const createVisitorId = () => {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // Fall through.
+  }
+  return `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+};
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method === "OPTIONS") {
@@ -227,12 +221,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const { env, present, missing } = getEnvStatus();
-
-  if (req.method === "GET") {
-    sendJson(res, 200, buildHealthResponse("GET", present));
-    return;
-  }
+  const { env, missing } = getEnvStatus();
 
   if (req.method !== "POST") {
     sendJson(res, 405, {
@@ -247,10 +236,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const body = await readJsonBody(req);
   if (!body || typeof body !== "object") {
-    console.error("[api/save-analytics] Invalid JSON payload.");
-    sendJson(res, 400, {
+    console.error("[api/save-analytics] Invalid JSON payload.", {
+      errorCode: "bad_json",
+      message: "Invalid JSON payload",
+    });
+    sendJson(res, 200, {
       ok: false,
-      status: 400,
+      status: 200,
       errorCode: "bad_json",
       error: "bad_json",
       code: "bad_json",
@@ -259,10 +251,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const payloadObject = body as Record<string, unknown>;
+  const hasDataField = "data" in payloadObject;
   let action = typeof payloadObject.action === "string" ? payloadObject.action : null;
-  let data = payloadObject.data ?? null;
+  let data = hasDataField ? payloadObject.data : payloadObject;
 
   if (!action) {
+    action = "upsert_visitor";
     const directEvent =
       typeof payloadObject.event_name === "string" ||
       typeof payloadObject.eventName === "string" ||
@@ -283,17 +277,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
   }
 
-  if (!action) {
-    sendJson(res, 400, {
-      ok: false,
-      status: 400,
-      errorCode: "missing_action",
-      error: "missing_action",
-      code: "missing_action",
-    });
-    return;
-  }
-
   if (!ALLOWED_ACTIONS.has(action)) {
     sendJson(res, 403, {
       ok: false,
@@ -310,7 +293,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (missing.length > 0 || !supabaseUrl || !serviceRoleKey) {
     console.error("[api/save-analytics] Missing Supabase env.", {
-      missing,
+      errorCode: "server_env_missing",
+      message: "Supabase env missing",
     });
     sendJson(res, 500, {
       ok: false,
@@ -325,7 +309,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (!isValidSupabaseUrl(supabaseUrl)) {
     console.error("[api/save-analytics] Invalid Supabase URL.", {
-      host: parseHost(supabaseUrl),
+      errorCode: "server_env_invalid",
+      message: "Supabase URL invalid",
     });
     sendJson(res, 500, {
       ok: false,
@@ -338,23 +323,53 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const baseUrl = normalizeSupabaseUrl(supabaseUrl);
-  const baseHost = parseHost(baseUrl);
-
   try {
     switch (action) {
       case "upsert_visitor": {
         const visitor = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-        const visitorId = typeof visitor.visitorId === "string" ? visitor.visitorId : null;
+        const visitorIdRaw =
+          (typeof visitor.visitorId === "string" && visitor.visitorId) ||
+          (typeof visitor.visitor_id === "string" && visitor.visitor_id) ||
+          "";
+        const visitorId = visitorIdRaw || createVisitorId();
+        const now = new Date().toISOString();
+        const firstSeenAt =
+          (typeof visitor.firstSeenAt === "string" && visitor.firstSeenAt) ||
+          (typeof visitor.first_seen_at === "string" && visitor.first_seen_at) ||
+          undefined;
+        const lastSeenAt =
+          (typeof visitor.lastSeenAt === "string" && visitor.lastSeenAt) ||
+          (typeof visitor.last_seen_at === "string" && visitor.last_seen_at) ||
+          now;
+        const userAgent =
+          (typeof visitor.userAgent === "string" && visitor.userAgent) ||
+          (typeof visitor.user_agent === "string" && visitor.user_agent) ||
+          undefined;
+        const path =
+          (typeof visitor.path === "string" && visitor.path) ||
+          (typeof visitor.landingPage === "string" && visitor.landingPage) ||
+          (typeof visitor.landing_page === "string" && visitor.landing_page) ||
+          (typeof visitor.pageUrl === "string" && visitor.pageUrl) ||
+          (typeof visitor.page_url === "string" && visitor.page_url) ||
+          undefined;
         const payload = stripUndefined({
-          visitor_id: visitor.visitorId,
-          device: visitor.device,
-          browser: visitor.browser,
-          utm_source: visitor.utmSource,
-          utm_medium: visitor.utmMedium,
-          utm_campaign: visitor.utmCampaign,
-          landing_page: visitor.landingPage,
-          referrer: visitor.referrer,
-          last_seen_at: new Date().toISOString(),
+          visitor_id: visitorId,
+          user_agent: userAgent,
+          first_seen_at: firstSeenAt,
+          last_seen_at: lastSeenAt,
+          updated_at: now,
+          browser: typeof visitor.browser === "string" ? visitor.browser : undefined,
+          os: typeof visitor.os === "string" ? visitor.os : undefined,
+          device: typeof visitor.device === "string" ? visitor.device : undefined,
+          path,
+          referrer: typeof visitor.referrer === "string" ? visitor.referrer : undefined,
+          locale: typeof visitor.locale === "string" ? visitor.locale : undefined,
+          timezone: typeof visitor.timezone === "string" ? visitor.timezone : undefined,
+          screen:
+            typeof visitor.screen === "string" || typeof visitor.screen === "object"
+              ? visitor.screen
+              : undefined,
+          meta: typeof visitor.meta === "object" && visitor.meta ? visitor.meta : undefined,
         });
         const url = `${baseUrl}/rest/v1/visitors?on_conflict=visitor_id`;
         const { response, raw, contentType, host } = await requestSupabase(
@@ -744,7 +759,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
     }
   } catch (error) {
-    logUpstreamException(action, baseHost, error);
+    logUpstreamException(action, error);
     sendUpstreamException(res, error);
   }
 }
