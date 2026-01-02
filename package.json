@@ -15,6 +15,7 @@
     "test": "node scripts/threads-selftest.cjs",
     "test:e2e": "playwright test",
     "test:unit": "vitest run --config vitest.config.ts",
+    "test:governance": "vitest run --config vitest.config.ts tests/unit/ceo-pilot/value-drift-golden.test.ts",
     "scheduler:run": "vite-node scripts/scheduler-run.ts",
     "ops:doctor": "node scripts/ops-doctor.cjs",
     "preflight": "node scripts/preflight.cjs",

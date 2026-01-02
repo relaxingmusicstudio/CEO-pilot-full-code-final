@@ -1,0 +1,397 @@
+{
+  "fixtureVersion": "2025-02-01",
+  "expectedHash": "1437397d",
+  "input": {
+    "now": "2025-02-01T00:00:00.000Z",
+    "baselineDays": 14,
+    "recentDays": 7,
+    "minSamples": 3,
+    "outcomes": [
+      {
+        "outcomeId": "outcome-1",
+        "taskId": "task-2025-01-12T00:00:00.000Z",
+        "taskType": "alpha",
+        "inputHash": "hash-2025-01-12T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": true,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-12T00:00:00.000Z"
+      },
+      {
+        "outcomeId": "outcome-2",
+        "taskId": "task-2025-01-13T00:00:00.000Z",
+        "taskType": "alpha",
+        "inputHash": "hash-2025-01-13T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": true,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-13T00:00:00.000Z"
+      },
+      {
+        "outcomeId": "outcome-3",
+        "taskId": "task-2025-01-14T00:00:00.000Z",
+        "taskType": "alpha",
+        "inputHash": "hash-2025-01-14T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": true,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-14T00:00:00.000Z"
+      },
+      {
+        "outcomeId": "outcome-4",
+        "taskId": "task-2025-01-25T00:00:00.000Z",
+        "taskType": "beta",
+        "inputHash": "hash-2025-01-25T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": false,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-25T00:00:00.000Z"
+      },
+      {
+        "outcomeId": "outcome-5",
+        "taskId": "task-2025-01-26T00:00:00.000Z",
+        "taskType": "beta",
+        "inputHash": "hash-2025-01-26T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": false,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-26T00:00:00.000Z"
+      },
+      {
+        "outcomeId": "outcome-6",
+        "taskId": "task-2025-01-27T00:00:00.000Z",
+        "taskType": "beta",
+        "inputHash": "hash-2025-01-27T00:00:00.000Z",
+        "output": {
+          "ok": true
+        },
+        "taskClass": "routine",
+        "goalId": "goal-test",
+        "agentId": "agent-test",
+        "modelTier": "economy",
+        "modelId": "model-economy",
+        "cacheHit": false,
+        "ruleUsed": false,
+        "evaluationPassed": false,
+        "qualityScore": 0.9,
+        "costCents": 5,
+        "modelCostCents": 5,
+        "toolCostCents": 0,
+        "durationMs": 120,
+        "retryCount": 0,
+        "humanOverride": false,
+        "createdAt": "2025-01-27T00:00:00.000Z"
+      }
+    ],
+    "modelRoutingHistory": [
+      {
+        "request": {
+          "requestId": "req-base-0",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-base-0",
+          "requestId": "req-base-0",
+          "selectedModel": "model-economy",
+          "tier": "economy",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-12T00:00:00.000Z"
+        }
+      },
+      {
+        "request": {
+          "requestId": "req-base-1",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-base-1",
+          "requestId": "req-base-1",
+          "selectedModel": "model-economy",
+          "tier": "economy",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-13T00:00:00.000Z"
+        }
+      },
+      {
+        "request": {
+          "requestId": "req-base-2",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-base-2",
+          "requestId": "req-base-2",
+          "selectedModel": "model-economy",
+          "tier": "economy",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-14T00:00:00.000Z"
+        }
+      },
+      {
+        "request": {
+          "requestId": "req-recent-0",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-recent-0",
+          "requestId": "req-recent-0",
+          "selectedModel": "model-frontier",
+          "tier": "frontier",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-25T00:00:00.000Z"
+        }
+      },
+      {
+        "request": {
+          "requestId": "req-recent-1",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-recent-1",
+          "requestId": "req-recent-1",
+          "selectedModel": "model-frontier",
+          "tier": "frontier",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-26T00:00:00.000Z"
+        }
+      },
+      {
+        "request": {
+          "requestId": "req-recent-2",
+          "task": "alpha",
+          "taskClass": "routine",
+          "riskLevel": "low",
+          "irreversible": false,
+          "complianceSensitive": false,
+          "noveltyScore": 0.1,
+          "ambiguityScore": 0,
+          "reasoningDepth": "shallow",
+          "expectedTokens": 120,
+          "budgetCents": 100,
+          "requiresArbitration": false
+        },
+        "decision": {
+          "decisionId": "decision-req-recent-2",
+          "requestId": "req-recent-2",
+          "selectedModel": "model-frontier",
+          "tier": "frontier",
+          "justification": [
+            "test"
+          ],
+          "estimatedCostCents": 5,
+          "withinBudget": true,
+          "createdAt": "2025-01-27T00:00:00.000Z"
+        }
+      }
+    ],
+    "costEvents": [],
+    "improvementRuns": []
+  },
+  "expected": {
+    "reportId": "drift-fixture",
+    "identityKey": "golden:drift",
+    "anchorId": "value-anchor-core",
+    "anchorVersion": "v1",
+    "severity": "high",
+    "reasons": [
+      "decision_distribution_drift",
+      "outcome_failure_rate_drift",
+      "routing_distribution_drift"
+    ],
+    "metrics": {
+      "decisionDistribution": {
+        "baseline": {
+          "alpha": 1
+        },
+        "recent": {
+          "beta": 1
+        },
+        "jsDivergence": 1,
+        "sampleCount": 6
+      },
+      "routingDistribution": {
+        "baseline": {
+          "economy": 1
+        },
+        "recent": {
+          "frontier": 1
+        },
+        "jsDivergence": 1,
+        "sampleCount": 6
+      },
+      "outcomeRates": {
+        "baselineFailureRate": 0,
+        "recentFailureRate": 1,
+        "deltaFailureRate": 1,
+        "baselineRollbackRate": 0,
+        "recentRollbackRate": 0,
+        "deltaRollbackRate": 0,
+        "sampleCount": 6
+      },
+      "constraintTrend": {
+        "baselineViolations": 0,
+        "recentViolations": 0,
+        "violationRateDelta": 0,
+        "baselineNearMisses": 0,
+        "recentNearMisses": 0,
+        "nearMissRateDelta": 0,
+        "sampleCount": 0
+      },
+      "weightDrift": {
+        "available": false,
+        "reason": "metric_weights_unconfigured"
+      }
+    },
+    "window": {
+      "baselineStart": "2025-01-11T00:00:00.000Z",
+      "baselineEnd": "2025-01-25T00:00:00.000Z",
+      "recentStart": "2025-01-25T00:00:00.000Z",
+      "recentEnd": "2025-02-01T00:00:00.000Z"
+    },
+    "createdAt": "2025-02-01T00:00:00.000Z"
+  }
+}
