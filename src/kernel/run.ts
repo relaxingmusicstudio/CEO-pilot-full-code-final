@@ -56,6 +56,7 @@ export type KernelConstraints = {
   riskTolerance?: number;
   allowHighRisk?: boolean;
   kernelLock?: "locked" | "open";
+  safeMode?: "normal" | "degraded" | "safe";
   isAuthenticated?: boolean;
   requiresAuth?: boolean;
   dryRun?: boolean;
@@ -494,6 +495,19 @@ export const Kernel = {
     });
     if (lockState.locked && intent !== "kernel.health") {
       return returnNoop("kernel_locked", lockState.reason);
+    }
+
+    const safeMode = constraints.safeMode ?? "normal";
+    proofs.push({
+      check: "safe.mode",
+      ok: safeMode === "normal",
+      detail: safeMode,
+    });
+    if (safeMode === "safe" && intent !== "kernel.health") {
+      return returnNoop("safe_mode", "safe_mode_active");
+    }
+    if (safeMode === "degraded" && intent.startsWith("memory.")) {
+      return returnNoop("degraded_mode", "memory_ops_blocked");
     }
 
     const envCheck = validateSupabaseEnv();
