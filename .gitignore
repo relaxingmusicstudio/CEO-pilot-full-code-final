@@ -36,3 +36,7 @@ prod-url.txt
 prod-deploy-url.txt
 vercel-deploy-prod.txt
 proofgate-local.txt
+
+.env
+.env.*
+
