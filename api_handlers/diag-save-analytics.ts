@@ -13,7 +13,7 @@ type ApiResponse = {
   end: (body?: string) => void;
 };
 
-const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
+const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"] as const;
 type RequiredEnvKey = (typeof REQUIRED_ENV)[number];
 
 const VISITOR_FIELDS = [
@@ -56,12 +56,27 @@ const respondErr = (
 };
 
 const getEnvStatus = () => {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const present = REQUIRED_ENV.reduce<Record<RequiredEnvKey, boolean>>((acc, key) => {
-    acc[key] = Boolean(env?.[key]);
-    return acc;
-  }, {} as Record<RequiredEnvKey, boolean>);
-  return { env, present };
+  const env = process.env ?? {};
+  const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || "";
+  const supabaseAnonKey = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "";
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const present: Record<RequiredEnvKey, boolean> = {
+    SUPABASE_URL: Boolean(supabaseUrl),
+    SUPABASE_ANON_KEY: Boolean(supabaseAnonKey),
+    SUPABASE_SERVICE_ROLE_KEY: Boolean(serviceRoleKey),
+  };
+  const missing = Object.entries(present)
+    .filter(([, isPresent]) => !isPresent)
+    .map(([key]) => key as RequiredEnvKey);
+  return {
+    present,
+    missing,
+    resolved: {
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+      SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+    },
+  };
 };
 
 export default function handler(req: ApiRequest, res: ApiResponse) {
@@ -79,11 +94,20 @@ export default function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const { env, present } = getEnvStatus();
-  const isProduction = env?.VERCEL_ENV === "production" || env?.NODE_ENV === "production";
+  const { present, missing } = getEnvStatus();
+  const isProduction = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
   const lockState = getKernelLockState({ isProduction });
   if (lockState.locked) {
     respondOk(res, buildNoopPayload(lockState, "kernel_lock"));
+    return;
+  }
+  if (missing.length > 0) {
+    respondErr(res, 500, "missing_env", "missing_env", {
+      status: 500,
+      missing,
+      env_present: present,
+      required_env: [...REQUIRED_ENV],
+    });
     return;
   }
   respondOk(res, {

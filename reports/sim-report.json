@@ -1,0 +1,153 @@
+{
+  "ok": true,
+  "ts": "2026-01-03T05:46:13.129Z",
+  "runs": 500,
+  "years": 50,
+  "seed": 12345,
+  "assumptions": {
+    "units": "monthly_currency",
+    "base": {
+      "operating_cash": 4000000,
+      "stability_reserve": 7000000,
+      "long_term_fund": 18000000,
+      "contributions": 450000,
+      "payouts": 250000,
+      "admin_costs": 70000
+    },
+    "inflation_regimes": {
+      "low": 0.02,
+      "med": 0.04,
+      "high": 0.08
+    },
+    "inflation_monthly_sigma": 0.002,
+    "contribution_inflation_pass": 0.4,
+    "payout_inflation_pass": 1,
+    "reserve_return_mean": 0.02,
+    "reserve_return_vol": 0.04,
+    "long_term_return_mean": 0.06,
+    "long_term_return_vol": 0.12,
+    "trust_retention_start": 0.92,
+    "governance_drift_start": 0.08,
+    "governance_drift_base": 0.0005,
+    "governance_drift_recovery": 0.002,
+    "governance_payout_pressure": 0.1,
+    "governance_admin_drag": 0.12,
+    "trust_decay_base": 0.0008,
+    "trust_decay_per_drift": 0.006,
+    "trust_recovery_base": 0.0015,
+    "trust_penalty_winter": 0.006,
+    "trust_penalty_rails": 0.01,
+    "trust_penalty_cap": 0.005,
+    "trust_penalty_fraud_scale": 0.03,
+    "trust_collapse_threshold": 0.35,
+    "governance_drift_fail_threshold": 0.75,
+    "fraud_rate_base": 0.0015,
+    "fraud_rate_cap": 0.03,
+    "fraud_loss_rate_threshold": 0.025,
+    "rail_shutdown_contrib_factor": 0.2,
+    "phi_growth_cap": 1.618,
+    "min_operating_months": 3,
+    "winter_reduction": 0.15,
+    "reserve_draw_cap": 0.12,
+    "long_term_draw_cap": 0.003,
+    "scenario_probs": {
+      "inflation_shift": 0.12,
+      "recession": 0.12,
+      "fraud": 0.08,
+      "governance": 0.06,
+      "rails": 0.03,
+      "catastrophe": 0.015,
+      "regulatory": 0.02
+    },
+    "scenario_durations": {
+      "recession": {
+        "min": 6,
+        "max": 18
+      },
+      "fraud": {
+        "min": 3,
+        "max": 9
+      },
+      "governance": {
+        "min": 6,
+        "max": 24
+      },
+      "rails": {
+        "min": 1,
+        "max": 4
+      },
+      "catastrophe": {
+        "min": 1,
+        "max": 2
+      },
+      "regulatory": {
+        "min": 3,
+        "max": 12
+      }
+    },
+    "scenario_multipliers": {
+      "recession_contrib_min": 0.7,
+      "recession_contrib_max": 0.85,
+      "recession_payout_min": 1.05,
+      "recession_payout_max": 1.25,
+      "admin_min": 1.02,
+      "admin_max": 1.1,
+      "fraud_multiplier_min": 2,
+      "fraud_multiplier_max": 5,
+      "governance_payout_pressure": 1.05,
+      "governance_trust_delta": -0.005,
+      "rails_contrib_factor": 0.15,
+      "catastrophe_payout_min": 1.6,
+      "catastrophe_payout_max": 2.8,
+      "regulatory_admin_min": 1.1,
+      "regulatory_admin_max": 1.25
+    }
+  },
+  "results": {
+    "survival_rate": 1,
+    "median_final_wealth": 412185439.58889383,
+    "p10_final_wealth": 316388161.9491717,
+    "p90_final_wealth": 529105434.0799317,
+    "median_max_drawdown": 0.030446209151474043,
+    "liquidity_breaches_rate": 0.004,
+    "governance_drift_fail_rate": 0.006,
+    "fraud_loss_rate": 0,
+    "trust_collapse_rate": 0.21
+  },
+  "top_failure_modes": [
+    {
+      "code": "trust_collapse",
+      "count": 105,
+      "pct": 0.21
+    },
+    {
+      "code": "rails_shutdown",
+      "count": 91,
+      "pct": 0.182
+    },
+    {
+      "code": "regulatory_attack",
+      "count": 75,
+      "pct": 0.15
+    },
+    {
+      "code": "catastrophic_payout",
+      "count": 54,
+      "pct": 0.108
+    },
+    {
+      "code": "governance_drift",
+      "count": 3,
+      "pct": 0.006
+    },
+    {
+      "code": "liquidity_breach",
+      "count": 2,
+      "pct": 0.004
+    }
+  ],
+  "gap_flags": [],
+  "notes": [
+    "Deterministic seed; rerun with same seed yields same report."
+  ]
+}
