@@ -23,10 +23,10 @@ export const probeKernelStatus = async ({
       status: "degraded",
       reason: "KERNEL_BASE_URL not set",
       hint: "Set KERNEL_BASE_URL and KERNEL_HEALTH_PATH to reach the kernel.",
-      kernelBaseUrl: "",
+      kernelBaseUrl: null,
       kernelHealthPath: normalizedPath,
-      latencyMs: 0,
-      upstreamStatus: 0,
+      latencyMs: null,
+      upstreamStatus: null,
     };
   }
 
@@ -88,7 +88,7 @@ export const probeKernelStatus = async ({
         kernelBaseUrl: normalizedBaseUrl,
         kernelHealthPath: normalizedPath,
         latencyMs,
-        upstreamStatus: 0,
+        upstreamStatus: null,
       };
     }
     if (errorCode === "ENOTFOUND" || errorCode === "EAI_AGAIN") {
@@ -100,7 +100,7 @@ export const probeKernelStatus = async ({
         kernelBaseUrl: normalizedBaseUrl,
         kernelHealthPath: normalizedPath,
         latencyMs,
-        upstreamStatus: 0,
+        upstreamStatus: null,
       };
     }
     return {
@@ -111,7 +111,7 @@ export const probeKernelStatus = async ({
       kernelBaseUrl: normalizedBaseUrl,
       kernelHealthPath: normalizedPath,
       latencyMs,
-      upstreamStatus: 0,
+      upstreamStatus: null,
     };
   } finally {
     clearTimeout(timeout);

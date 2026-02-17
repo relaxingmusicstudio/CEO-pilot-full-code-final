@@ -1,4 +1,4 @@
-import { jsonErr, jsonOk } from "../src/kernel/apiJson.js";
+﻿import { jsonErr, jsonOk } from "../src/kernel/apiJson.js";
 import { KERNEL_VERSION } from "../src/kernel/version.js";
 
 type ApiRequest = {
@@ -10,6 +10,9 @@ type ApiResponse = {
   setHeader: (name: string, value: string) => void;
   end: (body?: string) => void;
 };
+
+const getSha = () =>
+  process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null;
 
 const stripEnvValue = (value: string | undefined) => value?.trim().replace(/^"|"$|^'|'$/g, "");
 
@@ -29,27 +32,91 @@ const buildRestHeaders = (serviceRoleKey: string) => ({
   Authorization: `Bearer ${serviceRoleKey}`,
 });
 
-const checkDb = async (supabaseUrl: string | undefined, serviceRoleKey: string | undefined) => {
+type DbCheck = {
+  ok: boolean;
+  reason: string | null;
+  hint: string | null;
+  statusCode: number | null;
+  latencyMs: number | null;
+};
+
+const checkDb = async (supabaseUrl: string | undefined, serviceRoleKey: string | undefined): Promise<DbCheck> => {
   if (!supabaseUrl || !serviceRoleKey) {
-    return { ok: false, reason: "missing_env" };
+    return {
+      ok: false,
+      reason: "missing_env",
+      hint: "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      statusCode: null,
+      latencyMs: null,
+    };
   }
   if (!isValidSupabaseUrl(supabaseUrl)) {
-    return { ok: false, reason: "invalid_env" };
+    return {
+      ok: false,
+      reason: "invalid_env",
+      hint: "SUPABASE_URL must be a valid https URL.",
+      statusCode: null,
+      latencyMs: null,
+    };
   }
   try {
     const baseUrl = normalizeSupabaseUrl(supabaseUrl);
     const healthUrl = `${baseUrl}/rest/v1/events?select=id&limit=1`;
+    const started = Date.now();
     const response = await fetch(healthUrl, {
       method: "GET",
       headers: buildRestHeaders(serviceRoleKey),
     });
+    const latencyMs = Date.now() - started;
     if (!response.ok) {
-      return { ok: false, reason: `status:${response.status}` };
+      return {
+        ok: false,
+        reason: `status:${response.status}`,
+        hint: "Supabase returned a non-200 response.",
+        statusCode: response.status,
+        latencyMs,
+      };
     }
-    return { ok: true, reason: null };
+    return {
+      ok: true,
+      reason: null,
+      hint: null,
+      statusCode: response.status,
+      latencyMs,
+    };
   } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : "fetch_failed" };
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : "fetch_failed",
+      hint: "Supabase request failed.",
+      statusCode: null,
+      latencyMs: null,
+    };
   }
+};
+
+const buildHealthPayload = async () => {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const supabaseUrl = stripEnvValue(env?.SUPABASE_URL);
+  const serviceRoleKey = stripEnvValue(env?.SUPABASE_SERVICE_ROLE_KEY);
+  const dbCheck = await checkDb(supabaseUrl, serviceRoleKey);
+
+  const status = dbCheck.ok ? "ok" : "degraded";
+
+  return {
+    service: "march-project",
+    serviceAlias: "ceo-pilot",
+    kernelVersion: KERNEL_VERSION,
+    ts: new Date().toISOString(),
+    status,
+    sha: getSha(),
+    upstreamStatus: dbCheck.statusCode,
+    latencyMs: dbCheck.latencyMs,
+    reason: dbCheck.ok ? null : dbCheck.reason,
+    hint: dbCheck.ok ? null : dbCheck.hint,
+    db: dbCheck.ok,
+    ...(dbCheck.ok ? {} : { db_error: dbCheck.reason }),
+  };
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -58,18 +125,5 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const supabaseUrl = stripEnvValue(env?.SUPABASE_URL);
-  const serviceRoleKey = stripEnvValue(env?.SUPABASE_SERVICE_ROLE_KEY);
-  const dbCheck = await checkDb(supabaseUrl, serviceRoleKey);
-
-  jsonOk(res, {
-    service: "march-project",
-    kernelVersion: KERNEL_VERSION,
-    node: process.version,
-    ts: new Date().toISOString(),
-    status: "ok",
-    db: dbCheck.ok,
-    ...(dbCheck.ok ? {} : { db_error: dbCheck.reason }),
-  });
+  jsonOk(res, await buildHealthPayload());
 }

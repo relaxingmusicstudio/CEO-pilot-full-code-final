@@ -12,7 +12,8 @@ const handler = async (req: ApiRequest, res: ApiResponse) => {
 
   jsonOk(res, {
     service: "ceo-pilot",
-    version: process.env.VERCEL_GIT_COMMIT_SHA || "dev",
+    version: "1.0.0",
+    sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
     ts: new Date().toISOString(),
   });
 };

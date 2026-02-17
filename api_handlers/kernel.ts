@@ -1,4 +1,5 @@
 ﻿import { jsonErr, jsonOk } from "../src/kernel/apiJson.js";
+import { KERNEL_VERSION } from "../src/kernel/version.js";
 import { probeKernelStatus } from "../src/kernel/kernelProbe.js";
 
 type ApiRequest = {
@@ -26,7 +27,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   });
 
   jsonOk(res, {
-    ...result,
+    service: "ceo-pilot",
+    kernelVersion: KERNEL_VERSION,
+    kernelBaseUrl: result.kernelBaseUrl,
+    kernelHealthPath: result.kernelHealthPath,
     ts: new Date().toISOString(),
+    ok: result.ok,
+    status: result.status,
+    reason: result.reason,
+    hint: result.hint,
+    latencyMs: result.latencyMs,
+    upstreamStatus: result.upstreamStatus,
   });
 }
