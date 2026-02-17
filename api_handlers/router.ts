@@ -7,6 +7,7 @@ import decisionById from "./decision/[id].js";
 import diagDecisionWrite from "./diag-decision-write.js";
 import diagSaveAnalytics from "./diag-save-analytics.js";
 import diagSupabase from "./diag-supabase.js";
+import dbSmoke from "./db-smoke.js";
 import diag from "./diag.js";
 import eventHandler from "./event.js";
 import eventsHandler from "./events.js";
@@ -63,6 +64,7 @@ const exactRoutes: Record<string, ApiHandler> = {
   "/api/diag-decision-write": diagDecisionWrite,
   "/api/diag-save-analytics": diagSaveAnalytics,
   "/api/diag-supabase": diagSupabase,
+  "/api/db-smoke": dbSmoke,
   "/api/kernel": kernel,
   "/api/kernel/status": kernelStatus,
   "/api/audit/run": auditRun,

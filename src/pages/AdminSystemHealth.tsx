@@ -44,11 +44,64 @@ interface ServiceStatus {
   icon: React.ReactNode;
 }
 
+type ApiHealthPayload = {
+  ok?: boolean;
+  status?: string;
+  service?: string;
+  ts?: string;
+  sha?: string | null;
+  upstreamStatus?: number | null;
+  latencyMs?: number | null;
+  reason?: string | null;
+  hint?: string | null;
+};
+
+type ApiVersionPayload = {
+  ok?: boolean;
+  service?: string;
+  version?: string;
+  sha?: string | null;
+  ts?: string;
+};
+
+type ApiKernelPayload = {
+  ok: boolean;
+  status: string;
+  reason: string;
+  hint?: string | null;
+  kernelBaseUrl?: string | null;
+  kernelHealthPath?: string | null;
+  latencyMs?: number | null;
+  upstreamStatus?: number | null;
+  ts?: string;
+};
+
+type ApiDbSmokePayload = {
+  ok: boolean;
+  db: { write: boolean; read: boolean };
+  table: string;
+  used_key: string | null;
+  error: { message?: string; hint?: string } | null;
+};
+
 export default function AdminSystemHealth() {
   const [metrics, setMetrics] = useState<HealthMetric[]>([]);
   const [overallStatus, setOverallStatus] = useState<'healthy' | 'warning' | 'critical'>('healthy');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cockpit, setCockpit] = useState<{
+    health: ApiHealthPayload | null;
+    version: ApiVersionPayload | null;
+    kernel: ApiKernelPayload | null;
+    db: ApiDbSmokePayload | null;
+    lastError: string | null;
+  }>({
+    health: null,
+    version: null,
+    kernel: null,
+    db: null,
+    lastError: null,
+  });
   const [serviceStatuses, setServiceStatuses] = useState<ServiceStatus[]>([
     { name: 'API Gateway', status: 'operational', icon: <Server className="h-5 w-5" />, lastCheck: new Date().toISOString() },
     { name: 'Database', status: 'operational', icon: <Database className="h-5 w-5" />, lastCheck: new Date().toISOString() },
@@ -61,6 +114,55 @@ export default function AdminSystemHealth() {
   useEffect(() => {
     fetchHealthStatus();
     checkServiceStatuses();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCockpit = async () => {
+      try {
+        const [healthRes, versionRes, kernelRes, dbRes] = await Promise.all([
+          fetch("/api/health", { cache: "no-store" }),
+          fetch("/api/version", { cache: "no-store" }),
+          fetch("/api/kernel", { cache: "no-store" }),
+          fetch("/api/db-smoke", { cache: "no-store" }),
+        ]);
+
+        const [health, version, kernel, db] = await Promise.all([
+          healthRes.json(),
+          versionRes.json(),
+          kernelRes.json(),
+          dbRes.json(),
+        ]);
+
+        if (!active) return;
+        const lastError =
+          db?.error?.message ||
+          kernel?.reason ||
+          null;
+
+        setCockpit({
+          health,
+          version,
+          kernel,
+          db,
+          lastError,
+        });
+      } catch (error) {
+        if (!active) return;
+        setCockpit((prev) => ({
+          ...prev,
+          lastError: error instanceof Error ? error.message : "status fetch failed",
+        }));
+      }
+    };
+
+    loadCockpit();
+    const id = setInterval(loadCockpit, 60000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
   }, []);
 
   const fetchHealthStatus = async () => {
@@ -237,6 +339,57 @@ export default function AdminSystemHealth() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              System Status
+            </CardTitle>
+            <CardDescription>
+              Live checks for health, kernel connectivity, and database smoke test.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="font-medium mb-1">Kernel</div>
+                <div>Status: {cockpit.kernel?.status ?? "unknown"}</div>
+                <div>Latency: {cockpit.kernel?.latencyMs ?? "n/a"} ms</div>
+                <div>Upstream: {cockpit.kernel?.upstreamStatus ?? "n/a"}</div>
+                <div>Base URL: {cockpit.kernel?.kernelBaseUrl ?? "not set"}</div>
+                <div>Health Path: {cockpit.kernel?.kernelHealthPath ?? "not set"}</div>
+              </div>
+              <div>
+                <div className="font-medium mb-1">Database</div>
+                <div>Result: {cockpit.db?.ok ? "ok" : "fail"}</div>
+                <div>
+                  Write/Read:{" "}
+                  {cockpit.db
+                    ? `${cockpit.db.db.write ? "ok" : "fail"} / ${cockpit.db.db.read ? "ok" : "fail"}`
+                    : "n/a"}
+                </div>
+                <div>Key: {cockpit.db?.used_key ?? "none"}</div>
+              </div>
+              <div>
+                <div className="font-medium mb-1">Version</div>
+                <div>Service: {cockpit.version?.service ?? "unknown"}</div>
+                <div>Version: {cockpit.version?.version ?? "unknown"}</div>
+                <div>SHA: {cockpit.version?.sha ?? "n/a"}</div>
+              </div>
+              <div>
+                <div className="font-medium mb-1">Last Error</div>
+                <div>{cockpit.lastError ?? "none"}</div>
+                {cockpit.kernel?.hint ? (
+                  <div className="text-muted-foreground">Hint: {cockpit.kernel.hint}</div>
+                ) : null}
+                {cockpit.db?.error?.hint ? (
+                  <div className="text-muted-foreground">DB Hint: {cockpit.db.error.hint}</div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
