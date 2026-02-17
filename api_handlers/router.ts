@@ -11,6 +11,7 @@ import diag from "./diag.js";
 import eventHandler from "./event.js";
 import eventsHandler from "./events.js";
 import health from "./health.js";
+import kernel from "./kernel.js";
 import kernelStatus from "./kernel/status.js";
 import mandateVerify from "./mandate/verify.js";
 import resolveDecision from "./resolve-decision.js";
@@ -19,6 +20,7 @@ import saveAnalytics from "./save-analytics.js";
 import searchDecision from "./search-decision.js";
 import routesUnderscore from "./_routes.js";
 import auditRun from "./audit/run.js";
+import version from "./version.js";
 
 type ApiRequest = AsyncIterable<Uint8Array | string> & {
   method?: string;
@@ -49,6 +51,7 @@ const normalizePath = (pathValue: string) => {
 
 const exactRoutes: Record<string, ApiHandler> = {
   "/api/health": health,
+  "/api/version": version,
   "/api/build": build,
   "/api/_routes": routesUnderscore,
   "/api/routes": routes,
@@ -60,6 +63,7 @@ const exactRoutes: Record<string, ApiHandler> = {
   "/api/diag-decision-write": diagDecisionWrite,
   "/api/diag-save-analytics": diagSaveAnalytics,
   "/api/diag-supabase": diagSupabase,
+  "/api/kernel": kernel,
   "/api/kernel/status": kernelStatus,
   "/api/audit/run": auditRun,
   "/api/mandate/verify": mandateVerify,
