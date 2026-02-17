@@ -13,6 +13,7 @@ import eventHandler from "./event.js";
 import eventsHandler from "./events.js";
 import health from "./health.js";
 import kernel from "./kernel.js";
+import kernelTelemetry from "./kernel-telemetry.js";
 import kernelStatus from "./kernel/status.js";
 import mandateVerify from "./mandate/verify.js";
 import resolveDecision from "./resolve-decision.js";
@@ -66,6 +67,7 @@ const exactRoutes: Record<string, ApiHandler> = {
   "/api/diag-supabase": diagSupabase,
   "/api/db-smoke": dbSmoke,
   "/api/kernel": kernel,
+  "/api/kernel-telemetry": kernelTelemetry,
   "/api/kernel/status": kernelStatus,
   "/api/audit/run": auditRun,
   "/api/mandate/verify": mandateVerify,
