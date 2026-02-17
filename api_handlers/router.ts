@@ -24,6 +24,11 @@ import kernelStatus from "./kernel/status.js";
 import mandateVerify from "./mandate/verify.js";
 import resolveDecision from "./resolve-decision.js";
 import routes from "./routes.js";
+import approve from "./approve.js";
+import execute from "./execute.js";
+import proof from "./proof.js";
+import queue from "./queue.js";
+import review from "./review.js";
 import saveAnalytics from "./save-analytics.js";
 import searchDecision from "./search-decision.js";
 import routesUnderscore from "./_routes.js";
@@ -74,6 +79,11 @@ const exactRoutes: Record<string, ApiHandler> = {
   "/api/ceo-decide": ceoDecide,
   "/api/ceo-execute": ceoExecute,
   "/api/ceo-status": ceoStatus,
+  "/api/review": review,
+  "/api/queue": queue,
+  "/api/approve": approve,
+  "/api/execute": execute,
+  "/api/proof": proof,
   "/api/db-smoke": dbSmoke,
   "/api/kernel": kernel,
   "/api/kernel-command": kernelCommand,
