@@ -12,7 +12,13 @@ import diag from "./diag.js";
 import eventHandler from "./event.js";
 import eventsHandler from "./events.js";
 import health from "./health.js";
+import ceoDecide from "./ceo-decide.js";
+import ceoExecute from "./ceo-execute.js";
+import ceoStatus from "./ceo-status.js";
 import kernel from "./kernel.js";
+import kernelCommand from "./kernel-command.js";
+import kernelState from "./kernel-state.js";
+import kernelTask from "./kernel-task.js";
 import kernelTelemetry from "./kernel-telemetry.js";
 import kernelStatus from "./kernel/status.js";
 import mandateVerify from "./mandate/verify.js";
@@ -65,8 +71,14 @@ const exactRoutes: Record<string, ApiHandler> = {
   "/api/diag-decision-write": diagDecisionWrite,
   "/api/diag-save-analytics": diagSaveAnalytics,
   "/api/diag-supabase": diagSupabase,
+  "/api/ceo-decide": ceoDecide,
+  "/api/ceo-execute": ceoExecute,
+  "/api/ceo-status": ceoStatus,
   "/api/db-smoke": dbSmoke,
   "/api/kernel": kernel,
+  "/api/kernel-command": kernelCommand,
+  "/api/kernel-state": kernelState,
+  "/api/kernel-task": kernelTask,
   "/api/kernel-telemetry": kernelTelemetry,
   "/api/kernel/status": kernelStatus,
   "/api/audit/run": auditRun,
